@@ -308,6 +308,10 @@ export interface AuthenticatedApi extends RpcTarget {
   // especially if the gadget is owned by someone else.
   listModels(): Promise<AiChatAuthorInfo[]>;
 
+  // Thinking levels each model in listModels() supports, keyed by the same IDs. Absent from the
+  // map means no reasoning control. (Off AiChatAuthorInfo, which rides on every chat message.)
+  getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
+
   // Adds a new model to the user's configured set. The ID must be unique among the user's
   // configured models.
   addModel(profile: AiChatAuthorInfo, config: AiModelConfig): Promise<void>;
@@ -927,6 +931,14 @@ export type AiGatewayInfo = {
   enabled: false;
 };
 
+// Mirrors pi's ModelThinkingLevel. pi clamps an unsupported value rather than erroring.
+export type ThinkingLevel =
+    "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+// "default" is not a level -- it clears the stored one. Needed because an omitted argument
+// already means "leave the chat's level alone", so callers predating the control can't reset it.
+export type ThinkingLevelChoice = ThinkingLevel | "default";
+
 // Configuration specifying how to connect to an AI model provider.
 export type AiModelConfig = {
   // Which AI provider hosts the model?
@@ -1462,6 +1474,9 @@ export interface Overseer extends RpcTarget {
   // chosen something else.
   listModels(): Promise<AiChatAuthorInfo[]>;
 
+  // See AuthenticatedApi.getModelThinkingLevels().
+  getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
+
   // Fetch one page of messages in the chat history for the given chat thread. If `beforeSequence`
   // is absent, fetch the current tail. Otherwise, fetch messages before that sequence.
   //
@@ -1503,9 +1518,11 @@ export interface Overseer extends RpcTarget {
   // `formats` records where the message names one of the deployment's standard output formats, so
   // the transcript can draw it as a chip. Display only -- what the agent reads is the noun, which
   // is already in the text.
+  //
+  // `reasoning`: omitted leaves the chat's level alone; "default" clears it.
   newChat(initialMessage: string | SlashCommandRequest, modelId: string | null,
           capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-          formats?: MessageFormatRef[]): Promise<number>;
+          formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<number>;
 
   // Send a message to the chat from this client. Sending a message causes the LLM to start
   // running if it isn't already.
@@ -1518,7 +1535,8 @@ export interface Overseer extends RpcTarget {
   //
   sendChatMessage(chatId: number, message: string | SlashCommandRequest, modelId: string | null,
                   capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-                  formats?: MessageFormatRef[]): Promise<void>;
+                  formats?: MessageFormatRef[],
+                  reasoning?: ThinkingLevelChoice): Promise<void>;
 
   // Upload an attachment for use in a future chat message. This way by the time the user wants to
   // send the message, likely uploading is complete. `modelId` determines whether the
@@ -1724,6 +1742,10 @@ export type AiChatMetadata = {
   // First sequence this chat still replays. Everything before it is covered by a compaction
   // checkpoint; those messages remain in canonical history but no longer drive current-state reads.
   compactedTo?: number;
+
+  // Thinking level for this chat. Sticky per chat so the composer restores it on reload and a
+  // turn resumed after an approval pause uses the level the user picked. Undefined = API default.
+  reasoning?: ThinkingLevel;
 };
 
 // One page of a chat's history, bounded below by a compaction checkpoint. Compaction doesn't delete

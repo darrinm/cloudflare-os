@@ -13,6 +13,7 @@ import {
   ChatAttachmentHandle,
   MessageFormatRef,
   SlashCommandRequest,
+  type ThinkingLevel, type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
 import {
   getStoredSelectedModel,
@@ -46,6 +47,11 @@ export function HomePageContent({ prompt }: HomeSearch) {
 
   const [models, setModels] = useState<AiChatAuthorInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  // Mirrors ChatInterface. This composer starts a chat, so the level here is what newChat
+  // persists onto it.
+  const [thinkingLevelsByModel, setThinkingLevelsByModel] =
+      useState<Record<string, ThinkingLevel[]>>({});
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | undefined>(undefined);
   // Bumped each time a task suggestion is picked; the composer re-seeds its text off the nonce.
   const [seed, setSeed] = useState<{ text: string; nonce: number }>({ text: "", nonce: 0 });
 
@@ -57,12 +63,20 @@ export function HomePageContent({ prompt }: HomeSearch) {
 
   useEffect(() => {
     let cancelled = false;
-    authenticatedApi
-      .listModels()
-      .then((list) => {
+    // No data dependency, so batch rather than chain -- chained, every load paid a second round
+    // trip. Levels failing only hides the control, so they mustn't take the model list down.
+    Promise.all([
+      authenticatedApi.listModels(),
+      authenticatedApi.getModelThinkingLevels().catch((err) => {
+        console.error("Failed to fetch thinking levels:", err);
+        return {} as Record<string, ThinkingLevel[]>;
+      }),
+    ])
+      .then(([list, levels]) => {
         if (cancelled) return;
         setModels(list);
         setSelectedModel(getStoredSelectedModel(list));
+        setThinkingLevelsByModel(levels);
       })
       .catch((err) => {
         console.error("Failed to fetch models:", err);
@@ -76,6 +90,11 @@ export function HomePageContent({ prompt }: HomeSearch) {
   const handleModelChange = useCallback((value: string | null) => {
     setSelectedModel(value);
     persistSelectedModel(value);
+  }, []);
+
+  // See ChatInterface.
+  const handleThinkingChange = useCallback((choice: ThinkingLevelChoice) => {
+    setThinkingLevel(choice === "default" ? undefined : choice);
   }, []);
 
   // Pre-create a provisional gadget as soon as the user starts interacting, so that navigation
@@ -109,7 +128,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
         const overseer = provisionalOverseerRef.current!.stub;
         // Pipeline both independent calls in one batch, but settle both before releasing the stub.
         const [chat, {id}] = await Promise.all([
-          overseer.newChat(message, modelId, capsules, attachments, formats),
+          overseer.newChat(message, modelId, capsules, attachments, formats, thinkingLevel ?? "default"),
           overseer.getMetadata(),
         ]);
         provisionalOverseerRef.current?.stub[Symbol.dispose]();
@@ -127,7 +146,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
         throw err;
       }
     },
-    [ensureProvisionalGadget, navigate, toasts],
+    [ensureProvisionalGadget, navigate, toasts, thinkingLevel],
   );
 
   const getOverseer = useCallback((): RpcStub<Overseer> => {
@@ -181,6 +200,9 @@ export function HomePageContent({ prompt }: HomeSearch) {
           models={models}
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
+          thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
+          thinkingLevel={thinkingLevel}
+          onThinkingChange={handleThinkingChange}
           newChat
           offerFormats
           autoFocus

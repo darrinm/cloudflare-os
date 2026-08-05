@@ -1,6 +1,6 @@
 import { RpcCompatible, RpcStub, RpcTarget } from "capnweb";
 import { validateRpc } from "capnweb-validate";
-import { Overseer, GadgetMetadata, UiBundle, WorkpieceId, WorkpieceSummary, WorkpiecesSubscriber, GadgetClient, GadgetBindingInfo, GatekeeperClient, ActionState, ActionLogEntry, ActionsSubscriber, CodeUpdate, CodeSubscriber, AiChatMetadata, AiChatMessage, AiChatHistoryPage, AiChatSubscriber, AiChatAuthorInfo, AiModelConfig, AiChatMessageBody, AgentSpawnerConfig, ConsoleLogSubscriber, ConsoleLogEvent, CapsuleSpecifier, CollaboratorInfo, CollaboratorRole, AffectedCollaborator, ShareLinkInfo, GatekeeperCreationSpec, ObserverConfigCallback, ObserverBindingNeed, ObserverBindingFailure, BlueprintBindingAnnotation, BlueprintBinding, BlueprintMetadata, BlueprintOutput, MessageFormatRef, isOutputIcon, SpawnerEnvTarget, BlueprintGadgetSummary, AiChatStreamEvent, BlueprintScreenshotUpload, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ChatAttachmentUpload, ChatAttachmentHandle, ChatAttachmentRef, BoundHookInfo, PreApprovableAction, PresenceParticipant, PresenceSubscriber, SlashCommandChoice, SlashCommandRequest, validateBindingName, createOpenGadgetError, OPEN_GADGET_ERROR_CODES, resolveSiteName } from '@gadgets/workshop-shared/api';
+import { Overseer, GadgetMetadata, UiBundle, WorkpieceId, WorkpieceSummary, WorkpiecesSubscriber, GadgetClient, GadgetBindingInfo, GatekeeperClient, ActionState, ActionLogEntry, ActionsSubscriber, CodeUpdate, CodeSubscriber, AiChatMetadata, AiChatMessage, AiChatHistoryPage, AiChatSubscriber, AiChatAuthorInfo, AiModelConfig, AiChatMessageBody, AgentSpawnerConfig, ConsoleLogSubscriber, ConsoleLogEvent, CapsuleSpecifier, CollaboratorInfo, CollaboratorRole, AffectedCollaborator, ShareLinkInfo, GatekeeperCreationSpec, ObserverConfigCallback, ObserverBindingNeed, ObserverBindingFailure, BlueprintBindingAnnotation, BlueprintBinding, BlueprintMetadata, BlueprintOutput, MessageFormatRef, isOutputIcon, SpawnerEnvTarget, BlueprintGadgetSummary, AiChatStreamEvent, BlueprintScreenshotUpload, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ChatAttachmentUpload, ChatAttachmentHandle, ChatAttachmentRef, BoundHookInfo, PreApprovableAction, PresenceParticipant, PresenceSubscriber, SlashCommandChoice, SlashCommandRequest, validateBindingName, createOpenGadgetError, OPEN_GADGET_ERROR_CODES, resolveSiteName, type ThinkingLevel, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
 import { Gatekeeper, HookInitiator, ResourceDescription, ApprovalQueue, ActionDescription, ObservationAuthorizer, ObservationDescription, VendorDescription, SupportedResource, resolveRequestedResource, HookController, HookDescription, AGENT_CATALOG_MAX_ENTRIES, ActionKind } from "@gadgets/workshop-shared/gatekeeper";
 import {
   DurableObject, WorkerEntrypoint, RpcStub as NativeRpcStub,
@@ -11,6 +11,7 @@ import * as Y from "yjs";
 import {
   LanguageModelGatekeeperProps,
   getModel,
+  withReasoning,
   UserGatewayRouting,
 } from "./ai-models";
 import { AgentTurnError, completeText } from "./ai-invoke";
@@ -166,6 +167,17 @@ type LegacyBlueprintBindingAnnotation = BlueprintBindingAnnotation & {
 
 function defaultBlueprintBindingTitle(record: GatekeeperRecord, bindingName?: string): string {
   return record.resourceTitle || bindingName || "Connection";
+}
+
+// Three distinct meanings, all load-bearing:
+//   undefined -- no opinion; leave the chat's level alone. Callers predating the control (external
+//                messages, gadget-spawned agents, retries) land here and must not reset a choice.
+//   "default" -- clear the stored level. The only way to undo, since undefined is taken above.
+//   a level   -- store it.
+function applyReasoningChoice(meta: AiChatMetadata, reasoning: ThinkingLevelChoice | undefined) {
+  if (reasoning === undefined) return;
+  if (reasoning === "default") delete meta.reasoning;
+  else meta.reasoning = reasoning;
 }
 
 // Storage key of a chat's compaction checkpoint. See the `chatCompactions` collection.
@@ -3419,6 +3431,7 @@ class OverseerImpl implements AgentHooks {
     responseTargetRegistration?: ExternalMessageResponseTargetRegistration,
     externalChatKey?: string,
     formats?: MessageFormatRef[],
+    reasoning?: ThinkingLevelChoice,
   ): Promise<number> {
     if (responseTargetRegistration) {
       let decision = this.#prepareExternalMessageResponseTargetRegistration(responseTargetRegistration);
@@ -3445,6 +3458,7 @@ class OverseerImpl implements AgentHooks {
       if (prepared.message !== undefined && userMeta.aiModel) {
         meta.activeAgent = userMeta.aiModel.profile;
       }
+      applyReasoningChoice(meta, reasoning);
       this.storage.chatMeta.put(meta);
 
       let promptSequence = this.#commitPreparedChatMessage(
@@ -3497,6 +3511,7 @@ class OverseerImpl implements AgentHooks {
     attachments?: ChatAttachmentHandle[],
     responseTargetRegistration?: ExternalMessageResponseTargetRegistration,
     formats?: MessageFormatRef[],
+    reasoning?: ThinkingLevelChoice,
   ): Promise<void> {
     if (responseTargetRegistration) {
       let decision = this.#prepareExternalMessageResponseTargetRegistration(responseTargetRegistration);
@@ -3522,6 +3537,7 @@ class OverseerImpl implements AgentHooks {
     if (runsAgentTurn && userMeta.aiModel) {
       meta.activeAgent = userMeta.aiModel.profile;
     }
+    applyReasoningChoice(meta, reasoning);
     this.ctx.storage.transactionSync(() => {
       this.storage.chatMeta.put(meta);
       let promptSequence = this.#commitPreparedChatMessage(
@@ -3933,12 +3949,15 @@ class OverseerImpl implements AgentHooks {
         let callbackCountBefore = liveChat.activeAgentCallbacks.size;
 
         let compactionTurn = isCompactionTurn(chatMessages);
+        // Inside the loop: a run can span an approval pause during which the level changes.
+        let chatMeta = this.getChatMetaOrThrow(chatId);
         let newCheckpoint = await runAgent(
-            this, chosenModel, chatId, aiModel.profile, chatMessages, controller.signal,
+            this, withReasoning(chosenModel, chatMeta.reasoning), chatId, aiModel.profile,
+            chatMessages, controller.signal,
             initiator, callbackInitiated, {
               checkpoint,
               modelConfig: aiModel.config,
-              measuredTokens: this.getChatMetaOrThrow(chatId).totalTokens ?? 0,
+              measuredTokens: chatMeta.totalTokens ?? 0,
             });
         if (newCheckpoint) this.#commitChatCompaction(chatId, newCheckpoint);
         // `/compact` is done once it has compacted. An automatic compaction returned before
@@ -7944,6 +7963,10 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
     return this.clientUser.listModels();
   }
 
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>> {
+    return this.clientUser.getModelThinkingLevels();
+  }
+
   async listSlashCommands(): Promise<SlashCommandChoice[]> {
     await this.slashCommandsReady;
     return this.impl.listSlashCommands();
@@ -8178,19 +8201,20 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
 
   async newChat(initialMessage: string | SlashCommandRequest, chosenModelId: string | null,
                 capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-                formats?: MessageFormatRef[]): Promise<number> {
+                formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<number> {
     let userMeta = await this.clientUser.getChatContext(chosenModelId);
     return this.impl.newChat(this.clientUser, userMeta, initialMessage, capsules, attachments,
-                             undefined, undefined, formats);
+                             undefined, undefined, formats, reasoning);
   }
 
   async sendChatMessage(
       chatId: number, message: string | SlashCommandRequest, chosenModelId: string | null,
       capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-      formats?: MessageFormatRef[]): Promise<void> {
+      formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<void> {
     let userMeta = await this.clientUser.getChatContext(chosenModelId);
     return this.impl.sendChatMessage(
-        this.clientUser, userMeta, chatId, message, capsules, attachments, undefined, formats);
+        this.clientUser, userMeta, chatId, message, capsules, attachments, undefined, formats,
+        reasoning);
   }
 
   async setChatTitle(chatId: number, title: string): Promise<void> {
@@ -8913,6 +8937,7 @@ class UseOverseerInterface extends RpcTarget implements Overseer {
   }
   async listChats(): Promise<AiChatMetadata[]> { this.#deny(); }
   async listModels(): Promise<AiChatAuthorInfo[]> { this.#deny(); }
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>> { this.#deny(); }
   async getChatHistory(_chatId: number, _beforeSequence?: number): Promise<AiChatHistoryPage> {
     this.#deny();
   }

@@ -81,7 +81,13 @@ import {
   BlueprintOutput,
   MessageFormatRef,
   OutputFormatOffer,
+  type ThinkingLevel, type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
+import { ThinkingToggle } from "./components/chat/ThinkingToggle";
+
+// Stable identity: a fresh `[]` would be new on every render, and this composer re-renders on
+// every keystroke.
+const NO_THINKING_LEVELS: ThinkingLevel[] = [];
 import { ActionKind, ResourceDescription } from "@gadgets/workshop-shared/gatekeeper";
 import {
   parseSlashCommandInput, slashCommandTokenKey, stripSlashCommandToken,
@@ -1766,6 +1772,9 @@ export const ChatInput = ({
   models,
   selectedModel,
   onModelChange,
+  thinkingLevels,
+  thinkingLevel,
+  onThinkingChange,
   pendingConsoleLogCount = 0,
   consoleLogPreview = "",
   consoleLogSeverity = "info",
@@ -1802,6 +1811,10 @@ export const ChatInput = ({
   models: AiChatAuthorInfo[];
   selectedModel: string | null;
   onModelChange: (modelId: string | null) => void;
+  // Empty/absent hides the control. onThinkingChange may receive "default", meaning "clear".
+  thinkingLevels?: ThinkingLevel[];
+  thinkingLevel?: ThinkingLevel;
+  onThinkingChange?: (choice: ThinkingLevelChoice) => void;
   pendingConsoleLogCount?: number;
   consoleLogPreview?: string;
   consoleLogSeverity?: "error" | "warn" | "info";
@@ -3315,6 +3328,13 @@ export const ChatInput = ({
 
           {/* Right actions */}
           <div className="ml-auto flex min-w-0 flex-shrink items-center gap-1.5">
+              {onThinkingChange && (
+                <ThinkingToggle
+                  level={thinkingLevel}
+                  levels={thinkingLevels ?? NO_THINKING_LEVELS}
+                  onChange={onThinkingChange}
+                />
+              )}
               <DropdownMenu>
                 <DropdownMenu.Trigger
                   render={
@@ -4322,6 +4342,11 @@ function ChatInterface({
     [],
   );
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  // Levels per model ID, plus the pending level. Stored per chat server-side; this holds the
+  // choice until the next send commits it, and re-syncs from metadata on chat switch.
+  const [thinkingLevelsByModel, setThinkingLevelsByModel] =
+      useState<Record<string, ThinkingLevel[]>>({});
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | undefined>(undefined);
   const [sidebarActiveTab, setSidebarActiveTab] = useState<
     "chat" | "connections"
   >("chat");
@@ -4648,6 +4673,28 @@ function ChatInterface({
   // Get metadata for selected chat
   const currentChatMetadata =
     selectedChatId !== null ? cacheRef.current.chats.get(selectedChatId) : null;
+
+  // Restore the reasoning control from the chat we just switched to, so it shows the level that
+  // chat will actually run at rather than whatever the previous chat was set to. Keyed on the id
+  // alone: re-running on every metadata change would stomp a selection the user just made while
+  // the same chat is open.
+  const restoredThinkingFor = useRef<number | null>(null);
+  useEffect(() => {
+    // No chat selected (sidebar new-chat composer). Clear, so a level from the chat we left
+    // doesn't ride onto a new one and get pinned there. Also covers the chat being deleted.
+    if (selectedChatId === null) {
+      restoredThinkingFor.current = null;
+      setThinkingLevel(undefined);
+      return;
+    }
+    if (restoredThinkingFor.current === selectedChatId) return;
+    const meta = cacheRef.current.chats.get(selectedChatId);
+    if (!meta) return;   // metadata not loaded yet; a later render retries.
+    restoredThinkingFor.current = selectedChatId;
+    setThinkingLevel(meta.reasoning);
+    // chatListVersion, not just updateCounter: the chat list load bumps the former, and the
+    // cache is empty on first render, so without it this never re-ran once metadata arrived.
+  }, [selectedChatId, chatListVersion, updateCounter]);
 
   // Download a committed chat attachment. Image bytes are already inlined on the message; other
   // attachments are fetched on demand over the authenticated RPC connection.
@@ -5195,9 +5242,18 @@ function ChatInterface({
 
           // After subscribing, load the list of chats and models
           // This is safe because subscription will catch any new activity
-          const [chats, models] = await Promise.all([
+          const [chats, models, thinkingLevels] = await Promise.all([
             overseer.listChats(),
             overseer.listModels(),
+            // Which models expose a reasoning control, and at which levels. Fetched alongside the
+            // model list because it is keyed by the same IDs and changes only when models do.
+            // Non-fatal, but log: a silent {} is indistinguishable from "no model supports
+            // reasoning", so a failure would hide the control with no trace.
+            overseer.getModelThinkingLevels()
+                .catch((err) => {
+                  console.error("Failed to fetch thinking levels:", err);
+                  return {} as Record<string, ThinkingLevel[]>;
+                }),
           ]);
 
           chats.forEach((chat) => {
@@ -5207,6 +5263,7 @@ function ChatInterface({
           setChatListReady(true);
 
           setAvailableModels(models);
+          setThinkingLevelsByModel(thinkingLevels);
 
           setSelectedModel(getStoredSelectedModel(models));
 
@@ -5352,7 +5409,7 @@ function ChatInterface({
       if (selectedChatId === null) {
         // Create a new chat (with optional capsules).
         const newChatId = await overseer.newChat(
-            message, model, capsules, attachments, formats);
+            message, model, capsules, attachments, formats, thinkingLevel ?? "default");
         onNavigateToChatRef.current(newChatId);
       } else {
         // Send message to existing chat.
@@ -5363,6 +5420,7 @@ function ChatInterface({
           capsules || undefined,
           attachments || undefined,
           formats,
+          thinkingLevel ?? "default",
         );
       }
     } catch (err) {
@@ -5385,7 +5443,7 @@ function ChatInterface({
     const model = modelId !== undefined ? modelId : selectedModel;
     try {
       const newChatId = await overseer.newChat(
-          message, model, capsules, attachments, formats);
+          message, model, capsules, attachments, formats, thinkingLevel ?? "default");
       onNavigateToChatRef.current(newChatId);
     } catch (err) {
       console.error("Failed to create new chat:", err);
@@ -5398,6 +5456,12 @@ function ChatInterface({
   const handleModelChange = (modelId: string | null) => {
     setSelectedModel(modelId);
     persistSelectedModel(modelId);
+  };
+
+  // Menu speaks choices; state holds only real levels. The sentinel is re-minted at the wire,
+  // which is what lets render sites pass `thinkingLevel` straight through.
+  const handleThinkingChange = (choice: ThinkingLevelChoice) => {
+    setThinkingLevel(choice === "default" ? undefined : choice);
   };
 
   // Handle stopping the agent
@@ -6629,6 +6693,9 @@ function ChatInterface({
             models={availableModels}
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
+            thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
+            thinkingLevel={thinkingLevel}
+            onThinkingChange={handleThinkingChange}
             showThinkingTraces={showThinkingTraces}
             onToggleThinkingTraces={toggleShowThinkingTraces}
             minRows={2}
@@ -7585,6 +7652,9 @@ function ChatInterface({
                     models={availableModels}
                     selectedModel={selectedModel}
                     onModelChange={handleModelChange}
+                    thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
+                    thinkingLevel={thinkingLevel}
+                    onThinkingChange={handleThinkingChange}
                     pendingConsoleLogCount={pendingConsoleLogCount}
                     consoleLogPreview={consoleLogPreview}
                     consoleLogSeverity={consoleLogSeverity}

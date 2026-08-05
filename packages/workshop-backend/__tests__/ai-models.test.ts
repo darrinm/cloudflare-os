@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AiChatAuthorInfo, AiModelConfig } from "@gadgets/workshop-shared/api";
-import { getModel, type ModelHandle } from "../src/ai-models.js";
+import { getModel, type ModelHandle, type ModelStreamOptions } from "../src/ai-models.js";
 
 // These tests exercise the real pi-ai stack: no module mocks. Routing decisions are asserted on
 // the returned handle's model descriptor (baseUrl/id/api) and log route, and request-level
@@ -55,10 +55,11 @@ const fetchStub = (async (input: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof fetch;
 
 // Runs one request through the handle with the fetch stub and returns what was sent.
-async function captureRequest(handle: ModelHandle): Promise<CapturedRequest> {
+async function captureRequest(
+    handle: ModelHandle, options: ModelStreamOptions = {}): Promise<CapturedRequest> {
   const stream = await handle.stream(handle.model, {
     messages: [{ role: "user", content: "hello", timestamp: 0 }],
-  }, { fetch: fetchStub, maxRetries: 0 });
+  }, { fetch: fetchStub, maxRetries: 0, ...options });
   const message = await stream.result();
   expect(message.stopReason).toBe("error");
   expect(capturedRequests.length).toBeGreaterThan(0);
@@ -364,6 +365,86 @@ describe("getModel direct routing (no gateway)", () => {
       expect(handle.model.baseUrl).toBe("http://my-ollama:11434/v1");
     }
   });
+});
+
+// Thinking levels are provider-agnostic in this codebase -- every API routes a requested level
+// through pi's streamSimple -- but each provider expresses the result in its own wire field, and
+// the levels themselves are clamped per model. So each reachable API is asserted separately.
+//
+// google-generative-ai is deliberately absent: its SDK rejects an injected fetch (see the file
+// header), so its request body cannot be captured here, only its descriptor.
+const THINKING_APIS = [
+  {
+    api: "anthropic-messages",
+    config: { provider: "anthropic", model: "claude-sonnet-4-5", apiToken: "direct-token" },
+    directive: (body: any) => body.thinking,
+    noLevel: undefined,
+    weakest: { type: "enabled", budget_tokens: 1024, display: "summarized" },
+    strongest: { type: "enabled", budget_tokens: 16384, display: "summarized" },
+    off: { type: "disabled" },
+  },
+  {
+    api: "openai-responses",
+    config: { provider: "openai", model: "gpt-5.2", apiToken: "direct-token" },
+    directive: (body: any) => body.reasoning,
+    // The handle's per-API default, which a request without a level must keep.
+    noLevel: { effort: "medium", summary: "auto" },
+    // pi clamps to what the model supports: gpt-5.2 has no "minimal", so it lands on "low".
+    weakest: { effort: "low", summary: "auto" },
+    strongest: { effort: "xhigh", summary: "auto" },
+    off: { effort: "none" },
+  },
+  {
+    api: "openai-completions",
+    config: {
+      provider: "cloudflare", model: "@cf/moonshotai/kimi-k2.6",
+      apiToken: "direct-token", accountId: "acct",
+    },
+    directive: (body: any) => body.reasoning_effort,
+    noLevel: undefined,
+    weakest: "minimal",
+    strongest: "high",            // clamped: this model tops out below "max"
+    // pi expresses "off" here by omitting the field, which is indistinguishable on the wire from
+    // sending no level at all. Asserted as such rather than pretended otherwise.
+    off: undefined,
+  },
+] as const;
+
+describe.each(THINKING_APIS)("thinking level ($api)", (spec) => {
+  function handle(): ModelHandle {
+    return getModel(env({ CF_AI_GATEWAY: undefined }), spec.config as AiModelConfig, INITIATOR);
+  }
+  async function directiveFor(options: ModelStreamOptions) {
+    capturedRequests.length = 0;
+    return spec.directive(JSON.parse((await captureRequest(handle(), options)).body));
+  }
+
+  beforeEach(() => {
+    capturedRequests.length = 0;
+  });
+
+  it("applies a requested level to the provider request", async () => {
+    expect(await directiveFor({ reasoning: "minimal" })).toEqual(spec.weakest);
+    expect(await directiveFor({ reasoning: "max" })).toEqual(spec.strongest);
+  }, 20000);
+
+  it("sends a different request for a different level", async () => {
+    // The regression guard. A level reaches the provider only via pi's streamSimple; routed to
+    // pi's raw `stream` instead it is silently dropped and every level produces an identical
+    // request -- which type-checks, and from the UI looks like a working feature.
+    expect(await directiveFor({ reasoning: "minimal" }))
+        .not.toEqual(await directiveFor({ reasoning: "max" }));
+  }, 20000);
+
+  it("keeps the provider default when no level is requested", async () => {
+    // Only a level may repoint a request onto streamSimple. The no-opinion case and completeText's
+    // `thinking: false` both have to keep the pre-existing raw-stream behavior.
+    expect(await directiveFor({})).toEqual(spec.noLevel);
+  }, 20000);
+
+  it("honors an explicit off", async () => {
+    expect(await directiveFor({ reasoning: "off" })).toEqual(spec.off);
+  }, 20000);
 });
 
 describe("PDF attachment bridging", () => {
