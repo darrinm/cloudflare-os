@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AiChatAuthorInfo, AiModelConfig } from "@gadgets/workshop-shared/api";
-import { getModel, type ModelHandle } from "../src/ai-models.js";
+import { getModel, type ModelHandle, type ModelStreamOptions } from "../src/ai-models.js";
 
 // These tests exercise the real pi-ai stack: no module mocks. Routing decisions are asserted on
 // the returned handle's model descriptor (baseUrl/id/api) and log route, and request-level
@@ -55,10 +55,11 @@ const fetchStub = (async (input: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof fetch;
 
 // Runs one request through the handle with the fetch stub and returns what was sent.
-async function captureRequest(handle: ModelHandle): Promise<CapturedRequest> {
+async function captureRequest(
+    handle: ModelHandle, options: ModelStreamOptions = {}): Promise<CapturedRequest> {
   const stream = await handle.stream(handle.model, {
     messages: [{ role: "user", content: "hello", timestamp: 0 }],
-  }, { fetch: fetchStub, maxRetries: 0 });
+  }, { fetch: fetchStub, maxRetries: 0, ...options });
   const message = await stream.result();
   expect(message.stopReason).toBe("error");
   expect(capturedRequests.length).toBeGreaterThan(0);
@@ -364,6 +365,57 @@ describe("getModel direct routing (no gateway)", () => {
       expect(handle.model.baseUrl).toBe("http://my-ollama:11434/v1");
     }
   });
+});
+
+describe("thinking level", () => {
+  const DIRECT_ANTHROPIC: AiModelConfig = {
+    provider: "anthropic",
+    model: "claude-sonnet-4-5",
+    apiToken: "direct-api-token",
+  };
+
+  function handle(): ModelHandle {
+    return getModel(env({ CF_AI_GATEWAY: undefined }), DIRECT_ANTHROPIC, INITIATOR);
+  }
+
+  beforeEach(() => {
+    capturedRequests.length = 0;
+  });
+
+  it("applies a requested level to the provider request", async () => {
+    const request = await captureRequest(handle(), { reasoning: "minimal" });
+    expect(JSON.parse(request.body).thinking).toEqual({
+      type: "enabled", budget_tokens: 1024, display: "summarized",
+    });
+  }, 15000);
+
+  it("sends a different budget for a different level", async () => {
+    // The regression guard: a level only reaches the provider via pi's streamSimple. Routed to
+    // pi's raw `stream` instead, `reasoning` is silently dropped and every level produces an
+    // identical request -- which type-checks and looks like a working feature from the UI.
+    const minimal = JSON.parse((await captureRequest(handle(), { reasoning: "minimal" })).body);
+    capturedRequests.length = 0;
+    const max = JSON.parse((await captureRequest(handle(), { reasoning: "max" })).body);
+
+    expect(minimal.thinking.budget_tokens).toBe(1024);
+    expect(max.thinking.budget_tokens).toBe(16384);
+  }, 15000);
+
+  it("disables thinking for an explicit off", async () => {
+    const request = await captureRequest(handle(), { reasoning: "off" });
+    expect(JSON.parse(request.body).thinking).toEqual({ type: "disabled" });
+  }, 15000);
+
+  it("leaves thinking to the provider default when no level is requested", async () => {
+    // completeText's `thinking: false` and the no-opinion case must both keep the pre-existing
+    // raw-stream behavior; only a level may repoint the request onto streamSimple.
+    const none = JSON.parse((await captureRequest(handle())).body);
+    expect(none.thinking).toBeUndefined();
+
+    capturedRequests.length = 0;
+    const suppressed = JSON.parse((await captureRequest(handle(), { thinking: false })).body);
+    expect(suppressed.thinking).toEqual({ type: "disabled" });
+  }, 15000);
 });
 
 describe("PDF attachment bridging", () => {
