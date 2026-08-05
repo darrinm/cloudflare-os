@@ -1,29 +1,32 @@
-// Extended-thinking control for the composer. A lightbulb button turns thinking on or off, and
-// when it is on a level selector appears next to it with a dropdown of the levels the selected
-// model actually supports.
+// Extended-thinking control for the composer. A lightbulb turns thinking off or back on, and a
+// selector shows the level the chat will actually run at.
 //
 // The supported set comes from the backend (getModelThinkingLevels), which derives it from the
-// same pi catalog the request path consults -- so this never offers a level that would be
-// rejected. Two consequences worth knowing:
+// same pi catalog the request path consults, so this never offers a level that would be rejected.
+// Three rules keep the display honest -- each one exists because its absence was a real bug:
 //
-//  - A model with no graded levels renders nothing at all, rather than a knob that silently does
-//    nothing. Same for models pi does not know (uncataloged ids, ollama).
-//  - A model that cannot turn thinking off (Anthropic's adaptive-only models, where a disabled
-//    thinking request is an error) gets no lightbulb -- only the level selector. Showing an
-//    off switch that the provider rejects would be worse than showing none.
+//  - "Default" is a first-class, selectable state, not a blank. An unset level does NOT mean
+//    "high"; it means the per-API default (medium for OpenAI Responses, and no extended thinking
+//    at all for non-adaptive Anthropic models). Rendering a concrete level there told users
+//    high-effort reasoning was running when it was not, and left no way to undo a choice.
+//  - A stored level the current model does not support is displayed as Default, because that is
+//    what the request will effectively do once pi clamps it. Switching models must never leave a
+//    level showing that the new model cannot honor.
+//  - The control never renders empty. A chat stuck at "off" on a model that cannot disable
+//    thinking previously hid both the lightbulb and the selector, stranding the user with no way
+//    to change it.
 
 import { useMemo } from "react";
 import { Lightbulb, CaretDown } from "@phosphor-icons/react";
 import { DropdownMenu } from "@cloudflare/kumo";
-import type { ThinkingLevelChoice } from "@gadgets/workshop-shared/api";
+import type { ThinkingLevel, ThinkingLevelChoice } from "@gadgets/workshop-shared/api";
 
-// Weakest to strongest. Also the display order in the menu, so a model advertising an arbitrary
-// subset still lists its levels in a sensible order.
-const LEVEL_ORDER: ThinkingLevelChoice[] = [
-  "minimal", "low", "medium", "high", "xhigh", "max",
-];
+// Weakest to strongest, and the menu's display order, so a model advertising an arbitrary subset
+// still lists its levels sensibly.
+const LEVEL_ORDER: ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 const LEVEL_LABELS: Record<ThinkingLevelChoice, string> = {
+  default: "Default",
   off: "Off",
   minimal: "Minimal",
   low: "Low",
@@ -34,13 +37,12 @@ const LEVEL_LABELS: Record<ThinkingLevelChoice, string> = {
 };
 
 export interface ThinkingToggleProps {
-  // The chat's current level. Undefined means the deployment default is in effect (adaptive for
-  // Anthropic, medium for OpenAI Responses) -- shown as the strongest sensible level rather than
-  // as an empty selector, because that is what the request actually does.
-  level: ThinkingLevelChoice | undefined;
+  // The chat's stored level. Undefined means no level is stored and the per-API default applies.
+  level: ThinkingLevel | undefined;
   // Levels the selected model supports. Empty renders nothing.
-  levels: ThinkingLevelChoice[];
-  onChange: (level: ThinkingLevelChoice) => void;
+  levels: ThinkingLevel[];
+  // "default" clears the stored level; anything else stores that level.
+  onChange: (choice: ThinkingLevelChoice) => void;
 }
 
 export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps) {
@@ -49,27 +51,29 @@ export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps)
       [levels]);
   const canTurnOff = levels.includes("off");
 
-  // What the lightbulb turns thinking back *on* to. "high" when available (matching Iris's
-  // default), otherwise the strongest level the model offers.
-  const defaultOn = graded.includes("high") ? "high" : graded[graded.length - 1];
-
   if (graded.length === 0) return null;
 
-  const isOff = level === "off";
-  // An unset level means the provider default is running, which is a thinking turn -- so the
-  // control reads as on, at the level the menu would pick.
-  const shown = isOff ? undefined : (level ?? defaultOn);
+  // Clamp a stored level the current model cannot honor down to Default, so the display always
+  // matches what the request will do.
+  const supported = level !== undefined
+      && (level === "off" ? canTurnOff : graded.includes(level));
+  const effective = supported ? level : undefined;
+  const isOff = effective === "off";
+
+  // Turning thinking back on returns to Default rather than guessing a level: Default is a real,
+  // meaningful state here, and inventing "high" would reintroduce the display/reality mismatch.
+  const lightbulbTarget: ThinkingLevelChoice = isOff ? "default" : "off";
 
   return (
     <div className="flex min-w-0 flex-shrink-0 items-center gap-0.5">
       {canTurnOff && (
         <button
           type="button"
-          onClick={() => onChange(isOff ? defaultOn : "off")}
+          onClick={() => onChange(lightbulbTarget)}
           aria-pressed={!isOff}
           aria-label={isOff ? "Enable extended thinking" : "Disable extended thinking"}
           title={isOff
-              ? "Enable extended thinking for deeper reasoning"
+              ? "Extended thinking disabled - click to re-enable"
               : "Extended thinking enabled - click to disable"}
           className={`inline-flex h-8 flex-shrink-0 cursor-pointer items-center rounded-lg px-1.5 transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint focus-visible:bg-kumo-tint focus-visible:outline-none active:scale-[0.97] ${
               isOff ? "text-kumo-inactive hover:text-kumo-subtle" : "text-kumo-brand"}`}
@@ -77,7 +81,7 @@ export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps)
           <Lightbulb size={15} weight={isOff ? "regular" : "fill"} className="flex-shrink-0" />
         </button>
       )}
-      {shown !== undefined && (
+      {!isOff && (
         <DropdownMenu>
           <DropdownMenu.Trigger
             render={
@@ -90,7 +94,9 @@ export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps)
                 {!canTurnOff && (
                   <Lightbulb size={15} weight="fill" className="flex-shrink-0 text-kumo-brand" />
                 )}
-                <span className="min-w-0 truncate">{LEVEL_LABELS[shown]}</span>
+                <span className="min-w-0 truncate">
+                  {LEVEL_LABELS[effective ?? "default"]}
+                </span>
                 <CaretDown
                   size={12}
                   weight="bold"
@@ -99,15 +105,15 @@ export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps)
               </button>
             }
           />
-          <DropdownMenu.Content className="themed-floating-shadow-lg !z-[1100] !min-w-[120px] rounded-2xl border border-kumo-line/70 bg-kumo-base p-1">
-            {graded.map((candidate) => (
+          <DropdownMenu.Content className="themed-floating-shadow-lg !z-[1100] !min-w-[130px] rounded-2xl border border-kumo-line/70 bg-kumo-base p-1">
+            {(["default", ...graded] as ThinkingLevelChoice[]).map((candidate) => (
               <DropdownMenu.Item
                 key={candidate}
                 onClick={() => onChange(candidate)}
                 className="!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
               >
                 <span className="min-w-0 flex-1 truncate">{LEVEL_LABELS[candidate]}</span>
-                {candidate === shown && (
+                {candidate === (effective ?? "default") && (
                   <span aria-hidden className="ml-2 flex-shrink-0 text-kumo-brand">&#10003;</span>
                 )}
               </DropdownMenu.Item>

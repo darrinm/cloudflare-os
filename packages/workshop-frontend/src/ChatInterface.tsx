@@ -81,7 +81,7 @@ import {
   BlueprintOutput,
   MessageFormatRef,
   OutputFormatOffer,
-  type ThinkingLevelChoice,
+  type ThinkingLevel, type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
 import { ThinkingToggle } from "./components/chat/ThinkingToggle";
 import { ActionKind, ResourceDescription } from "@gadgets/workshop-shared/gatekeeper";
@@ -1807,11 +1807,12 @@ export const ChatInput = ({
   models: AiChatAuthorInfo[];
   selectedModel: string | null;
   onModelChange: (modelId: string | null) => void;
-  // Thinking levels the selected model supports, and the chat's current choice. Empty or absent
-  // hides the reasoning control entirely.
-  thinkingLevels?: ThinkingLevelChoice[];
-  thinkingLevel?: ThinkingLevelChoice;
-  onThinkingChange?: (level: ThinkingLevelChoice) => void;
+  // Thinking levels the selected model supports, and the chat's current stored level. Empty or
+  // absent hides the reasoning control entirely. onThinkingChange may receive "default", which
+  // means "clear the stored level" rather than naming one.
+  thinkingLevels?: ThinkingLevel[];
+  thinkingLevel?: ThinkingLevel;
+  onThinkingChange?: (choice: ThinkingLevelChoice) => void;
   pendingConsoleLogCount?: number;
   consoleLogPreview?: string;
   consoleLogSeverity?: "error" | "warn" | "info";
@@ -4343,7 +4344,7 @@ function ChatInterface({
   // is stored per chat server-side; this holds the pending choice until the next message commits
   // it, and is re-synced from chat metadata when the active chat changes.
   const [thinkingLevelsByModel, setThinkingLevelsByModel] =
-      useState<Record<string, ThinkingLevelChoice[]>>({});
+      useState<Record<string, ThinkingLevel[]>>({});
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelChoice | undefined>(undefined);
   const [sidebarActiveTab, setSidebarActiveTab] = useState<
     "chat" | "connections"
@@ -4678,7 +4679,15 @@ function ChatInterface({
   // the same chat is open.
   const restoredThinkingFor = useRef<number | null>(null);
   useEffect(() => {
-    if (selectedChatId === null) return;
+    // No chat selected -- the sidebar's new-chat composer. Clear, so a level set on the chat we
+    // just left does not silently ride along onto a brand-new chat (which, being sticky
+    // server-side, would then be pinned there). Also covers the selected chat being deleted,
+    // where the ref would otherwise still point at the dead id.
+    if (selectedChatId === null) {
+      restoredThinkingFor.current = null;
+      setThinkingLevel(undefined);
+      return;
+    }
     if (restoredThinkingFor.current === selectedChatId) return;
     const meta = cacheRef.current.chats.get(selectedChatId);
     if (!meta) return;   // metadata not loaded yet; a later render retries.
@@ -5240,8 +5249,14 @@ function ChatInterface({
             overseer.listModels(),
             // Which models expose a reasoning control, and at which levels. Fetched alongside the
             // model list because it is keyed by the same IDs and changes only when models do.
+            // Non-fatal, but log it: a silent {} is indistinguishable from "no model supports
+            // reasoning", so a backend failure would make the control vanish everywhere with no
+            // diagnostic trace and look like the feature simply never shipped.
             overseer.getModelThinkingLevels()
-                .catch(() => ({}) as Record<string, ThinkingLevelChoice[]>),
+                .catch((err) => {
+                  console.error("Failed to fetch thinking levels:", err);
+                  return {} as Record<string, ThinkingLevel[]>;
+                }),
           ]);
 
           chats.forEach((chat) => {
@@ -6676,7 +6691,7 @@ function ChatInterface({
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
             thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
-            thinkingLevel={thinkingLevel}
+            thinkingLevel={thinkingLevel === "default" ? undefined : thinkingLevel}
             onThinkingChange={setThinkingLevel}
             showThinkingTraces={showThinkingTraces}
             onToggleThinkingTraces={toggleShowThinkingTraces}
@@ -7635,7 +7650,7 @@ function ChatInterface({
                     selectedModel={selectedModel}
                     onModelChange={handleModelChange}
                     thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
-                    thinkingLevel={thinkingLevel}
+                    thinkingLevel={thinkingLevel === "default" ? undefined : thinkingLevel}
                     onThinkingChange={setThinkingLevel}
                     pendingConsoleLogCount={pendingConsoleLogCount}
                     consoleLogPreview={consoleLogPreview}

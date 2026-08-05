@@ -1,4 +1,4 @@
-import { AiChatMessage, AiChatAuthorInfo, AiToolCall, AiChatMessageBody, AgentSpawnerConfig, AiChatStreamEvent, BlueprintOutput, WorkpieceId, type AiModelConfig, type ThinkingLevelChoice, isTextLikeAttachmentMimeType, validateBindingName } from '@gadgets/workshop-shared/api';
+import { AiChatMessage, AiChatAuthorInfo, AiToolCall, AiChatMessageBody, AgentSpawnerConfig, AiChatStreamEvent, BlueprintOutput, WorkpieceId, type AiModelConfig, type ThinkingLevel, isTextLikeAttachmentMimeType, validateBindingName } from '@gadgets/workshop-shared/api';
 import { PDF_MIME_TYPE, modelApiSupportsPdfAttachments } from './chat-attachment-pdf';
 import { AgentCatalog, ObservationDescription } from '@gadgets/workshop-shared/gatekeeper';
 import { createWorkshopLogger } from "./observability";
@@ -1073,7 +1073,7 @@ export async function runAgent(
     compaction: CompactionContext,
     // How hard the model should think this turn. Undefined preserves the pre-control behavior:
     // makeHandle's per-API defaults (adaptive for Anthropic, medium for OpenAI Responses) apply.
-    reasoning?: ThinkingLevelChoice): Promise<CompactionCheckpoint | undefined> {
+    reasoning?: ThinkingLevel): Promise<CompactionCheckpoint | undefined> {
   let checkpoint = compaction.checkpoint;
 
   // The workspace's gadget registry, snapshotted at the start of the turn (gadgets provisional
@@ -3059,9 +3059,10 @@ export async function runAgent(
           // Auto-terminate when callback-initiated and all callbacks have been resolved/rejected.
           (callbackInitiated && hooks.activeAgentCallbackCount(chatId) === 0),
     }, emit, abortSignal,
-    // Inject the caller's thinking level. makeHandle merges `...options` *after* its per-API
-    // defaults, so this overrides them; "off" maps to pi's thinking-disabled path via the
-    // handle's own `thinking` flag rather than a reasoning level (pi has no "off" level).
+    // Inject the caller's thinking level. The handle routes any expressed intent through pi's
+    // streamSimple, which is the only place `reasoning` is translated into provider-native
+    // options. "off" goes via the handle's `thinking` flag rather than as a level: pi treats a
+    // truthy "off" as a level to map rather than a disable, so it must not be passed as one.
     reasoning === undefined
         ? handle.stream
         : reasoning === "off"

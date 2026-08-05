@@ -1,6 +1,6 @@
 import { RpcCompatible, RpcStub, RpcTarget } from "capnweb";
 import { validateRpc } from "capnweb-validate";
-import { Overseer, GadgetMetadata, UiBundle, WorkpieceId, WorkpieceSummary, WorkpiecesSubscriber, GadgetClient, GadgetBindingInfo, GatekeeperClient, ActionState, ActionLogEntry, ActionsSubscriber, CodeUpdate, CodeSubscriber, AiChatMetadata, AiChatMessage, AiChatHistoryPage, AiChatSubscriber, AiChatAuthorInfo, AiModelConfig, AiChatMessageBody, AgentSpawnerConfig, ConsoleLogSubscriber, ConsoleLogEvent, CapsuleSpecifier, CollaboratorInfo, CollaboratorRole, AffectedCollaborator, ShareLinkInfo, GatekeeperCreationSpec, ObserverConfigCallback, ObserverBindingNeed, ObserverBindingFailure, BlueprintBindingAnnotation, BlueprintBinding, BlueprintMetadata, BlueprintOutput, MessageFormatRef, isOutputIcon, SpawnerEnvTarget, BlueprintGadgetSummary, AiChatStreamEvent, BlueprintScreenshotUpload, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ChatAttachmentUpload, ChatAttachmentHandle, ChatAttachmentRef, BoundHookInfo, PreApprovableAction, PresenceParticipant, PresenceSubscriber, SlashCommandChoice, SlashCommandRequest, validateBindingName, createOpenGadgetError, OPEN_GADGET_ERROR_CODES, resolveSiteName, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
+import { Overseer, GadgetMetadata, UiBundle, WorkpieceId, WorkpieceSummary, WorkpiecesSubscriber, GadgetClient, GadgetBindingInfo, GatekeeperClient, ActionState, ActionLogEntry, ActionsSubscriber, CodeUpdate, CodeSubscriber, AiChatMetadata, AiChatMessage, AiChatHistoryPage, AiChatSubscriber, AiChatAuthorInfo, AiModelConfig, AiChatMessageBody, AgentSpawnerConfig, ConsoleLogSubscriber, ConsoleLogEvent, CapsuleSpecifier, CollaboratorInfo, CollaboratorRole, AffectedCollaborator, ShareLinkInfo, GatekeeperCreationSpec, ObserverConfigCallback, ObserverBindingNeed, ObserverBindingFailure, BlueprintBindingAnnotation, BlueprintBinding, BlueprintMetadata, BlueprintOutput, MessageFormatRef, isOutputIcon, SpawnerEnvTarget, BlueprintGadgetSummary, AiChatStreamEvent, BlueprintScreenshotUpload, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ChatAttachmentUpload, ChatAttachmentHandle, ChatAttachmentRef, BoundHookInfo, PreApprovableAction, PresenceParticipant, PresenceSubscriber, SlashCommandChoice, SlashCommandRequest, validateBindingName, createOpenGadgetError, OPEN_GADGET_ERROR_CODES, resolveSiteName, type ThinkingLevel, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
 import { Gatekeeper, HookInitiator, ResourceDescription, ApprovalQueue, ActionDescription, ObservationAuthorizer, ObservationDescription, VendorDescription, SupportedResource, resolveRequestedResource, HookController, HookDescription, AGENT_CATALOG_MAX_ENTRIES, ActionKind } from "@gadgets/workshop-shared/gatekeeper";
 import {
   DurableObject, WorkerEntrypoint, RpcStub as NativeRpcStub,
@@ -166,6 +166,21 @@ type LegacyBlueprintBindingAnnotation = BlueprintBindingAnnotation & {
 
 function defaultBlueprintBindingTitle(record: GatekeeperRecord, bindingName?: string): string {
   return record.resourceTitle || bindingName || "Connection";
+}
+
+// Apply a caller's thinking-level choice to a chat's metadata. Three distinct meanings, and the
+// distinction is load-bearing:
+//   undefined  -- caller expressed no opinion; leave the chat's level alone. Callers that predate
+//                 the control (external messages, gadget-spawned agents, retries) land here, and
+//                 must not silently reset a level the user picked.
+//   "default"  -- caller explicitly wants the deployment default back; clear the stored level.
+//                 Without this there is no way to undo a choice, since an omitted argument is
+//                 already spoken for above.
+//   a level    -- store it.
+function applyReasoningChoice(meta: AiChatMetadata, reasoning: ThinkingLevelChoice | undefined) {
+  if (reasoning === undefined) return;
+  if (reasoning === "default") delete meta.reasoning;
+  else meta.reasoning = reasoning;
 }
 
 // Storage key of a chat's compaction checkpoint. See the `chatCompactions` collection.
@@ -3446,7 +3461,7 @@ class OverseerImpl implements AgentHooks {
       if (prepared.message !== undefined && userMeta.aiModel) {
         meta.activeAgent = userMeta.aiModel.profile;
       }
-      if (reasoning !== undefined) meta.reasoning = reasoning;
+      applyReasoningChoice(meta, reasoning);
       this.storage.chatMeta.put(meta);
 
       let promptSequence = this.#commitPreparedChatMessage(
@@ -3525,10 +3540,7 @@ class OverseerImpl implements AgentHooks {
     if (runsAgentTurn && userMeta.aiModel) {
       meta.activeAgent = userMeta.aiModel.profile;
     }
-    // Undefined leaves the chat's existing level alone: the control is sticky per chat, and
-    // callers that predate it (external messages, gadget-spawned agents) must not silently
-    // reset a level the user picked.
-    if (reasoning !== undefined) meta.reasoning = reasoning;
+    applyReasoningChoice(meta, reasoning);
     this.ctx.storage.transactionSync(() => {
       this.storage.chatMeta.put(meta);
       let promptSequence = this.#commitPreparedChatMessage(
@@ -7954,7 +7966,7 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
     return this.clientUser.listModels();
   }
 
-  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>> {
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>> {
     return this.clientUser.getModelThinkingLevels();
   }
 
@@ -8928,7 +8940,7 @@ class UseOverseerInterface extends RpcTarget implements Overseer {
   }
   async listChats(): Promise<AiChatMetadata[]> { this.#deny(); }
   async listModels(): Promise<AiChatAuthorInfo[]> { this.#deny(); }
-  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>> { this.#deny(); }
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>> { this.#deny(); }
   async getChatHistory(_chatId: number, _beforeSequence?: number): Promise<AiChatHistoryPage> {
     this.#deny();
   }

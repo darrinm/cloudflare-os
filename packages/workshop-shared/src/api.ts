@@ -312,7 +312,7 @@ export interface AuthenticatedApi extends RpcTarget {
   // listModels() returns. Kept off AiChatAuthorInfo deliberately: that type is embedded in every
   // chat message and is meant to stay lightweight. A model absent from the map, or mapped to an
   // empty array, does not expose a reasoning control at all.
-  getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>>;
+  getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
   // Adds a new model to the user's configured set. The ID must be unique among the user's
   // configured models.
@@ -933,11 +933,17 @@ export type AiGatewayInfo = {
   enabled: false;
 };
 
-// How hard the model should think on a turn. Mirrors pi's ModelThinkingLevel ("off" plus the
-// graded levels). The backend clamps whatever arrives to what the selected model actually
-// supports, so an unsupported value degrades instead of erroring.
-export type ThinkingLevelChoice =
+// A thinking level that can actually be stored on a chat and applied to a turn. Mirrors pi's
+// ModelThinkingLevel ("off" plus the graded levels). pi's streamSimple clamps whatever arrives to
+// what the selected model supports, so an unsupported value degrades instead of erroring.
+export type ThinkingLevel =
     "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+// What a caller may ask for. "default" is not a level: it clears any stored level so the chat
+// falls back to the deployment default for the model's API. It exists because an omitted RPC
+// argument means "leave the chat's level alone" (so callers predating the control cannot reset a
+// user's choice), which leaves no other way to express "put it back".
+export type ThinkingLevelChoice = ThinkingLevel | "default";
 
 // Configuration specifying how to connect to an AI model provider.
 export type AiModelConfig = {
@@ -1476,7 +1482,7 @@ export interface Overseer extends RpcTarget {
 
   // Thinking levels each listed model supports, keyed by the same IDs listModels() returns.
   // A model absent from the map exposes no reasoning control.
-  getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>>;
+  getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
   // Fetch one page of messages in the chat history for the given chat thread. If `beforeSequence`
   // is absent, fetch the current tail. Otherwise, fetch messages before that sequence.
@@ -1750,8 +1756,9 @@ export type AiChatMetadata = {
   // How hard the model should think, as last chosen for this chat. Sticky per chat rather than
   // per message so the composer can restore the control on reload, and so a turn started
   // asynchronously (or resumed after an approval) uses the same level the user picked. Undefined
-  // means the deployment default for the model's API.
-  reasoning?: ThinkingLevelChoice;
+  // means the deployment default for the model's API; "default" is never stored, it is the
+  // request that clears this field.
+  reasoning?: ThinkingLevel;
 };
 
 // One page of a chat's history, bounded below by a compaction checkpoint. Compaction doesn't delete

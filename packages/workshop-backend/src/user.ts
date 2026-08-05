@@ -1,5 +1,5 @@
 import { RpcStub } from "capnweb";
-import { GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, CollaboratorRole, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, GadgetMetadata, BlueprintMetadata, BlueprintLibrarySummary, BlueprintSource, BlueprintUserSummary, BLUEPRINT_SCREENSHOT_R2_PREFIX, GatekeeperVendorInfo, BlueprintOutput, OutputSummary, WorkpieceId, ListOutputsResult, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
+import { GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, CollaboratorRole, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, GadgetMetadata, BlueprintMetadata, BlueprintLibrarySummary, BlueprintSource, BlueprintUserSummary, BLUEPRINT_SCREENSHOT_R2_PREFIX, GatekeeperVendorInfo, BlueprintOutput, OutputSummary, WorkpieceId, ListOutputsResult, type ThinkingLevel, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
 import { Gatekeeper, GatekeeperUser, GatekeeperUserVerifier, GatekeeperVendor, AccountDescription, VendorDescription, GatekeeperConnectCallback, SupportedResource, ResourceConfiguratorFrame, AppUiContext, GatekeeperUiFrame } from "@gadgets/workshop-shared/gatekeeper";
 import { shouldAutoProvisionAccount, ambientGatekeeperMode } from "./provisioning-policy.js";
 import { CloudflareGatekeeperUser } from "@gadgets/workshop-shared/cloudflare-gatekeeper";
@@ -525,12 +525,28 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     return result;
   }
 
-  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>> {
-    let result: Record<string, ThinkingLevelChoice[]> = {};
-    // Only user-configured models are covered: gateway-provided entries carry a profile but no
-    // AiModelConfig here, so there is nothing to derive a level set from. Those are simply absent
-    // from the map, which the composer reads as "no reasoning control".
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>> {
+    let result: Record<string, ThinkingLevel[]> = {};
+
+    // Mirror listModels' composition exactly, de-duplication included. Gateway entries do have an
+    // AiModelConfig -- resolveModel synthesizes one for every SUGGESTED_MODELS entry of an enabled
+    // provider -- so skipping them would hide the control entirely in AI-Gateway deployments. And
+    // because a gateway model shadows a same-id user-configured one in listModels, keying off the
+    // user's config for a shadowed id would describe a config the request path never uses.
+    let gwConfig = getAiGatewayConfig(this.env);
+    let gwModelIds = new Set<string>();
+    if (gwConfig) {
+      for (let entry of gwConfig.getModelList()) {
+        gwModelIds.add(entry.id);
+        let resolved = gwConfig.resolveModel(entry.id);
+        if (!resolved) continue;
+        let levels = supportedThinkingLevels(resolved.config);
+        if (levels.length > 0) result[entry.id] = levels;
+      }
+    }
+
     for (let model of this.storage.aiModels.list()) {
+      if (gwModelIds.has(model.profile.id)) continue;
       let levels = supportedThinkingLevels(model.config);
       if (levels.length > 0) result[model.profile.id] = levels;
     }

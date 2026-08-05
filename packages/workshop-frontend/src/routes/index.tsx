@@ -13,7 +13,7 @@ import {
   ChatAttachmentHandle,
   MessageFormatRef,
   SlashCommandRequest,
-  type ThinkingLevelChoice,
+  type ThinkingLevel, type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
 import {
   getStoredSelectedModel,
@@ -50,7 +50,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
   // Reasoning control state, mirroring ChatInterface. This composer starts a chat, so the level
   // chosen here is what newChat persists onto the new chat's metadata.
   const [thinkingLevelsByModel, setThinkingLevelsByModel] =
-      useState<Record<string, ThinkingLevelChoice[]>>({});
+      useState<Record<string, ThinkingLevel[]>>({});
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelChoice | undefined>(undefined);
   // Bumped each time a task suggestion is picked; the composer re-seeds its text off the nonce.
   const [seed, setSeed] = useState<{ text: string; nonce: number }>({ text: "", nonce: 0 });
@@ -63,16 +63,22 @@ export function HomePageContent({ prompt }: HomeSearch) {
 
   useEffect(() => {
     let cancelled = false;
-    authenticatedApi
-      .listModels()
-      .then((list) => {
+    // The two calls have no data dependency, so batch them the way ChatInterface does rather than
+    // chaining -- chained, every home-page load paid a second full round trip and the reasoning
+    // control visibly popped in after the model name. Levels are non-fatal on their own: failing
+    // to load them only hides the control, so they must not take the model list down with them.
+    Promise.all([
+      authenticatedApi.listModels(),
+      authenticatedApi.getModelThinkingLevels().catch((err) => {
+        console.error("Failed to fetch thinking levels:", err);
+        return {} as Record<string, ThinkingLevel[]>;
+      }),
+    ])
+      .then(([list, levels]) => {
         if (cancelled) return;
         setModels(list);
         setSelectedModel(getStoredSelectedModel(list));
-        // Non-fatal: without it the reasoning control simply stays hidden.
-        authenticatedApi.getModelThinkingLevels()
-          .then((levels) => { if (!cancelled) setThinkingLevelsByModel(levels); })
-          .catch((err) => console.error("Failed to fetch thinking levels:", err));
+        setThinkingLevelsByModel(levels);
       })
       .catch((err) => {
         console.error("Failed to fetch models:", err);
@@ -192,7 +198,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
           thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
-          thinkingLevel={thinkingLevel}
+          thinkingLevel={thinkingLevel === "default" ? undefined : thinkingLevel}
           onThinkingChange={setThinkingLevel}
           newChat
           offerFormats
