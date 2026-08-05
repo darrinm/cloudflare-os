@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Dialog, Button, Input, Select, SensitiveInput, Collapsible, useKumoToastManager } from '@cloudflare/kumo'
-import { AiChatAuthorInfo, AiModelConfig, AiModelProvider, AiGatewayInfo, SUGGESTED_MODELS } from '@gadgets/workshop-shared/api'
+import { AiChatAuthorInfo, AiModelConfig, AiModelProvider, AiGatewayInfo, SUGGESTED_MODELS, type OpenRouterModel } from '@gadgets/workshop-shared/api'
 import { RpcStub } from 'capnweb'
 import { AuthenticatedApi } from '@gadgets/workshop-shared/api'
 
@@ -22,6 +22,7 @@ const PROVIDER_LABELS: Record<AiModelProvider, string> = {
   google: 'Google',
   cloudflare: 'Cloudflare Workers AI',
   ollama: 'Ollama',
+  openrouter: 'OpenRouter',
 }
 
 // Placeholder hinting at the shape of each provider's API token.
@@ -31,6 +32,7 @@ const API_TOKEN_PLACEHOLDERS: Record<AiModelProvider, string> = {
   google: 'AIza...',
   cloudflare: 'Cloudflare API token',
   ollama: '(optional)',
+  openrouter: 'sk-or-v1-...',
 }
 
 // Example used in the custom-model placeholders for providers that have no suggested models
@@ -98,6 +100,10 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
 
   // Form fields (used for custom models)
   const [modelId, setModelId] = useState('')
+  // OpenRouter's catalog, for suggesting model IDs. Fetched lazily -- it costs a round trip and
+  // only the OpenRouter custom-model field uses it. Failure is silent: the field still accepts a
+  // typed ID, which is the whole point of the custom path.
+  const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>([])
   const [displayName, setDisplayName] = useState('')
   const [apiToken, setApiToken] = useState('')
   const [accountId, setAccountId] = useState('')
@@ -215,6 +221,17 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
 
   const options = buildOptions(gatewayMode, enabledProviders)
   const showCustomFields = selection?.type === 'custom'
+
+  // Load OpenRouter's catalog the first time its custom-model field is shown.
+  useEffect(() => {
+    if (!showCustomFields || selection?.provider !== 'openrouter') return
+    if (openRouterModels.length > 0) return
+    let cancelled = false
+    authenticatedApi.listOpenRouterModels()
+      .then(models => { if (!cancelled) setOpenRouterModels(models) })
+      .catch(err => console.error('Failed to load OpenRouter models:', err))
+    return () => { cancelled = true }
+  }, [showCustomFields, selection?.provider, openRouterModels.length, authenticatedApi])
   const example = selection ? exampleModel(selection.provider) : null
   const isOllama = selection?.provider === 'ollama'
   const isCloudflare = selection?.provider === 'cloudflare'
@@ -275,12 +292,24 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
               <Input
                 label="Model ID"
                 placeholder={`e.g., ${example!.modelId}`}
-                description={`The model identifier as specified by the provider (e.g., '${example!.modelId}')`}
+                description={openRouterModels.length > 0
+                    ? `${openRouterModels.length} models available - type to search, or enter any OpenRouter model ID`
+                    : `The model identifier as specified by the provider (e.g., '${example!.modelId}')`}
                 value={modelId}
+                list={openRouterModels.length > 0 ? 'openrouter-models' : undefined}
                 onChange={(e) => { setModelId(e.target.value); setErrors(prev => ({ ...prev, modelId: '' })) }}
                 error={errors.modelId}
                 variant={errors.modelId ? 'error' : 'default'}
               />
+              {/* A datalist keeps the field free-text -- any OpenRouter model ID stays valid,
+                  including ones added after this catalog snapshot. */}
+              {openRouterModels.length > 0 && (
+                <datalist id="openrouter-models">
+                  {openRouterModels.map(model => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                </datalist>
+              )}
 
               <Input
                 label="Display Name"

@@ -408,6 +408,18 @@ const THINKING_APIS = [
     // sending no level at all. Asserted as such rather than pretended otherwise.
     off: undefined,
   },
+  {
+    api: "openrouter",
+    config: { provider: "openrouter", model: "deepseek/deepseek-v3.2", apiToken: "direct-token" },
+    // OpenRouter takes its own `reasoning: {effort}` object rather than OpenAI's flat
+    // `reasoning_effort`, even though both are openai-completions.
+    directive: (body: any) => body.reasoning,
+    noLevel: { effort: "none" },
+    weakest: { effort: "minimal" },
+    strongest: { effort: "high" },   // clamped: this model tops out below "max"
+    // As on Workers AI, "off" and "no level" coincide on the wire here.
+    off: { effort: "none" },
+  },
 ] as const;
 
 describe.each(THINKING_APIS)("thinking level ($api)", (spec) => {

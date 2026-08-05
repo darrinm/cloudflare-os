@@ -312,6 +312,11 @@ export interface AuthenticatedApi extends RpcTarget {
   // map means no reasoning control. (Off AiChatAuthorInfo, which rides on every chat message.)
   getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
+  // OpenRouter's catalog, for the model picker. Fetched live and cached server-side, falling
+  // back to a baked list if OpenRouter is unreachable. Discovery only -- a configured model's
+  // request metadata still comes from the model registry.
+  listOpenRouterModels(): Promise<OpenRouterModel[]>;
+
   // Adds a new model to the user's configured set. The ID must be unique among the user's
   // configured models.
   addModel(profile: AiChatAuthorInfo, config: AiModelConfig): Promise<void>;
@@ -921,7 +926,8 @@ export type CloudflareAccountOption = {
 };
 
 // Supported AI providers.
-export type AiModelProvider = "openai" | "anthropic" | "google" | "cloudflare" | "ollama";
+export type AiModelProvider =
+    "openai" | "anthropic" | "google" | "cloudflare" | "ollama" | "openrouter";
 
 // Information about the AI gateway configuration. Returned by `AuthenticatedApi.getAiConfig()`.
 export type AiGatewayInfo = {
@@ -938,6 +944,20 @@ export type ThinkingLevel =
 // "default" is not a level -- it clears the stored one. Needed because an omitted argument
 // already means "leave the chat's level alone", so callers predating the control can't reset it.
 export type ThinkingLevelChoice = ThinkingLevel | "default";
+
+// One entry in OpenRouter's model catalog, as shown in the model picker. Costs are USD per
+// million tokens; undefined means OpenRouter did not publish a price, which is distinct from free.
+export type OpenRouterModel = {
+  id: string;
+  name: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  // Whether OpenRouter advertises a reasoning knob for this model.
+  reasoning: boolean;
+  inputCost?: number;
+  outputCost?: number;
+  cacheReadCost?: number;
+};
 
 // Configuration specifying how to connect to an AI model provider.
 export type AiModelConfig = {
@@ -967,6 +987,9 @@ export const WORKERS_AI_OUTPUT_LIMIT = 32768;
 // Models offered in the picker. `contextWindow` is the maximum tokens one request may total.
 // `outputLimit`, when present, is both the requested response cap and the space reserved for it,
 // leaving the remainder as the prompt budget context compaction sizes against.
+// One entry per provider. For OpenRouter this is only a shortlist -- its full catalog is fetched
+// live via listOpenRouterModels(), and any model can be named directly through the custom-model
+// path, so listing hundreds here would be noise.
 export const SUGGESTED_MODELS: Record<
   AiModelProvider,
   Record<string, {name: string, contextWindow: number, outputLimit?: number}>
@@ -996,6 +1019,11 @@ export const SUGGESTED_MODELS: Record<
     "gemini-3.6-flash": {name: "Gemini 3.6 Flash", contextWindow: 1048576},
   },
   "ollama": {
+  },
+  "openrouter": {
+    "deepseek/deepseek-v3.2": { name: "DeepSeek V3.2", contextWindow: 163840 },
+    "z-ai/glm-5": { name: "GLM-5", contextWindow: 202752 },
+    "moonshotai/kimi-k2.6": { name: "Kimi K2.6", contextWindow: 262144 },
   },
 };
 
