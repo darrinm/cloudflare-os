@@ -4684,7 +4684,10 @@ function ChatInterface({
     if (!meta) return;   // metadata not loaded yet; a later render retries.
     restoredThinkingFor.current = selectedChatId;
     setThinkingLevel(meta.reasoning);
-  }, [selectedChatId, updateCounter]);
+    // chatListVersion, not updateCounter: loading the chat list bumps the former, and on first
+    // render the cache is still empty, so depending only on the latter meant this never re-ran
+    // once the metadata actually arrived.
+  }, [selectedChatId, chatListVersion, updateCounter]);
 
   // Download a committed chat attachment. Image bytes are already inlined on the message; other
   // attachments are fetched on demand over the authenticated RPC connection.
