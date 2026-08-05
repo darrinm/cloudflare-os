@@ -308,6 +308,12 @@ export interface AuthenticatedApi extends RpcTarget {
   // especially if the gadget is owned by someone else.
   listModels(): Promise<AiChatAuthorInfo[]>;
 
+  // Thinking levels each configured model actually supports, keyed by the same model IDs
+  // listModels() returns. Kept off AiChatAuthorInfo deliberately: that type is embedded in every
+  // chat message and is meant to stay lightweight. A model absent from the map, or mapped to an
+  // empty array, does not expose a reasoning control at all.
+  getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>>;
+
   // Adds a new model to the user's configured set. The ID must be unique among the user's
   // configured models.
   addModel(profile: AiChatAuthorInfo, config: AiModelConfig): Promise<void>;
@@ -927,6 +933,12 @@ export type AiGatewayInfo = {
   enabled: false;
 };
 
+// How hard the model should think on a turn. Mirrors pi's ModelThinkingLevel ("off" plus the
+// graded levels). The backend clamps whatever arrives to what the selected model actually
+// supports, so an unsupported value degrades instead of erroring.
+export type ThinkingLevelChoice =
+    "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
 // Configuration specifying how to connect to an AI model provider.
 export type AiModelConfig = {
   // Which AI provider hosts the model?
@@ -1503,9 +1515,13 @@ export interface Overseer extends RpcTarget {
   // `formats` records where the message names one of the deployment's standard output formats, so
   // the transcript can draw it as a chip. Display only -- what the agent reads is the noun, which
   // is already in the text.
+  //
+  // `reasoning` selects how hard the model thinks on this turn. Omitted means "use the
+  // deployment default for the model's API" (adaptive for Anthropic, medium for OpenAI
+  // Responses) -- i.e. the behavior before the control existed.
   newChat(initialMessage: string | SlashCommandRequest, modelId: string | null,
           capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-          formats?: MessageFormatRef[]): Promise<number>;
+          formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<number>;
 
   // Send a message to the chat from this client. Sending a message causes the LLM to start
   // running if it isn't already.
@@ -1516,9 +1532,11 @@ export interface Overseer extends RpcTarget {
   // `modelId` is one of the IDs in the result of `listModels()`, or null to inhibit AI response
   // (useful when using chat to talk between humans).
   //
+  // `reasoning` selects how hard the model thinks on this turn; see newChat().
   sendChatMessage(chatId: number, message: string | SlashCommandRequest, modelId: string | null,
                   capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-                  formats?: MessageFormatRef[]): Promise<void>;
+                  formats?: MessageFormatRef[],
+                  reasoning?: ThinkingLevelChoice): Promise<void>;
 
   // Upload an attachment for use in a future chat message. This way by the time the user wants to
   // send the message, likely uploading is complete. `modelId` determines whether the

@@ -4,6 +4,7 @@ import type {
   AnthropicMessagesCompat, Api, AssistantMessageEventStream, Context, Model, ModelCost,
   OpenAICompletionsCompat, ProviderHeaders, SimpleStreamOptions, StreamFunction,
 } from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { stream as anthropicMessagesStream } from "@earendil-works/pi-ai/api/anthropic-messages";
 import { stream as googleGenerativeAiStream } from "@earendil-works/pi-ai/api/google-generative-ai";
 import { stream as openaiCompletionsStream } from "@earendil-works/pi-ai/api/openai-completions";
@@ -15,8 +16,8 @@ import { OPENAI_MODELS } from "@earendil-works/pi-ai/providers/openai.models";
 import { ApprovalQueue, Gatekeeper, ResourceDescription } from '@gadgets/workshop-shared/gatekeeper';
 import { LanguageModelBinding } from "./ai-model-binding";
 import AI_MODEL_BINDING_TYPES from "./ai-model-binding.txt";
-import { AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, WORKERS_AI_OUTPUT_LIMIT }
-  from "@gadgets/workshop-shared/api";
+import { AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, WORKERS_AI_OUTPUT_LIMIT,
+  type ThinkingLevelChoice } from "@gadgets/workshop-shared/api";
 import { AiGatewayConfig, getAiGatewayConfig, type AiGatewayLogRoute } from "./ai-gateway.js";
 import { completeText } from "./ai-invoke.js";
 import { bridgePdfAttachments } from "./chat-attachment-pdf.js";
@@ -126,6 +127,19 @@ function catalogModel(provider: AiModelConfig["provider"], modelId: string): Mod
     case "ollama": return undefined;
     default: return undefined;
   }
+}
+
+// Thinking levels a configured model actually supports, for the composer's reasoning control.
+// Derived from pi's catalog, which is also what makeHandle consults for thinking behavior, so the
+// UI can never offer a level the request path would reject. A model pi doesn't know (uncataloged
+// ids, ollama) or one with no graded levels yields an empty list, and the control stays hidden --
+// deliberately failing closed rather than showing a knob that silently does nothing.
+export function supportedThinkingLevels(config: AiModelConfig): ThinkingLevelChoice[] {
+  const catalog = catalogModel(config.provider, config.model);
+  if (!catalog) return [];
+  const levels = getSupportedThinkingLevels(catalog) as ThinkingLevelChoice[];
+  // A single level is not a choice; treat it as "no control" so the UI stays honest.
+  return levels.length > 1 ? levels : [];
 }
 
 // Token limits for a synthesized model. SUGGESTED_MODELS remains authoritative (compaction

@@ -1,4 +1,4 @@
-import { AiChatMessage, AiChatAuthorInfo, AiToolCall, AiChatMessageBody, AgentSpawnerConfig, AiChatStreamEvent, BlueprintOutput, WorkpieceId, type AiModelConfig, isTextLikeAttachmentMimeType, validateBindingName } from '@gadgets/workshop-shared/api';
+import { AiChatMessage, AiChatAuthorInfo, AiToolCall, AiChatMessageBody, AgentSpawnerConfig, AiChatStreamEvent, BlueprintOutput, WorkpieceId, type AiModelConfig, type ThinkingLevelChoice, isTextLikeAttachmentMimeType, validateBindingName } from '@gadgets/workshop-shared/api';
 import { PDF_MIME_TYPE, modelApiSupportsPdfAttachments } from './chat-attachment-pdf';
 import { AgentCatalog, ObservationDescription } from '@gadgets/workshop-shared/gatekeeper';
 import { createWorkshopLogger } from "./observability";
@@ -1070,7 +1070,10 @@ export async function runAgent(
     abortSignal: AbortSignal,
     initiator: AiChatAuthorInfo,
     callbackInitiated: boolean,
-    compaction: CompactionContext): Promise<CompactionCheckpoint | undefined> {
+    compaction: CompactionContext,
+    // How hard the model should think this turn. Undefined preserves the pre-control behavior:
+    // makeHandle's per-API defaults (adaptive for Anthropic, medium for OpenAI Responses) apply.
+    reasoning?: ThinkingLevelChoice): Promise<CompactionCheckpoint | undefined> {
   let checkpoint = compaction.checkpoint;
 
   // The workspace's gadget registry, snapshotted at the start of the turn (gadgets provisional
@@ -3055,7 +3058,15 @@ export async function runAgent(
           awaitingActionDecision ||
           // Auto-terminate when callback-initiated and all callbacks have been resolved/rejected.
           (callbackInitiated && hooks.activeAgentCallbackCount(chatId) === 0),
-    }, emit, abortSignal, handle.stream);
+    }, emit, abortSignal,
+    // Inject the caller's thinking level. makeHandle merges `...options` *after* its per-API
+    // defaults, so this overrides them; "off" maps to pi's thinking-disabled path via the
+    // handle's own `thinking` flag rather than a reasoning level (pi has no "off" level).
+    reasoning === undefined
+        ? handle.stream
+        : reasoning === "off"
+            ? ((model, ctx, opts) => handle.stream(model, ctx, { ...opts, thinking: false }))
+            : ((model, ctx, opts) => handle.stream(model, ctx, { ...opts, reasoning })));
   } finally {
     // Flush any remaining Y.Doc changes captured during this turn as a single "changes" message.
     flushCapturedYdocChanges();
