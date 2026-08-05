@@ -4672,6 +4672,20 @@ function ChatInterface({
   const currentChatMetadata =
     selectedChatId !== null ? cacheRef.current.chats.get(selectedChatId) : null;
 
+  // Restore the reasoning control from the chat we just switched to, so it shows the level that
+  // chat will actually run at rather than whatever the previous chat was set to. Keyed on the id
+  // alone: re-running on every metadata change would stomp a selection the user just made while
+  // the same chat is open.
+  const restoredThinkingFor = useRef<number | null>(null);
+  useEffect(() => {
+    if (selectedChatId === null) return;
+    if (restoredThinkingFor.current === selectedChatId) return;
+    const meta = cacheRef.current.chats.get(selectedChatId);
+    if (!meta) return;   // metadata not loaded yet; a later render retries.
+    restoredThinkingFor.current = selectedChatId;
+    setThinkingLevel(meta.reasoning);
+  }, [selectedChatId, updateCounter]);
+
   // Download a committed chat attachment. Image bytes are already inlined on the message; other
   // attachments are fetched on demand over the authenticated RPC connection.
   const downloadChatAttachment = useCallback(async (chatId: number, attachment: ChatAttachmentRef) => {
