@@ -51,7 +51,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
   // chosen here is what newChat persists onto the new chat's metadata.
   const [thinkingLevelsByModel, setThinkingLevelsByModel] =
       useState<Record<string, ThinkingLevel[]>>({});
-  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelChoice | undefined>(undefined);
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | undefined>(undefined);
   // Bumped each time a task suggestion is picked; the composer re-seeds its text off the nonce.
   const [seed, setSeed] = useState<{ text: string; nonce: number }>({ text: "", nonce: 0 });
 
@@ -94,6 +94,11 @@ export function HomePageContent({ prompt }: HomeSearch) {
     persistSelectedModel(value);
   }, []);
 
+  // "default" clears rather than naming a level; state holds only real levels. See ChatInterface.
+  const handleThinkingChange = useCallback((choice: ThinkingLevelChoice) => {
+    setThinkingLevel(choice === "default" ? undefined : choice);
+  }, []);
+
   // Pre-create a provisional gadget as soon as the user starts interacting, so that navigation
   // after submit is instant. Same pattern as before — disposed on unmount if never consumed.
   const provisionalOverseerRef = useRef<{ stub: RpcStub<Overseer> } | null>(null);
@@ -125,7 +130,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
         const overseer = provisionalOverseerRef.current!.stub;
         // Pipeline both independent calls in one batch, but settle both before releasing the stub.
         const [chat, {id}] = await Promise.all([
-          overseer.newChat(message, modelId, capsules, attachments, formats, thinkingLevel),
+          overseer.newChat(message, modelId, capsules, attachments, formats, thinkingLevel ?? "default"),
           overseer.getMetadata(),
         ]);
         provisionalOverseerRef.current?.stub[Symbol.dispose]();
@@ -198,8 +203,8 @@ export function HomePageContent({ prompt }: HomeSearch) {
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
           thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
-          thinkingLevel={thinkingLevel === "default" ? undefined : thinkingLevel}
-          onThinkingChange={setThinkingLevel}
+          thinkingLevel={thinkingLevel}
+          onThinkingChange={handleThinkingChange}
           newChat
           offerFormats
           autoFocus

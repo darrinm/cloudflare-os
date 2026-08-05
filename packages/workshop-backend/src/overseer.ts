@@ -11,6 +11,7 @@ import * as Y from "yjs";
 import {
   LanguageModelGatekeeperProps,
   getModel,
+  withReasoning,
   UserGatewayRouting,
 } from "./ai-models";
 import { AgentTurnError, completeText } from "./ai-invoke";
@@ -3952,16 +3953,17 @@ class OverseerImpl implements AgentHooks {
         let callbackCountBefore = liveChat.activeAgentCallbacks.size;
 
         let compactionTurn = isCompactionTurn(chatMessages);
+        // Read inside the loop, not above it: a multi-turn run can span an approval pause during
+        // which the user changes the thinking level, and each turn should use the current one.
+        let chatMeta = this.getChatMetaOrThrow(chatId);
         let newCheckpoint = await runAgent(
-            this, chosenModel, chatId, aiModel.profile, chatMessages, controller.signal,
+            this, withReasoning(chosenModel, chatMeta.reasoning), chatId, aiModel.profile,
+            chatMessages, controller.signal,
             initiator, callbackInitiated, {
               checkpoint,
               modelConfig: aiModel.config,
-              measuredTokens: this.getChatMetaOrThrow(chatId).totalTokens ?? 0,
-            },
-            // Re-read per turn rather than capturing once: a multi-turn run can span an approval
-            // pause during which the user changes the level.
-            this.getChatMetaOrThrow(chatId).reasoning);
+              measuredTokens: chatMeta.totalTokens ?? 0,
+            });
         if (newCheckpoint) this.#commitChatCompaction(chatId, newCheckpoint);
         // `/compact` is done once it has compacted. An automatic compaction returned before
         // prompting the model, so rerun the turn now that the history is shorter. Each compaction

@@ -84,6 +84,10 @@ import {
   type ThinkingLevel, type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
 import { ThinkingToggle } from "./components/chat/ThinkingToggle";
+
+// Stable empty fallback for the reasoning control's level list. A fresh `[]` here would be a new
+// identity on every composer render -- and this composer re-renders on every keystroke.
+const NO_THINKING_LEVELS: ThinkingLevel[] = [];
 import { ActionKind, ResourceDescription } from "@gadgets/workshop-shared/gatekeeper";
 import {
   parseSlashCommandInput, slashCommandTokenKey, stripSlashCommandToken,
@@ -3329,7 +3333,7 @@ export const ChatInput = ({
               {onThinkingChange && (
                 <ThinkingToggle
                   level={thinkingLevel}
-                  levels={thinkingLevels ?? []}
+                  levels={thinkingLevels ?? NO_THINKING_LEVELS}
                   onChange={onThinkingChange}
                 />
               )}
@@ -4345,7 +4349,7 @@ function ChatInterface({
   // it, and is re-synced from chat metadata when the active chat changes.
   const [thinkingLevelsByModel, setThinkingLevelsByModel] =
       useState<Record<string, ThinkingLevel[]>>({});
-  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelChoice | undefined>(undefined);
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | undefined>(undefined);
   const [sidebarActiveTab, setSidebarActiveTab] = useState<
     "chat" | "connections"
   >("chat");
@@ -5412,7 +5416,7 @@ function ChatInterface({
       if (selectedChatId === null) {
         // Create a new chat (with optional capsules).
         const newChatId = await overseer.newChat(
-            message, model, capsules, attachments, formats, thinkingLevel);
+            message, model, capsules, attachments, formats, thinkingLevel ?? "default");
         onNavigateToChatRef.current(newChatId);
       } else {
         // Send message to existing chat.
@@ -5423,7 +5427,7 @@ function ChatInterface({
           capsules || undefined,
           attachments || undefined,
           formats,
-          thinkingLevel,
+          thinkingLevel ?? "default",
         );
       }
     } catch (err) {
@@ -5446,7 +5450,7 @@ function ChatInterface({
     const model = modelId !== undefined ? modelId : selectedModel;
     try {
       const newChatId = await overseer.newChat(
-          message, model, capsules, attachments, formats, thinkingLevel);
+          message, model, capsules, attachments, formats, thinkingLevel ?? "default");
       onNavigateToChatRef.current(newChatId);
     } catch (err) {
       console.error("Failed to create new chat:", err);
@@ -5459,6 +5463,13 @@ function ChatInterface({
   const handleModelChange = (modelId: string | null) => {
     setSelectedModel(modelId);
     persistSelectedModel(modelId);
+  };
+
+  // The menu speaks choices ("default" clears); state holds only real levels, and the sentinel is
+  // minted again at the wire. Keeping it out of state is what lets every render site pass
+  // `thinkingLevel` straight through instead of re-narrowing it.
+  const handleThinkingChange = (choice: ThinkingLevelChoice) => {
+    setThinkingLevel(choice === "default" ? undefined : choice);
   };
 
   // Handle stopping the agent
@@ -6691,8 +6702,8 @@ function ChatInterface({
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
             thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
-            thinkingLevel={thinkingLevel === "default" ? undefined : thinkingLevel}
-            onThinkingChange={setThinkingLevel}
+            thinkingLevel={thinkingLevel}
+            onThinkingChange={handleThinkingChange}
             showThinkingTraces={showThinkingTraces}
             onToggleThinkingTraces={toggleShowThinkingTraces}
             minRows={2}
@@ -7650,8 +7661,8 @@ function ChatInterface({
                     selectedModel={selectedModel}
                     onModelChange={handleModelChange}
                     thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
-                    thinkingLevel={thinkingLevel === "default" ? undefined : thinkingLevel}
-                    onThinkingChange={setThinkingLevel}
+                    thinkingLevel={thinkingLevel}
+                    onThinkingChange={handleThinkingChange}
                     pendingConsoleLogCount={pendingConsoleLogCount}
                     consoleLogPreview={consoleLogPreview}
                     consoleLogSeverity={consoleLogSeverity}

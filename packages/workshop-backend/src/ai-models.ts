@@ -62,12 +62,18 @@ type ModelRoutingOptions = {
  * Per-call stream options accepted by a ModelHandle, extending pi's own options with
  * handle-level knobs.
  */
-export type ModelStreamOptions = SimpleStreamOptions & {
+export type ModelStreamOptions = Omit<SimpleStreamOptions, "reasoning"> & {
   // When false, suppress the handle's per-API thinking/reasoning defaults so the request runs
   // without extended thinking (as far as the model allows). Used by completeText(): one-shot
   // calls -- titles, binding names, compaction summaries, gadget model bindings -- should be
   // quick, and none of them benefit from cross-step reasoning. Default: true.
   thinking?: boolean;
+
+  // How hard the model should think. Widened from pi's own ThinkingLevel, which has no "off":
+  // pi expresses "no thinking" as the absence of a level, so "off" would be silently mapped as
+  // a level (to "high") if handed to it. Accepting it here lets callers name the state, and the
+  // handle translates it to pi's absent-level form in exactly one place.
+  reasoning?: ThinkingLevel;
 };
 
 /**
@@ -111,24 +117,38 @@ function buildMetadata(initiator: AiChatAuthorInfo, context?: GatewayMetadataCon
 
 // The pi API implementations we route through, keyed by `Model.api`. Import per-module (never
 // `providers/all`, which drags ~30 providers into the bundle).
-const API_STREAMS: Record<string, StreamFunction<Api, SimpleStreamOptions>> = {
-  "anthropic-messages": anthropicMessagesStream as StreamFunction<Api, SimpleStreamOptions>,
-  "openai-responses": openaiResponsesStream as StreamFunction<Api, SimpleStreamOptions>,
-  "openai-completions": openaiCompletionsStream as StreamFunction<Api, SimpleStreamOptions>,
-  "google-generative-ai": googleGenerativeAiStream as StreamFunction<Api, SimpleStreamOptions>,
-};
-
-// pi's `streamSimple` wrappers, which are the ONLY place `options.reasoning` is translated into
-// each provider's native thinking options (Anthropic effort/thinkingBudgetTokens, OpenAI
-// reasoningEffort, Google thinking:{...}). The raw `stream` functions above ignore `reasoning`
-// entirely, so a thinking level passed to them is silently dropped. They also clamp the level to
-// what the model supports, which is what api.ts's ThinkingLevel contract promises.
-// Used only when a caller actually expressed a thinking intent -- see makeHandle.
-const API_STREAMS_SIMPLE: Record<string, StreamFunction<Api, SimpleStreamOptions>> = {
-  "anthropic-messages": anthropicMessagesStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
-  "openai-responses": openaiResponsesStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
-  "openai-completions": openaiCompletionsStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
-  "google-generative-ai": googleGenerativeAiStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
+//
+// Two entry points per API, kept as one record so they cannot drift:
+//  - `raw`    is pi's low-level stream. It reads provider-native thinking options
+//             (thinkingEnabled / effort / thinkingBudgetTokens / reasoningEffort) and ignores
+//             `options.reasoning` entirely.
+//  - `simple` is pi's streamSimple, the ONLY place `options.reasoning` is translated into those
+//             native options, and the only place the level is clamped to what the model
+//             supports -- which is what api.ts's ThinkingLevel contract promises.
+//
+// `raw` is not redundant: Anthropic's adaptive models want `thinkingEnabled:true` with no effort
+// (the model decides), and streamSimple always pairs thinkingEnabled with a mapped effort. pi
+// has no level meaning "adaptive, unconstrained", so the no-level default has to keep `raw`.
+const API_STREAMS: Record<string, {
+  raw: StreamFunction<Api, SimpleStreamOptions>,
+  simple: StreamFunction<Api, SimpleStreamOptions>,
+}> = {
+  "anthropic-messages": {
+    raw: anthropicMessagesStream as StreamFunction<Api, SimpleStreamOptions>,
+    simple: anthropicMessagesStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
+  },
+  "openai-responses": {
+    raw: openaiResponsesStream as StreamFunction<Api, SimpleStreamOptions>,
+    simple: openaiResponsesStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
+  },
+  "openai-completions": {
+    raw: openaiCompletionsStream as StreamFunction<Api, SimpleStreamOptions>,
+    simple: openaiCompletionsStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
+  },
+  "google-generative-ai": {
+    raw: googleGenerativeAiStream as StreamFunction<Api, SimpleStreamOptions>,
+    simple: googleGenerativeAiStreamSimple as StreamFunction<Api, SimpleStreamOptions>,
+  },
 };
 
 const ZERO_COST: ModelCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
@@ -157,6 +177,23 @@ export function supportedThinkingLevels(config: AiModelConfig): ThinkingLevel[] 
   const levels = getSupportedThinkingLevels(catalog) as ThinkingLevel[];
   // A single level is not a choice; treat it as "no control" so the UI stays honest.
   return levels.length > 1 ? levels : [];
+}
+
+// A view of `handle` that applies a thinking level to every request it streams. Undefined returns
+// the handle unchanged, so callers with no level pay nothing and behave exactly as before.
+//
+// This lives here, next to makeHandle, rather than as a wrapper at the agent-loop call site: what
+// "off" means to pi, and which entry point a level routes through, is this file's job. Callers
+// just hand it a level.
+export function withReasoning(handle: ModelHandle, level: ThinkingLevel | undefined): ModelHandle {
+  if (level === undefined) return handle;
+  return {
+    ...handle,
+    stream: (model, context, options) => handle.stream(model, context, { ...options, reasoning: level }),
+    // `lastResponse` is written by the inner handle's onResponse, so read through to it rather
+    // than snapshotting a copy that would go stale after the first request.
+    get lastResponse() { return handle.lastResponse; },
+  };
 }
 
 // Token limits for a synthesized model. SUGGESTED_MODELS remains authoritative (compaction
@@ -292,8 +329,8 @@ type HandleArgs = {
 };
 
 function makeHandle(args: HandleArgs): ModelHandle {
-  const streamFn = API_STREAMS[args.model.api];
-  if (!streamFn) {
+  const apiStreams = API_STREAMS[args.model.api];
+  if (!apiStreams) {
     throw new Error(`Unsupported model API "${args.model.api}".`);
   }
 
@@ -327,26 +364,29 @@ function makeHandle(args: HandleArgs): ModelHandle {
             ? { "cf-aig-metadata": JSON.stringify(args.gatewayMetadata) }
             : {}),
       };
-      // Did the caller express a thinking intent (a level, or an explicit off)? Only then do we
-      // route through pi's streamSimple, which is the sole place `reasoning` is translated into
-      // provider-native options -- passing it to the raw `stream` silently drops it, and passing
-      // `thinking:false` to the raw stream only disables Anthropic, leaving Google and OpenAI
-      // still thinking. streamSimple with no `reasoning` emits an explicit disable for every
-      // provider, which is exactly what "off" must mean.
+      // A level -- including "off" -- is the only thing that routes through streamSimple, since
+      // that is the sole place pi translates `reasoning` into provider-native options and clamps
+      // it. streamSimple with no level emits an explicit disable for every provider, which is
+      // what "off" must mean (the raw path's `thinkingEnabled:false` only disables Anthropic).
       //
-      // When no intent was expressed we keep the raw path and its apiExtras defaults, so callers
-      // that predate the control (compaction, titling, gadget-spawned agents) issue byte-identical
-      // requests to before.
-      const intentExpressed = reasoning !== undefined || !thinking;
-      const chosenFn =
-          intentExpressed ? (API_STREAMS_SIMPLE[args.model.api] ?? streamFn) : streamFn;
+      // Deliberately NOT keyed on `thinking`: that boolean predates this control and is passed by
+      // every completeText caller (compaction summaries, chat/gadget titling, binding names).
+      // Keying on it would silently repoint all of them onto a different pi entry point, which
+      // among other things starts sending Google an explicit thinking:{enabled:false} where it
+      // previously sent nothing. Those callers keep the raw path and byte-identical requests.
+      const level = reasoning === "off" ? undefined : reasoning;
+      const chosenFn = reasoning !== undefined ? apiStreams.simple : apiStreams.raw;
       const merged: SimpleStreamOptions = {
-        // API defaults only on the raw path: streamSimple derives its own from `reasoning`, and
+        // A level goes to streamSimple, which derives the provider-native options itself --
         // layering apiExtras on top would pin OpenAI back to medium regardless of the choice.
-        ...(intentExpressed ? {} : apiExtras),
+        // Without a level this is exactly the pre-existing raw-path behavior, unchanged.
+        // (`reasoning` is destructured out above, so `options` can never carry one.)
+        ...(reasoning !== undefined
+            ? { reasoning: level }
+            : thinking
+                ? apiExtras
+                : args.model.api === "anthropic-messages" ? { thinkingEnabled: false } : {}),
         ...options,
-        // `thinking:false` becomes "no level", which is streamSimple's explicit-disable branch.
-        ...(intentExpressed ? { reasoning: thinking ? reasoning : undefined } : {}),
         ...(args.apiKey !== undefined ? { apiKey: args.apiKey } : {}),
         ...(Object.keys(headers).length > 0 ? { headers } : {}),
         // Session affinity: pi only sends it when caching isn't "none" (fine for us).

@@ -503,52 +503,46 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     this.storage.profile.put(profile);
   }
 
-  async listModels(): Promise<AiChatAuthorInfo[]> {
-    let result: AiChatAuthorInfo[] = [];
+  // How the user's model list composes: when AI Gateway mode is active, all suggested models for
+  // enabled providers first, then user-configured models except those a gateway model shadows.
+  //
+  // Single source of truth on purpose. Every projection of this list (the profiles the picker
+  // shows, the thinking levels each supports) has to agree about which config backs a given id --
+  // describing a config the request path never uses is worse than describing none. Keeping the
+  // rule in one place also means an upstream change to it either merges cleanly or conflicts
+  // once, visibly, rather than being applied to one copy and silently missed by the other.
+  #composeModels(): Array<{ profile: AiChatAuthorInfo, config?: AiModelConfig }> {
+    let result: Array<{ profile: AiChatAuthorInfo, config?: AiModelConfig }> = [];
 
-    // When AI Gateway mode is active, include all suggested models for enabled providers.
     let gwConfig = getAiGatewayConfig(this.env);
     let gwModelIds = new Set<string>();
     if (gwConfig) {
       for (let entry of gwConfig.getModelList()) {
-        result.push(entry);
         gwModelIds.add(entry.id);
+        // Gateway entries do have a config -- resolveModel synthesizes one for every
+        // SUGGESTED_MODELS entry of an enabled provider.
+        result.push({ profile: entry, config: gwConfig.resolveModel(entry.id)?.config });
       }
     }
 
-    // Also include user-configured models, skipping any that duplicate a gateway model.
     for (let model of this.storage.aiModels.list()) {
       if (!gwModelIds.has(model.profile.id)) {
-        result.push(model.profile);
+        result.push({ profile: model.profile, config: model.config });
       }
     }
     return result;
   }
 
+  async listModels(): Promise<AiChatAuthorInfo[]> {
+    return this.#composeModels().map(entry => entry.profile);
+  }
+
   async getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>> {
     let result: Record<string, ThinkingLevel[]> = {};
-
-    // Mirror listModels' composition exactly, de-duplication included. Gateway entries do have an
-    // AiModelConfig -- resolveModel synthesizes one for every SUGGESTED_MODELS entry of an enabled
-    // provider -- so skipping them would hide the control entirely in AI-Gateway deployments. And
-    // because a gateway model shadows a same-id user-configured one in listModels, keying off the
-    // user's config for a shadowed id would describe a config the request path never uses.
-    let gwConfig = getAiGatewayConfig(this.env);
-    let gwModelIds = new Set<string>();
-    if (gwConfig) {
-      for (let entry of gwConfig.getModelList()) {
-        gwModelIds.add(entry.id);
-        let resolved = gwConfig.resolveModel(entry.id);
-        if (!resolved) continue;
-        let levels = supportedThinkingLevels(resolved.config);
-        if (levels.length > 0) result[entry.id] = levels;
-      }
-    }
-
-    for (let model of this.storage.aiModels.list()) {
-      if (gwModelIds.has(model.profile.id)) continue;
-      let levels = supportedThinkingLevels(model.config);
-      if (levels.length > 0) result[model.profile.id] = levels;
+    for (let { profile, config } of this.#composeModels()) {
+      if (!config) continue;
+      let levels = supportedThinkingLevels(config);
+      if (levels.length > 0) result[profile.id] = levels;
     }
     return result;
   }
