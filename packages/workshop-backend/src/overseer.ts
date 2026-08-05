@@ -7954,6 +7954,10 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
     return this.clientUser.listModels();
   }
 
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>> {
+    return this.clientUser.getModelThinkingLevels();
+  }
+
   async listSlashCommands(): Promise<SlashCommandChoice[]> {
     await this.slashCommandsReady;
     return this.impl.listSlashCommands();
@@ -8924,6 +8928,7 @@ class UseOverseerInterface extends RpcTarget implements Overseer {
   }
   async listChats(): Promise<AiChatMetadata[]> { this.#deny(); }
   async listModels(): Promise<AiChatAuthorInfo[]> { this.#deny(); }
+  async getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>> { this.#deny(); }
   async getChatHistory(_chatId: number, _beforeSequence?: number): Promise<AiChatHistoryPage> {
     this.#deny();
   }

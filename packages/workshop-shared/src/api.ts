@@ -1474,6 +1474,10 @@ export interface Overseer extends RpcTarget {
   // chosen something else.
   listModels(): Promise<AiChatAuthorInfo[]>;
 
+  // Thinking levels each listed model supports, keyed by the same IDs listModels() returns.
+  // A model absent from the map exposes no reasoning control.
+  getModelThinkingLevels(): Promise<Record<string, ThinkingLevelChoice[]>>;
+
   // Fetch one page of messages in the chat history for the given chat thread. If `beforeSequence`
   // is absent, fetch the current tail. Otherwise, fetch messages before that sequence.
   //

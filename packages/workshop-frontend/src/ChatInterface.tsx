@@ -81,7 +81,9 @@ import {
   BlueprintOutput,
   MessageFormatRef,
   OutputFormatOffer,
+  type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
+import { ThinkingToggle } from "./components/chat/ThinkingToggle";
 import { ActionKind, ResourceDescription } from "@gadgets/workshop-shared/gatekeeper";
 import {
   parseSlashCommandInput, slashCommandTokenKey, stripSlashCommandToken,
@@ -1766,6 +1768,9 @@ export const ChatInput = ({
   models,
   selectedModel,
   onModelChange,
+  thinkingLevels,
+  thinkingLevel,
+  onThinkingChange,
   pendingConsoleLogCount = 0,
   consoleLogPreview = "",
   consoleLogSeverity = "info",
@@ -1802,6 +1807,11 @@ export const ChatInput = ({
   models: AiChatAuthorInfo[];
   selectedModel: string | null;
   onModelChange: (modelId: string | null) => void;
+  // Thinking levels the selected model supports, and the chat's current choice. Empty or absent
+  // hides the reasoning control entirely.
+  thinkingLevels?: ThinkingLevelChoice[];
+  thinkingLevel?: ThinkingLevelChoice;
+  onThinkingChange?: (level: ThinkingLevelChoice) => void;
   pendingConsoleLogCount?: number;
   consoleLogPreview?: string;
   consoleLogSeverity?: "error" | "warn" | "info";
@@ -3315,6 +3325,13 @@ export const ChatInput = ({
 
           {/* Right actions */}
           <div className="ml-auto flex min-w-0 flex-shrink items-center gap-1.5">
+              {onThinkingChange && (
+                <ThinkingToggle
+                  level={thinkingLevel}
+                  levels={thinkingLevels ?? []}
+                  onChange={onThinkingChange}
+                />
+              )}
               <DropdownMenu>
                 <DropdownMenu.Trigger
                   render={
@@ -4322,6 +4339,12 @@ function ChatInterface({
     [],
   );
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  // Supported thinking levels per model ID, and the level the composer will send next. The level
+  // is stored per chat server-side; this holds the pending choice until the next message commits
+  // it, and is re-synced from chat metadata when the active chat changes.
+  const [thinkingLevelsByModel, setThinkingLevelsByModel] =
+      useState<Record<string, ThinkingLevelChoice[]>>({});
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelChoice | undefined>(undefined);
   const [sidebarActiveTab, setSidebarActiveTab] = useState<
     "chat" | "connections"
   >("chat");
@@ -5195,9 +5218,13 @@ function ChatInterface({
 
           // After subscribing, load the list of chats and models
           // This is safe because subscription will catch any new activity
-          const [chats, models] = await Promise.all([
+          const [chats, models, thinkingLevels] = await Promise.all([
             overseer.listChats(),
             overseer.listModels(),
+            // Which models expose a reasoning control, and at which levels. Fetched alongside the
+            // model list because it is keyed by the same IDs and changes only when models do.
+            overseer.getModelThinkingLevels()
+                .catch(() => ({}) as Record<string, ThinkingLevelChoice[]>),
           ]);
 
           chats.forEach((chat) => {
@@ -5207,6 +5234,7 @@ function ChatInterface({
           setChatListReady(true);
 
           setAvailableModels(models);
+          setThinkingLevelsByModel(thinkingLevels);
 
           setSelectedModel(getStoredSelectedModel(models));
 
@@ -5352,7 +5380,7 @@ function ChatInterface({
       if (selectedChatId === null) {
         // Create a new chat (with optional capsules).
         const newChatId = await overseer.newChat(
-            message, model, capsules, attachments, formats);
+            message, model, capsules, attachments, formats, thinkingLevel);
         onNavigateToChatRef.current(newChatId);
       } else {
         // Send message to existing chat.
@@ -5363,6 +5391,7 @@ function ChatInterface({
           capsules || undefined,
           attachments || undefined,
           formats,
+          thinkingLevel,
         );
       }
     } catch (err) {
@@ -5385,7 +5414,7 @@ function ChatInterface({
     const model = modelId !== undefined ? modelId : selectedModel;
     try {
       const newChatId = await overseer.newChat(
-          message, model, capsules, attachments, formats);
+          message, model, capsules, attachments, formats, thinkingLevel);
       onNavigateToChatRef.current(newChatId);
     } catch (err) {
       console.error("Failed to create new chat:", err);
@@ -6629,6 +6658,9 @@ function ChatInterface({
             models={availableModels}
             selectedModel={selectedModel}
             onModelChange={handleModelChange}
+            thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
+            thinkingLevel={thinkingLevel}
+            onThinkingChange={setThinkingLevel}
             showThinkingTraces={showThinkingTraces}
             onToggleThinkingTraces={toggleShowThinkingTraces}
             minRows={2}
@@ -7585,6 +7617,9 @@ function ChatInterface({
                     models={availableModels}
                     selectedModel={selectedModel}
                     onModelChange={handleModelChange}
+                    thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
+                    thinkingLevel={thinkingLevel}
+                    onThinkingChange={setThinkingLevel}
                     pendingConsoleLogCount={pendingConsoleLogCount}
                     consoleLogPreview={consoleLogPreview}
                     consoleLogSeverity={consoleLogSeverity}
