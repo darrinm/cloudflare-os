@@ -1,6 +1,6 @@
 import { RpcCompatible, RpcStub, RpcTarget } from "capnweb";
 import { validateRpc } from "capnweb-validate";
-import { Overseer, GadgetMetadata, UiBundle, WorkpieceId, WorkpieceSummary, WorkpiecesSubscriber, GadgetClient, GadgetBindingInfo, GatekeeperClient, ActionState, ActionLogEntry, ActionsSubscriber, CodeUpdate, CodeSubscriber, AiChatMetadata, AiChatMessage, AiChatHistoryPage, AiChatSubscriber, AiChatAuthorInfo, AiModelConfig, AiChatMessageBody, AgentSpawnerConfig, ConsoleLogSubscriber, ConsoleLogEvent, CapsuleSpecifier, CollaboratorInfo, CollaboratorRole, AffectedCollaborator, ShareLinkInfo, GatekeeperCreationSpec, ObserverConfigCallback, ObserverBindingNeed, ObserverBindingFailure, BlueprintBindingAnnotation, BlueprintBinding, BlueprintMetadata, BlueprintOutput, MessageFormatRef, isOutputIcon, SpawnerEnvTarget, BlueprintGadgetSummary, AiChatStreamEvent, BlueprintScreenshotUpload, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ChatAttachmentUpload, ChatAttachmentHandle, ChatAttachmentRef, BoundHookInfo, PreApprovableAction, PresenceParticipant, PresenceSubscriber, SlashCommandChoice, SlashCommandRequest, validateBindingName, createOpenGadgetError, OPEN_GADGET_ERROR_CODES, resolveSiteName } from '@gadgets/workshop-shared/api';
+import { Overseer, GadgetMetadata, UiBundle, WorkpieceId, WorkpieceSummary, WorkpiecesSubscriber, GadgetClient, GadgetBindingInfo, GatekeeperClient, ActionState, ActionLogEntry, ActionsSubscriber, CodeUpdate, CodeSubscriber, AiChatMetadata, AiChatMessage, AiChatHistoryPage, AiChatSubscriber, AiChatAuthorInfo, AiModelConfig, AiChatMessageBody, AgentSpawnerConfig, ConsoleLogSubscriber, ConsoleLogEvent, CapsuleSpecifier, CollaboratorInfo, CollaboratorRole, AffectedCollaborator, ShareLinkInfo, GatekeeperCreationSpec, ObserverConfigCallback, ObserverBindingNeed, ObserverBindingFailure, BlueprintBindingAnnotation, BlueprintBinding, BlueprintMetadata, BlueprintOutput, MessageFormatRef, isOutputIcon, SpawnerEnvTarget, BlueprintGadgetSummary, AiChatStreamEvent, BlueprintScreenshotUpload, BLUEPRINT_SCREENSHOT_R2_PREFIX, blueprintScreenshotUrl, ChatAttachmentUpload, ChatAttachmentHandle, ChatAttachmentRef, BoundHookInfo, PreApprovableAction, PresenceParticipant, PresenceSubscriber, SlashCommandChoice, SlashCommandRequest, validateBindingName, createOpenGadgetError, OPEN_GADGET_ERROR_CODES, resolveSiteName, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
 import { Gatekeeper, HookInitiator, ResourceDescription, ApprovalQueue, ActionDescription, ObservationAuthorizer, ObservationDescription, VendorDescription, SupportedResource, resolveRequestedResource, HookController, HookDescription, AGENT_CATALOG_MAX_ENTRIES, ActionKind } from "@gadgets/workshop-shared/gatekeeper";
 import {
   DurableObject, WorkerEntrypoint, RpcStub as NativeRpcStub,
@@ -3419,6 +3419,7 @@ class OverseerImpl implements AgentHooks {
     responseTargetRegistration?: ExternalMessageResponseTargetRegistration,
     externalChatKey?: string,
     formats?: MessageFormatRef[],
+    reasoning?: ThinkingLevelChoice,
   ): Promise<number> {
     if (responseTargetRegistration) {
       let decision = this.#prepareExternalMessageResponseTargetRegistration(responseTargetRegistration);
@@ -3445,6 +3446,7 @@ class OverseerImpl implements AgentHooks {
       if (prepared.message !== undefined && userMeta.aiModel) {
         meta.activeAgent = userMeta.aiModel.profile;
       }
+      if (reasoning !== undefined) meta.reasoning = reasoning;
       this.storage.chatMeta.put(meta);
 
       let promptSequence = this.#commitPreparedChatMessage(
@@ -3497,6 +3499,7 @@ class OverseerImpl implements AgentHooks {
     attachments?: ChatAttachmentHandle[],
     responseTargetRegistration?: ExternalMessageResponseTargetRegistration,
     formats?: MessageFormatRef[],
+    reasoning?: ThinkingLevelChoice,
   ): Promise<void> {
     if (responseTargetRegistration) {
       let decision = this.#prepareExternalMessageResponseTargetRegistration(responseTargetRegistration);
@@ -3522,6 +3525,10 @@ class OverseerImpl implements AgentHooks {
     if (runsAgentTurn && userMeta.aiModel) {
       meta.activeAgent = userMeta.aiModel.profile;
     }
+    // Undefined leaves the chat's existing level alone: the control is sticky per chat, and
+    // callers that predate it (external messages, gadget-spawned agents) must not silently
+    // reset a level the user picked.
+    if (reasoning !== undefined) meta.reasoning = reasoning;
     this.ctx.storage.transactionSync(() => {
       this.storage.chatMeta.put(meta);
       let promptSequence = this.#commitPreparedChatMessage(
@@ -3939,7 +3946,10 @@ class OverseerImpl implements AgentHooks {
               checkpoint,
               modelConfig: aiModel.config,
               measuredTokens: this.getChatMetaOrThrow(chatId).totalTokens ?? 0,
-            });
+            },
+            // Re-read per turn rather than capturing once: a multi-turn run can span an approval
+            // pause during which the user changes the level.
+            this.getChatMetaOrThrow(chatId).reasoning);
         if (newCheckpoint) this.#commitChatCompaction(chatId, newCheckpoint);
         // `/compact` is done once it has compacted. An automatic compaction returned before
         // prompting the model, so rerun the turn now that the history is shorter. Each compaction
@@ -8178,19 +8188,20 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
 
   async newChat(initialMessage: string | SlashCommandRequest, chosenModelId: string | null,
                 capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-                formats?: MessageFormatRef[]): Promise<number> {
+                formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<number> {
     let userMeta = await this.clientUser.getChatContext(chosenModelId);
     return this.impl.newChat(this.clientUser, userMeta, initialMessage, capsules, attachments,
-                             undefined, undefined, formats);
+                             undefined, undefined, formats, reasoning);
   }
 
   async sendChatMessage(
       chatId: number, message: string | SlashCommandRequest, chosenModelId: string | null,
       capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
-      formats?: MessageFormatRef[]): Promise<void> {
+      formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<void> {
     let userMeta = await this.clientUser.getChatContext(chosenModelId);
     return this.impl.sendChatMessage(
-        this.clientUser, userMeta, chatId, message, capsules, attachments, undefined, formats);
+        this.clientUser, userMeta, chatId, message, capsules, attachments, undefined, formats,
+        reasoning);
   }
 
   async setChatTitle(chatId: number, title: string): Promise<void> {

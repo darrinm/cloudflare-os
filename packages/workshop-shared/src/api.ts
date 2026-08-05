@@ -1742,6 +1742,12 @@ export type AiChatMetadata = {
   // First sequence this chat still replays. Everything before it is covered by a compaction
   // checkpoint; those messages remain in canonical history but no longer drive current-state reads.
   compactedTo?: number;
+
+  // How hard the model should think, as last chosen for this chat. Sticky per chat rather than
+  // per message so the composer can restore the control on reload, and so a turn started
+  // asynchronously (or resumed after an approval) uses the same level the user picked. Undefined
+  // means the deployment default for the model's API.
+  reasoning?: ThinkingLevelChoice;
 };
 
 // One page of a chat's history, bounded below by a compaction checkpoint. Compaction doesn't delete
