@@ -13,6 +13,7 @@ import {
   ChatAttachmentHandle,
   MessageFormatRef,
   SlashCommandRequest,
+  type ThinkingLevelChoice,
 } from "@gadgets/workshop-shared/api";
 import {
   getStoredSelectedModel,
@@ -46,6 +47,11 @@ export function HomePageContent({ prompt }: HomeSearch) {
 
   const [models, setModels] = useState<AiChatAuthorInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  // Reasoning control state, mirroring ChatInterface. This composer starts a chat, so the level
+  // chosen here is what newChat persists onto the new chat's metadata.
+  const [thinkingLevelsByModel, setThinkingLevelsByModel] =
+      useState<Record<string, ThinkingLevelChoice[]>>({});
+  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelChoice | undefined>(undefined);
   // Bumped each time a task suggestion is picked; the composer re-seeds its text off the nonce.
   const [seed, setSeed] = useState<{ text: string; nonce: number }>({ text: "", nonce: 0 });
 
@@ -63,6 +69,10 @@ export function HomePageContent({ prompt }: HomeSearch) {
         if (cancelled) return;
         setModels(list);
         setSelectedModel(getStoredSelectedModel(list));
+        // Non-fatal: without it the reasoning control simply stays hidden.
+        authenticatedApi.getModelThinkingLevels()
+          .then((levels) => { if (!cancelled) setThinkingLevelsByModel(levels); })
+          .catch((err) => console.error("Failed to fetch thinking levels:", err));
       })
       .catch((err) => {
         console.error("Failed to fetch models:", err);
@@ -109,7 +119,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
         const overseer = provisionalOverseerRef.current!.stub;
         // Pipeline both independent calls in one batch, but settle both before releasing the stub.
         const [chat, {id}] = await Promise.all([
-          overseer.newChat(message, modelId, capsules, attachments, formats),
+          overseer.newChat(message, modelId, capsules, attachments, formats, thinkingLevel),
           overseer.getMetadata(),
         ]);
         provisionalOverseerRef.current?.stub[Symbol.dispose]();
@@ -127,7 +137,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
         throw err;
       }
     },
-    [ensureProvisionalGadget, navigate, toasts],
+    [ensureProvisionalGadget, navigate, toasts, thinkingLevel],
   );
 
   const getOverseer = useCallback((): RpcStub<Overseer> => {
@@ -181,6 +191,9 @@ export function HomePageContent({ prompt }: HomeSearch) {
           models={models}
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
+          thinkingLevels={selectedModel ? thinkingLevelsByModel[selectedModel] : undefined}
+          thinkingLevel={thinkingLevel}
+          onThinkingChange={setThinkingLevel}
           newChat
           offerFormats
           autoFocus
