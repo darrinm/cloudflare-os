@@ -1,30 +1,23 @@
-// Extended-thinking control for the composer: one menu listing the levels the selected model
-// actually supports, plus "Default" and (where the model allows it) "Off".
+// Extended-thinking control for the composer: one menu of Default, Off (where the model allows
+// it), and the levels the selected model supports. Levels come from the backend, derived from the
+// same pi catalog the request path uses, so this can't offer something pi would reject.
 //
-// The supported set comes from the backend (getModelThinkingLevels), derived from the same pi
-// catalog the request path consults, so this never offers a level that would be rejected. Two
-// rules keep the display honest, each because its absence was a real bug:
+// Two rules, each because its absence was a real bug:
+//  - "Default" is a selectable state, not a blank. Unset does NOT mean "high" -- it means the
+//    per-API default (medium for OpenAI, no extended thinking at all for non-adaptive Anthropic).
+//  - A stored level the model doesn't support displays as what pi will clamp it to, not as the
+//    stored value and not as Default.
 //
-//  - "Default" is a first-class, selectable state, not a blank. An unset level does NOT mean
-//    "high"; it means the per-API default (medium for OpenAI Responses, no extended thinking at
-//    all for non-adaptive Anthropic models). Rendering a concrete level there told users
-//    high-effort reasoning was running when it was not, and left no way to undo a choice.
-//  - A stored level the current model does not support is displayed as the level pi will clamp it
-//    to, not as Default and not as the stored value. Showing either would state something the
-//    request does not do.
-//
-// "Off" is an item in this menu rather than a separate toggle button. As two controls, a chat
-// stored at "off" on a model that cannot disable thinking hid both of them and stranded the user
-// with no way to change it; as one menu that is structurally impossible.
+// "Off" is a menu item rather than a separate toggle: as two controls, a chat stored at "off" on
+// a model that can't disable thinking hid both and stranded the user.
 
 import { Lightbulb, CaretDown, Check } from "@phosphor-icons/react";
 import { DropdownMenu } from "@cloudflare/kumo";
 import type { ThinkingLevel, ThinkingLevelChoice } from "@gadgets/workshop-shared/api";
 import { COMPOSER_MENU_CONTENT, COMPOSER_MENU_ITEM } from "../menuStyles";
 
-// Weakest to strongest. Must mirror pi's EXTENDED_THINKING_LEVELS: clampLevel below reproduces
-// pi's clampThinkingLevel, and the two only agree if they walk the same ladder. Also the order
-// the backend returns supported levels in, so the menu needs no separate sort.
+// Must mirror pi's EXTENDED_THINKING_LEVELS -- clampLevel below reproduces pi's clamp, and the
+// two only agree walking the same ladder. Also the order the backend returns levels in.
 const LEVEL_LADDER: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const LEVEL_LABELS: Record<ThinkingLevelChoice, string> = {
@@ -38,9 +31,8 @@ const LEVEL_LABELS: Record<ThinkingLevelChoice, string> = {
   max: "Max",
 };
 
-// Mirrors pi's clampThinkingLevel (models.js): exact match, else the nearest supported level
-// searching stronger-first then weaker. Duplicated rather than imported because the frontend has
-// no pi dependency -- but it must stay in step, since pi is what the request actually applies.
+// Mirrors pi's clampThinkingLevel: exact match, else nearest supported, stronger-first. Copied
+// rather than imported (no pi dependency here), so it must stay in step with pi.
 function clampLevel(level: ThinkingLevel, levels: ThinkingLevel[]): ThinkingLevel | undefined {
   if (levels.includes(level)) return level;
   const requested = LEVEL_LADDER.indexOf(level);
@@ -55,18 +47,17 @@ function clampLevel(level: ThinkingLevel, levels: ThinkingLevel[]): ThinkingLeve
 }
 
 export interface ThinkingToggleProps {
-  // The chat's stored level. Undefined means no level is stored and the per-API default applies.
+  // Undefined = nothing stored, per-API default applies.
   level: ThinkingLevel | undefined;
-  // Levels the selected model supports, weakest first. Empty renders nothing.
+  // Weakest first. Empty renders nothing.
   levels: ThinkingLevel[];
-  // "default" clears the stored level; anything else stores that level.
+  // "default" clears; anything else stores.
   onChange: (choice: ThinkingLevelChoice) => void;
 }
 
 export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps) {
   if (levels.length === 0) return null;
 
-  // What this chat will actually run at, after pi's clamp.
   const effective = level === undefined ? undefined : clampLevel(level, levels);
   const selected: ThinkingLevelChoice = effective ?? "default";
 

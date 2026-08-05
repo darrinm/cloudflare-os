@@ -47,8 +47,8 @@ export function HomePageContent({ prompt }: HomeSearch) {
 
   const [models, setModels] = useState<AiChatAuthorInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  // Reasoning control state, mirroring ChatInterface. This composer starts a chat, so the level
-  // chosen here is what newChat persists onto the new chat's metadata.
+  // Mirrors ChatInterface. This composer starts a chat, so the level here is what newChat
+  // persists onto it.
   const [thinkingLevelsByModel, setThinkingLevelsByModel] =
       useState<Record<string, ThinkingLevel[]>>({});
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | undefined>(undefined);
@@ -63,10 +63,8 @@ export function HomePageContent({ prompt }: HomeSearch) {
 
   useEffect(() => {
     let cancelled = false;
-    // The two calls have no data dependency, so batch them the way ChatInterface does rather than
-    // chaining -- chained, every home-page load paid a second full round trip and the reasoning
-    // control visibly popped in after the model name. Levels are non-fatal on their own: failing
-    // to load them only hides the control, so they must not take the model list down with them.
+    // No data dependency, so batch rather than chain -- chained, every load paid a second round
+    // trip. Levels failing only hides the control, so they mustn't take the model list down.
     Promise.all([
       authenticatedApi.listModels(),
       authenticatedApi.getModelThinkingLevels().catch((err) => {
@@ -94,7 +92,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
     persistSelectedModel(value);
   }, []);
 
-  // "default" clears rather than naming a level; state holds only real levels. See ChatInterface.
+  // See ChatInterface.
   const handleThinkingChange = useCallback((choice: ThinkingLevelChoice) => {
     setThinkingLevel(choice === "default" ? undefined : choice);
   }, []);

@@ -503,14 +503,9 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     this.storage.profile.put(profile);
   }
 
-  // How the user's model list composes: when AI Gateway mode is active, all suggested models for
-  // enabled providers first, then user-configured models except those a gateway model shadows.
-  //
-  // Single source of truth on purpose. Every projection of this list (the profiles the picker
-  // shows, the thinking levels each supports) has to agree about which config backs a given id --
-  // describing a config the request path never uses is worse than describing none. Keeping the
-  // rule in one place also means an upstream change to it either merges cleanly or conflicts
-  // once, visibly, rather than being applied to one copy and silently missed by the other.
+  // Gateway models (when AI Gateway mode is on) first, then user-configured ones a gateway model
+  // doesn't shadow. Single source of truth: every projection must agree on which config backs an
+  // id, and an upstream change to the rule then conflicts once rather than being missed in a copy.
   #composeModels(): Array<{ profile: AiChatAuthorInfo, config?: AiModelConfig }> {
     let result: Array<{ profile: AiChatAuthorInfo, config?: AiModelConfig }> = [];
 
@@ -519,8 +514,7 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     if (gwConfig) {
       for (let entry of gwConfig.getModelList()) {
         gwModelIds.add(entry.id);
-        // Gateway entries do have a config -- resolveModel synthesizes one for every
-        // SUGGESTED_MODELS entry of an enabled provider.
+        // Gateway entries do have a config: resolveModel synthesizes one.
         result.push({ profile: entry, config: gwConfig.resolveModel(entry.id)?.config });
       }
     }

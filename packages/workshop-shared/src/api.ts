@@ -308,10 +308,8 @@ export interface AuthenticatedApi extends RpcTarget {
   // especially if the gadget is owned by someone else.
   listModels(): Promise<AiChatAuthorInfo[]>;
 
-  // Thinking levels each configured model actually supports, keyed by the same model IDs
-  // listModels() returns. Kept off AiChatAuthorInfo deliberately: that type is embedded in every
-  // chat message and is meant to stay lightweight. A model absent from the map, or mapped to an
-  // empty array, does not expose a reasoning control at all.
+  // Thinking levels each model in listModels() supports, keyed by the same IDs. Absent from the
+  // map means no reasoning control. (Off AiChatAuthorInfo, which rides on every chat message.)
   getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
   // Adds a new model to the user's configured set. The ID must be unique among the user's
@@ -933,16 +931,12 @@ export type AiGatewayInfo = {
   enabled: false;
 };
 
-// A thinking level that can actually be stored on a chat and applied to a turn. Mirrors pi's
-// ModelThinkingLevel ("off" plus the graded levels). pi's streamSimple clamps whatever arrives to
-// what the selected model supports, so an unsupported value degrades instead of erroring.
+// Mirrors pi's ModelThinkingLevel. pi clamps an unsupported value rather than erroring.
 export type ThinkingLevel =
     "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
-// What a caller may ask for. "default" is not a level: it clears any stored level so the chat
-// falls back to the deployment default for the model's API. It exists because an omitted RPC
-// argument means "leave the chat's level alone" (so callers predating the control cannot reset a
-// user's choice), which leaves no other way to express "put it back".
+// "default" is not a level -- it clears the stored one. Needed because an omitted argument
+// already means "leave the chat's level alone", so callers predating the control can't reset it.
 export type ThinkingLevelChoice = ThinkingLevel | "default";
 
 // Configuration specifying how to connect to an AI model provider.
@@ -1480,8 +1474,7 @@ export interface Overseer extends RpcTarget {
   // chosen something else.
   listModels(): Promise<AiChatAuthorInfo[]>;
 
-  // Thinking levels each listed model supports, keyed by the same IDs listModels() returns.
-  // A model absent from the map exposes no reasoning control.
+  // See AuthenticatedApi.getModelThinkingLevels().
   getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
   // Fetch one page of messages in the chat history for the given chat thread. If `beforeSequence`
@@ -1526,9 +1519,7 @@ export interface Overseer extends RpcTarget {
   // the transcript can draw it as a chip. Display only -- what the agent reads is the noun, which
   // is already in the text.
   //
-  // `reasoning` selects how hard the model thinks on this turn. Omitted means "use the
-  // deployment default for the model's API" (adaptive for Anthropic, medium for OpenAI
-  // Responses) -- i.e. the behavior before the control existed.
+  // `reasoning`: omitted leaves the chat's level alone; "default" clears it.
   newChat(initialMessage: string | SlashCommandRequest, modelId: string | null,
           capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
           formats?: MessageFormatRef[], reasoning?: ThinkingLevelChoice): Promise<number>;
@@ -1542,7 +1533,6 @@ export interface Overseer extends RpcTarget {
   // `modelId` is one of the IDs in the result of `listModels()`, or null to inhibit AI response
   // (useful when using chat to talk between humans).
   //
-  // `reasoning` selects how hard the model thinks on this turn; see newChat().
   sendChatMessage(chatId: number, message: string | SlashCommandRequest, modelId: string | null,
                   capsules?: CapsuleSpecifier[], attachments?: ChatAttachmentHandle[],
                   formats?: MessageFormatRef[],
@@ -1753,11 +1743,8 @@ export type AiChatMetadata = {
   // checkpoint; those messages remain in canonical history but no longer drive current-state reads.
   compactedTo?: number;
 
-  // How hard the model should think, as last chosen for this chat. Sticky per chat rather than
-  // per message so the composer can restore the control on reload, and so a turn started
-  // asynchronously (or resumed after an approval) uses the same level the user picked. Undefined
-  // means the deployment default for the model's API; "default" is never stored, it is the
-  // request that clears this field.
+  // Thinking level for this chat. Sticky per chat so the composer restores it on reload and a
+  // turn resumed after an approval pause uses the level the user picked. Undefined = API default.
   reasoning?: ThinkingLevel;
 };
 

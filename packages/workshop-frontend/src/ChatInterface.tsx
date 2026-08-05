@@ -85,8 +85,8 @@ import {
 } from "@gadgets/workshop-shared/api";
 import { ThinkingToggle } from "./components/chat/ThinkingToggle";
 
-// Stable empty fallback for the reasoning control's level list. A fresh `[]` here would be a new
-// identity on every composer render -- and this composer re-renders on every keystroke.
+// Stable identity: a fresh `[]` would be new on every render, and this composer re-renders on
+// every keystroke.
 const NO_THINKING_LEVELS: ThinkingLevel[] = [];
 import { ActionKind, ResourceDescription } from "@gadgets/workshop-shared/gatekeeper";
 import {
@@ -1811,9 +1811,7 @@ export const ChatInput = ({
   models: AiChatAuthorInfo[];
   selectedModel: string | null;
   onModelChange: (modelId: string | null) => void;
-  // Thinking levels the selected model supports, and the chat's current stored level. Empty or
-  // absent hides the reasoning control entirely. onThinkingChange may receive "default", which
-  // means "clear the stored level" rather than naming one.
+  // Empty/absent hides the control. onThinkingChange may receive "default", meaning "clear".
   thinkingLevels?: ThinkingLevel[];
   thinkingLevel?: ThinkingLevel;
   onThinkingChange?: (choice: ThinkingLevelChoice) => void;
@@ -4344,9 +4342,8 @@ function ChatInterface({
     [],
   );
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  // Supported thinking levels per model ID, and the level the composer will send next. The level
-  // is stored per chat server-side; this holds the pending choice until the next message commits
-  // it, and is re-synced from chat metadata when the active chat changes.
+  // Levels per model ID, plus the pending level. Stored per chat server-side; this holds the
+  // choice until the next send commits it, and re-syncs from metadata on chat switch.
   const [thinkingLevelsByModel, setThinkingLevelsByModel] =
       useState<Record<string, ThinkingLevel[]>>({});
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | undefined>(undefined);
@@ -4683,10 +4680,8 @@ function ChatInterface({
   // the same chat is open.
   const restoredThinkingFor = useRef<number | null>(null);
   useEffect(() => {
-    // No chat selected -- the sidebar's new-chat composer. Clear, so a level set on the chat we
-    // just left does not silently ride along onto a brand-new chat (which, being sticky
-    // server-side, would then be pinned there). Also covers the selected chat being deleted,
-    // where the ref would otherwise still point at the dead id.
+    // No chat selected (sidebar new-chat composer). Clear, so a level from the chat we left
+    // doesn't ride onto a new one and get pinned there. Also covers the chat being deleted.
     if (selectedChatId === null) {
       restoredThinkingFor.current = null;
       setThinkingLevel(undefined);
@@ -4697,9 +4692,8 @@ function ChatInterface({
     if (!meta) return;   // metadata not loaded yet; a later render retries.
     restoredThinkingFor.current = selectedChatId;
     setThinkingLevel(meta.reasoning);
-    // chatListVersion, not updateCounter: loading the chat list bumps the former, and on first
-    // render the cache is still empty, so depending only on the latter meant this never re-ran
-    // once the metadata actually arrived.
+    // chatListVersion, not just updateCounter: the chat list load bumps the former, and the
+    // cache is empty on first render, so without it this never re-ran once metadata arrived.
   }, [selectedChatId, chatListVersion, updateCounter]);
 
   // Download a committed chat attachment. Image bytes are already inlined on the message; other
@@ -5253,9 +5247,8 @@ function ChatInterface({
             overseer.listModels(),
             // Which models expose a reasoning control, and at which levels. Fetched alongside the
             // model list because it is keyed by the same IDs and changes only when models do.
-            // Non-fatal, but log it: a silent {} is indistinguishable from "no model supports
-            // reasoning", so a backend failure would make the control vanish everywhere with no
-            // diagnostic trace and look like the feature simply never shipped.
+            // Non-fatal, but log: a silent {} is indistinguishable from "no model supports
+            // reasoning", so a failure would hide the control with no trace.
             overseer.getModelThinkingLevels()
                 .catch((err) => {
                   console.error("Failed to fetch thinking levels:", err);
@@ -5465,9 +5458,8 @@ function ChatInterface({
     persistSelectedModel(modelId);
   };
 
-  // The menu speaks choices ("default" clears); state holds only real levels, and the sentinel is
-  // minted again at the wire. Keeping it out of state is what lets every render site pass
-  // `thinkingLevel` straight through instead of re-narrowing it.
+  // Menu speaks choices; state holds only real levels. The sentinel is re-minted at the wire,
+  // which is what lets render sites pass `thinkingLevel` straight through.
   const handleThinkingChange = (choice: ThinkingLevelChoice) => {
     setThinkingLevel(choice === "default" ? undefined : choice);
   };

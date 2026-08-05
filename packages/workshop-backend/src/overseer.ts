@@ -169,15 +169,11 @@ function defaultBlueprintBindingTitle(record: GatekeeperRecord, bindingName?: st
   return record.resourceTitle || bindingName || "Connection";
 }
 
-// Apply a caller's thinking-level choice to a chat's metadata. Three distinct meanings, and the
-// distinction is load-bearing:
-//   undefined  -- caller expressed no opinion; leave the chat's level alone. Callers that predate
-//                 the control (external messages, gadget-spawned agents, retries) land here, and
-//                 must not silently reset a level the user picked.
-//   "default"  -- caller explicitly wants the deployment default back; clear the stored level.
-//                 Without this there is no way to undo a choice, since an omitted argument is
-//                 already spoken for above.
-//   a level    -- store it.
+// Three distinct meanings, all load-bearing:
+//   undefined -- no opinion; leave the chat's level alone. Callers predating the control (external
+//                messages, gadget-spawned agents, retries) land here and must not reset a choice.
+//   "default" -- clear the stored level. The only way to undo, since undefined is taken above.
+//   a level   -- store it.
 function applyReasoningChoice(meta: AiChatMetadata, reasoning: ThinkingLevelChoice | undefined) {
   if (reasoning === undefined) return;
   if (reasoning === "default") delete meta.reasoning;
@@ -3953,8 +3949,7 @@ class OverseerImpl implements AgentHooks {
         let callbackCountBefore = liveChat.activeAgentCallbacks.size;
 
         let compactionTurn = isCompactionTurn(chatMessages);
-        // Read inside the loop, not above it: a multi-turn run can span an approval pause during
-        // which the user changes the thinking level, and each turn should use the current one.
+        // Inside the loop: a run can span an approval pause during which the level changes.
         let chatMeta = this.getChatMetaOrThrow(chatId);
         let newCheckpoint = await runAgent(
             this, withReasoning(chosenModel, chatMeta.reasoning), chatId, aiModel.profile,
