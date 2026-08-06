@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Dialog, Button, Input, Select, SensitiveInput, Collapsible, useKumoToastManager } from '@cloudflare/kumo'
-import { AiChatAuthorInfo, AiModelConfig, AiModelProvider, AiGatewayInfo, SUGGESTED_MODELS, type OpenRouterModel } from '@gadgets/workshop-shared/api'
+import { AiChatAuthorInfo, AiModelConfig, AiModelProvider, AiGatewayInfo, SUGGESTED_MODELS, type ProviderModel } from '@gadgets/workshop-shared/api'
 import { RpcStub } from 'capnweb'
 import { AuthenticatedApi } from '@gadgets/workshop-shared/api'
 
@@ -103,7 +103,7 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
   // OpenRouter's catalog, for suggesting model IDs. Fetched lazily -- it costs a round trip and
   // only the OpenRouter custom-model field uses it. Failure is silent: the field still accepts a
   // typed ID, which is the whole point of the custom path.
-  const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>([])
+  const [providerModels, setProviderModels] = useState<ProviderModel[]>([])
   const [displayName, setDisplayName] = useState('')
   const [apiToken, setApiToken] = useState('')
   const [accountId, setAccountId] = useState('')
@@ -132,7 +132,7 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
       setApiUrl('')
       setErrors({})
       setAdvancedOpen(false)
-      setOpenRouterModels([])
+      setProviderModels([])
     }
   }, [visible])
 
@@ -201,30 +201,12 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
         name: finalDisplayName,
       }
 
-      // Capture what the live catalog knows about the chosen model. The backend's bundled catalog
-      // is a release-time snapshot, so for anything newer this is the only source of its real
-      // cost, context window and reasoning support -- without it the model runs with $0 recorded
-      // spend, a guessed context window, and no thinking control.
-      const catalogEntry = selection!.provider === 'openrouter'
-          ? openRouterModels.find(m => m.id === finalModelId)
-          : undefined
-
       const config: AiModelConfig = {
         provider: selection!.provider,
         model: finalModelId,
         apiToken: gatewayMode ? '' : apiToken.trim(),
         ...(!gatewayMode && accountId.trim() && { accountId: accountId.trim() }),
         ...(!gatewayMode && apiUrl.trim() && { apiUrl: apiUrl.trim() }),
-        ...(catalogEntry && {
-          capabilities: {
-            contextWindow: catalogEntry.contextWindow,
-            maxTokens: catalogEntry.maxTokens,
-            reasoning: catalogEntry.reasoning,
-            inputCost: catalogEntry.inputCost,
-            outputCost: catalogEntry.outputCost,
-            cacheReadCost: catalogEntry.cacheReadCost,
-          },
-        }),
       }
 
       await authenticatedApi.addModel(profile, config)
@@ -244,18 +226,32 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
   // Load OpenRouter's catalog the first time its custom-model field is shown.
   useEffect(() => {
     if (!showCustomFields || selection?.provider !== 'openrouter') return
-    if (openRouterModels.length > 0) return
+    if (providerModels.length > 0) return
     let cancelled = false
-    authenticatedApi.listOpenRouterModels()
-      .then(models => { if (!cancelled) setOpenRouterModels(models) })
+    authenticatedApi.listProviderModels('openrouter')
+      .then(models => { if (!cancelled) setProviderModels(models) })
       .catch(err => console.error('Failed to load OpenRouter models:', err))
     return () => { cancelled = true }
-  }, [showCustomFields, selection?.provider, openRouterModels.length, authenticatedApi])
+  }, [showCustomFields, selection?.provider, providerModels.length, authenticatedApi])
 
   // Gate on the provider, not just on whether the catalog happens to be loaded. Without this the
   // datalist stays bound after switching the Select to another provider, and picking an
   // OpenRouter ID there silently saves a provider/model pair that fails on every turn.
-  const showOpenRouterCatalog = selection?.provider === 'openrouter' && openRouterModels.length > 0
+  // Guarded once: the fetched catalog only applies while OpenRouter is the selected provider.
+  // Ungated, the datalist stayed bound after switching providers and could persist a
+  // provider/model pair that fails on every turn.
+  const openRouterCatalog = selection?.provider === 'openrouter' ? providerModels : []
+  const showOpenRouterCatalog = openRouterCatalog.length > 0
+
+  // Memoized: the composer re-renders on every keystroke, and this is ~300 elements that only
+  // change when the catalog loads.
+  const modelOptions = useMemo(() => (
+    <datalist id="openrouter-models">
+      {openRouterCatalog.map(model => (
+        <option key={model.id} value={model.id}>{model.name}</option>
+      ))}
+    </datalist>
+  ), [openRouterCatalog])
   const example = selection ? exampleModel(selection.provider) : null
   const isOllama = selection?.provider === 'ollama'
   const isCloudflare = selection?.provider === 'cloudflare'
@@ -317,7 +313,7 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
                 label="Model ID"
                 placeholder={`e.g., ${example!.modelId}`}
                 description={showOpenRouterCatalog
-                    ? `${openRouterModels.length} models available - type to search, or enter any OpenRouter model ID`
+                    ? `${providerModels.length} models available - type to search, or enter any OpenRouter model ID`
                     : `The model identifier as specified by the provider (e.g., '${example!.modelId}')`}
                 value={modelId}
                 list={showOpenRouterCatalog ? 'openrouter-models' : undefined}
@@ -327,13 +323,7 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
               />
               {/* A datalist keeps the field free-text -- any OpenRouter model ID stays valid,
                   including ones added after this catalog snapshot. */}
-              {showOpenRouterCatalog && (
-                <datalist id="openrouter-models">
-                  {openRouterModels.map(model => (
-                    <option key={model.id} value={model.id}>{model.name}</option>
-                  ))}
-                </datalist>
-              )}
+              {showOpenRouterCatalog && modelOptions}
 
               <Input
                 label="Display Name"

@@ -1,5 +1,5 @@
 import { RpcStub } from "capnweb";
-import { GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, CollaboratorRole, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, GadgetMetadata, BlueprintMetadata, BlueprintLibrarySummary, BlueprintSource, BlueprintUserSummary, BLUEPRINT_SCREENSHOT_R2_PREFIX, GatekeeperVendorInfo, BlueprintOutput, OutputSummary, WorkpieceId, ListOutputsResult, type ThinkingLevel, type ThinkingLevelChoice, type OpenRouterModel } from '@gadgets/workshop-shared/api';
+import { GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, CollaboratorRole, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, GadgetMetadata, BlueprintMetadata, BlueprintLibrarySummary, BlueprintSource, BlueprintUserSummary, BLUEPRINT_SCREENSHOT_R2_PREFIX, GatekeeperVendorInfo, BlueprintOutput, OutputSummary, WorkpieceId, ListOutputsResult, type ThinkingLevel, type ThinkingLevelChoice } from '@gadgets/workshop-shared/api';
 import { Gatekeeper, GatekeeperUser, GatekeeperUserVerifier, GatekeeperVendor, AccountDescription, VendorDescription, GatekeeperConnectCallback, SupportedResource, ResourceConfiguratorFrame, AppUiContext, GatekeeperUiFrame } from "@gadgets/workshop-shared/gatekeeper";
 import { shouldAutoProvisionAccount, ambientGatekeeperMode } from "./provisioning-policy.js";
 import { CloudflareGatekeeperUser } from "@gadgets/workshop-shared/cloudflare-gatekeeper";
@@ -8,7 +8,8 @@ import { createTypedStorage, collection } from "@gadgets/typed-storage";
 import { createWorkshopLogger } from "./observability";
 import { getAiGatewayConfig } from "./ai-gateway.js";
 import { supportedThinkingLevels } from "./ai-models.js";
-import { listOpenRouterModels } from "./openrouter-catalog.js";
+import { listProviderModels } from "./openrouter-catalog.js";
+import type { AiModelProvider, ProviderModel } from "@gadgets/workshop-shared/api";
 import { utcDayKey, nextUtcMidnightIso, DailyQuotaResult } from "./ai-gateway-billing/limits/config.js";
 import type { AdminSettings } from "./admin-settings.js";
 import { isReservedBlueprintKey, readBlueprintKvRecord } from "./blueprint-archive.js";
@@ -542,11 +543,27 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     return result;
   }
 
-  async listOpenRouterModels(): Promise<OpenRouterModel[]> {
-    return listOpenRouterModels();
+  async listProviderModels(provider: AiModelProvider): Promise<ProviderModel[]> {
+    // Only OpenRouter publishes a catalog we fetch; the rest are bundled or user-defined.
+    return provider === "openrouter" ? listProviderModels() : [];
   }
 
   async addModel(profile: AiChatAuthorInfo, config: AiModelConfig): Promise<void> {
+    // Capture what the fetched catalog knows, so the request path has real cost, context window
+    // and reasoning support for a model the bundled catalog predates. Done here rather than in
+    // the UI so it does not depend on which widget the user picked from, and so cost figures
+    // feeding spend accounting are not supplied by the client.
+    if (config.provider === "openrouter" && !config.capabilities) {
+      let entry = (await listProviderModels()).find(model => model.id === config.model);
+      if (entry) {
+        config = { ...config, capabilities: {
+          contextWindow: entry.contextWindow,
+          maxTokens: entry.maxTokens,
+          reasoning: entry.reasoning,
+          cost: entry.cost,
+        } };
+      }
+    }
     let gwConfig = getAiGatewayConfig(this.env);
     if (gwConfig && !gwConfig.providers.has(config.provider)) {
       throw new Error(`Provider "${config.provider}" is not available in AI Gateway mode.`);

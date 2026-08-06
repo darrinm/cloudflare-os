@@ -312,10 +312,10 @@ export interface AuthenticatedApi extends RpcTarget {
   // map means no reasoning control. (Off AiChatAuthorInfo, which rides on every chat message.)
   getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
-  // OpenRouter's catalog, for the model picker. Fetched live and cached server-side, falling
-  // back to a baked list if OpenRouter is unreachable. Discovery only -- a configured model's
-  // request metadata still comes from the model registry.
-  listOpenRouterModels(): Promise<OpenRouterModel[]>;
+  // A provider's model catalog, for the picker. Fetched live and cached server-side where the
+  // provider publishes one; empty for providers whose models are bundled or user-defined.
+  // Discovery only -- addModel captures what the request path needs.
+  listProviderModels(provider: AiModelProvider): Promise<ProviderModel[]>;
 
   // Adds a new model to the user's configured set. The ID must be unique among the user's
   // configured models.
@@ -945,18 +945,25 @@ export type ThinkingLevel =
 // already means "leave the chat's level alone", so callers predating the control can't reset it.
 export type ThinkingLevelChoice = ThinkingLevel | "default";
 
-// One entry in OpenRouter's model catalog, as shown in the model picker. Costs are USD per
-// million tokens; undefined means OpenRouter did not publish a price, which is distinct from free.
-export type OpenRouterModel = {
-  id: string;
-  name: string;
+
+// Model metadata a provider can report, in the shapes the request path already uses. Costs are
+// USD per million tokens, matching the model registry; undefined means the provider published no
+// price, which is distinct from free.
+export type ModelCapabilities = {
   contextWindow?: number;
   maxTokens?: number;
-  // Whether OpenRouter advertises a reasoning knob for this model.
+  reasoning?: boolean;
+  cost?: { input: number, output: number, cacheRead: number, cacheWrite: number };
+};
+
+// One entry in a provider's fetched model catalog, as shown in the model picker.
+export type ProviderModel = ModelCapabilities & {
+  id: string;
+  name: string;
   reasoning: boolean;
-  inputCost?: number;
-  outputCost?: number;
-  cacheReadCost?: number;
+  // Whether the model can call tools. Undefined means the catalog did not say -- reported rather
+  // than silently filtered, so the picker (not the mapper) decides what to do about it.
+  tools?: boolean;
 };
 
 // Configuration specifying how to connect to an AI model provider.
@@ -970,20 +977,11 @@ export type AiModelConfig = {
   // Secret API token for the respective provider, for billing purposes.
   apiToken: string;
 
-  // Model metadata captured when the model was configured, for providers whose catalog is
-  // fetched rather than bundled (OpenRouter). The bundled catalog is a release-time snapshot, so
-  // a model added after it -- exactly the models live discovery exists to reach -- would
-  // otherwise fall back to synthesized defaults: zero cost, no reasoning, and a guessed context
-  // window. Absent fields fall back to the bundled catalog, then to those defaults.
-  capabilities?: {
-    contextWindow?: number;
-    maxTokens?: number;
-    reasoning?: boolean;
-    // USD per million tokens.
-    inputCost?: number;
-    outputCost?: number;
-    cacheReadCost?: number;
-  };
+  // Metadata captured when the model was configured, for providers whose catalog is fetched
+  // rather than bundled. The bundled catalog is a release-time snapshot, so a model added after
+  // it -- exactly what live discovery exists to reach -- would otherwise fall back to zero cost,
+  // no reasoning and a guessed context window. Merged into the model registry by catalogModel().
+  capabilities?: ModelCapabilities;
 
   // Cloudflare account ID owning the Workers AI deployment the token authorizes. Required for
   // provider "cloudflare" (whose REST endpoint is account-scoped); unused for other providers.

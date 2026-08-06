@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapOpenRouterModel, perMillionTokens } from "../src/openrouter-catalog.js";
+import { costOf, mapProviderModel, perMillionTokens } from "../src/openrouter-catalog.js";
 
 // OpenRouter publishes prices as per-token decimal *strings*; ModelCost is per million tokens.
 // That unit conversion is the most error-prone part of the mapping -- a missed factor of 1e6 is
@@ -17,13 +17,18 @@ describe("perMillionTokens", () => {
   it("reports an unusable price as unknown rather than free", () => {
     // Distinct outcomes on purpose: a model with no published price must not read as $0, which
     // would silently understate spend.
-    for (const value of [undefined, null, "", "n/a", {}, -1]) {
+    for (const value of [undefined, null, "", "n/a", {}, "-1"]) {
       expect(perMillionTokens(value)).toBeUndefined();
     }
   });
+
+  it("omits cost entirely when no usable price was published", () => {
+    expect(costOf({ input_cache_read: "0.000001" })).toBeUndefined();
+    expect(costOf(undefined)).toBeUndefined();
+  });
 });
 
-describe("mapOpenRouterModel", () => {
+describe("mapProviderModel", () => {
   const RAW = {
     id: "deepseek/deepseek-v3.2",
     name: "DeepSeek V3.2",
@@ -34,54 +39,55 @@ describe("mapOpenRouterModel", () => {
   };
 
   it("maps a complete record", () => {
-    expect(mapOpenRouterModel(RAW)).toEqual({
+    expect(mapProviderModel(RAW)).toEqual({
       id: "deepseek/deepseek-v3.2",
       name: "DeepSeek V3.2",
       contextWindow: 163840,
       maxTokens: 65536,
       reasoning: true,
-      inputCost: expect.closeTo(0.27, 6),
-      outputCost: expect.closeTo(0.4, 6),
-      cacheReadCost: expect.closeTo(0.13, 6),
+      tools: true,
+      cost: {
+        input: expect.closeTo(0.27, 6),
+        output: expect.closeTo(0.4, 6),
+        cacheRead: expect.closeTo(0.13, 6),
+        cacheWrite: 0,
+      },
     });
   });
 
   it("derives reasoning support from the advertised parameters", () => {
     // This is what decides whether the composer offers a thinking control for the model.
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["tools"] })?.reasoning).toBe(false);
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["tools", "reasoning"] })?.reasoning)
+    expect(mapProviderModel({ ...RAW, supported_parameters: ["tools"] })?.reasoning).toBe(false);
+    expect(mapProviderModel({ ...RAW, supported_parameters: ["tools", "reasoning"] })?.reasoning)
         .toBe(true);
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["tools", "reasoning_effort"] })
+    expect(mapProviderModel({ ...RAW, supported_parameters: ["tools", "reasoning_effort"] })
         ?.reasoning).toBe(true);
   });
 
-  it("drops a model that cannot do tool calling", () => {
-    // The agent loop is entirely tool-driven, so a non-tool model is unusable no matter how
-    // capable it looks. Before this provider every offered model came from a curated list and
-    // was implicitly tool-capable; an unfiltered catalog has to re-establish that.
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["reasoning"] })).toBeUndefined();
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: [] })).toBeUndefined();
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: undefined })).toBeUndefined();
+  it("reports tool capability instead of filtering on it", () => {
+    // The agent loop is tool-driven, so this decides whether a model is usable -- but the Model
+    // ID field takes free text, so filtering here would shrink a dropdown without enforcing
+    // anything. Report it and let the picker decide.
+    expect(mapProviderModel({ ...RAW, supported_parameters: ["reasoning"] })?.tools).toBe(false);
+    expect(mapProviderModel({ ...RAW, supported_parameters: ["tools"] })?.tools).toBe(true);
   });
 
   it("keeps a model whose optional fields are missing", () => {
     // A sparse record still belongs in the picker; only the identity fields are required.
-    expect(mapOpenRouterModel({ id: "some/model", supported_parameters: ["tools"] })).toEqual({
+    expect(mapProviderModel({ id: "some/model" })).toEqual({
       id: "some/model",
       name: "some/model",
       contextWindow: undefined,
       maxTokens: undefined,
       reasoning: false,
-      inputCost: undefined,
-      outputCost: undefined,
-      cacheReadCost: undefined,
+      tools: false,
+      cost: undefined,
     });
   });
 
   it("drops a record with no usable id", () => {
-    const tools = { supported_parameters: ["tools"] };
-    expect(mapOpenRouterModel({ name: "No ID", ...tools })).toBeUndefined();
-    expect(mapOpenRouterModel({ id: "", ...tools })).toBeUndefined();
-    expect(mapOpenRouterModel({ id: 42, ...tools })).toBeUndefined();
+    expect(mapProviderModel({ name: "No ID" })).toBeUndefined();
+    expect(mapProviderModel({ id: "" })).toBeUndefined();
+    expect(mapProviderModel({ id: 42 })).toBeUndefined();
   });
 });

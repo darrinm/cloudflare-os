@@ -4,6 +4,7 @@ import type {Api, Message, Model} from "@earendil-works/pi-ai";
 import * as Y from "yjs";
 import type {ChatBindingEntry, CompactionCheckpoint} from "./agent";
 import {zeroUsage} from "./ai-invoke";
+import {modelTokenWindow} from "./ai-models";
 
 // Context compaction keeps long chats within the model's limit. It summarizes the messages before a
 // boundary and stores their replay state in a checkpoint. Canonical history keeps every message, so
@@ -25,16 +26,18 @@ const DEFAULT_CONTEXT_WINDOW = 128_000;
 // no SUGGESTED_MODELS entry to declare its reservation, so the provider's applies.
 export function getModelTokenLimits(config: AiModelConfig):
     {inputBudget: number, maxOutputTokens?: number} {
-  let model = SUGGESTED_MODELS[config.provider][config.model];
-  // Metadata captured when the model was configured, for providers whose catalog is fetched
-  // rather than bundled. Without it a small-context model picked from a live catalog keeps the
-  // 128k default and never compacts before the provider starts rejecting the request outright.
-  let caps = config.capabilities;
-  let maxOutputTokens = model?.outputLimit ?? caps?.maxTokens ??
+  // Context window comes from the same resolver the request path uses, so the prompt is budgeted
+  // against the window actually being sent -- these were two independent fallback chains and
+  // disagreed for any model the bundled catalog knew but SUGGESTED_MODELS did not.
+  //
+  // maxOutputTokens deliberately does NOT: it means "capacity this model counts against its own
+  // window and must be withheld from the prompt", which is a narrower claim than the registry's
+  // max-output figure. Only SUGGESTED_MODELS (and Workers AI) assert it.
+  let suggested = SUGGESTED_MODELS[config.provider][config.model];
+  let maxOutputTokens = suggested?.outputLimit ??
       (config.provider === "cloudflare" ? WORKERS_AI_OUTPUT_LIMIT : undefined);
-  let contextWindow = model?.contextWindow ?? caps?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   return {
-    inputBudget: contextWindow - (maxOutputTokens ?? 0),
+    inputBudget: modelTokenWindow(config).contextWindow - (maxOutputTokens ?? 0),
     maxOutputTokens,
   };
 }
