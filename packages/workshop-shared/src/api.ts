@@ -970,6 +970,21 @@ export type AiModelConfig = {
   // Secret API token for the respective provider, for billing purposes.
   apiToken: string;
 
+  // Model metadata captured when the model was configured, for providers whose catalog is
+  // fetched rather than bundled (OpenRouter). The bundled catalog is a release-time snapshot, so
+  // a model added after it -- exactly the models live discovery exists to reach -- would
+  // otherwise fall back to synthesized defaults: zero cost, no reasoning, and a guessed context
+  // window. Absent fields fall back to the bundled catalog, then to those defaults.
+  capabilities?: {
+    contextWindow?: number;
+    maxTokens?: number;
+    reasoning?: boolean;
+    // USD per million tokens.
+    inputCost?: number;
+    outputCost?: number;
+    cacheReadCost?: number;
+  };
+
   // Cloudflare account ID owning the Workers AI deployment the token authorizes. Required for
   // provider "cloudflare" (whose REST endpoint is account-scoped); unused for other providers.
   accountId?: string;
@@ -1022,7 +1037,7 @@ export const SUGGESTED_MODELS: Record<
   },
   "openrouter": {
     "deepseek/deepseek-v3.2": { name: "DeepSeek V3.2", contextWindow: 163840 },
-    "z-ai/glm-5": { name: "GLM-5", contextWindow: 202752 },
+    "z-ai/glm-5": { name: "GLM-5", contextWindow: 204800 },
     "moonshotai/kimi-k2.6": { name: "Kimi K2.6", contextWindow: 262144 },
   },
 };

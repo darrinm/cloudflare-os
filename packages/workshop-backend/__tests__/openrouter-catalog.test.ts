@@ -49,14 +49,24 @@ describe("mapOpenRouterModel", () => {
   it("derives reasoning support from the advertised parameters", () => {
     // This is what decides whether the composer offers a thinking control for the model.
     expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["tools"] })?.reasoning).toBe(false);
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["reasoning"] })?.reasoning)
+    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["tools", "reasoning"] })?.reasoning)
         .toBe(true);
-    expect(mapOpenRouterModel({ ...RAW, supported_parameters: undefined })?.reasoning).toBe(false);
+    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["tools", "reasoning_effort"] })
+        ?.reasoning).toBe(true);
+  });
+
+  it("drops a model that cannot do tool calling", () => {
+    // The agent loop is entirely tool-driven, so a non-tool model is unusable no matter how
+    // capable it looks. Before this provider every offered model came from a curated list and
+    // was implicitly tool-capable; an unfiltered catalog has to re-establish that.
+    expect(mapOpenRouterModel({ ...RAW, supported_parameters: ["reasoning"] })).toBeUndefined();
+    expect(mapOpenRouterModel({ ...RAW, supported_parameters: [] })).toBeUndefined();
+    expect(mapOpenRouterModel({ ...RAW, supported_parameters: undefined })).toBeUndefined();
   });
 
   it("keeps a model whose optional fields are missing", () => {
     // A sparse record still belongs in the picker; only the identity fields are required.
-    expect(mapOpenRouterModel({ id: "some/model" })).toEqual({
+    expect(mapOpenRouterModel({ id: "some/model", supported_parameters: ["tools"] })).toEqual({
       id: "some/model",
       name: "some/model",
       contextWindow: undefined,
@@ -69,8 +79,9 @@ describe("mapOpenRouterModel", () => {
   });
 
   it("drops a record with no usable id", () => {
-    expect(mapOpenRouterModel({ name: "No ID" })).toBeUndefined();
-    expect(mapOpenRouterModel({ id: "" })).toBeUndefined();
-    expect(mapOpenRouterModel({ id: 42 })).toBeUndefined();
+    const tools = { supported_parameters: ["tools"] };
+    expect(mapOpenRouterModel({ name: "No ID", ...tools })).toBeUndefined();
+    expect(mapOpenRouterModel({ id: "", ...tools })).toBeUndefined();
+    expect(mapOpenRouterModel({ id: 42, ...tools })).toBeUndefined();
   });
 });

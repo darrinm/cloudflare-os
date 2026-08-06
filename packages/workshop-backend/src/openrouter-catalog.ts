@@ -46,11 +46,17 @@ export function perMillionTokens(price: unknown): number | undefined {
 }
 
 // Maps one OpenRouter record. Returns undefined when the record lacks the identity fields a
-// picker entry needs; everything else degrades to undefined rather than dropping the model.
+// picker entry needs, or when the model cannot do tool calling; everything else degrades to an
+// undefined field rather than dropping the model.
 export function mapOpenRouterModel(raw: RawModel): OpenRouterModel | undefined {
   if (typeof raw?.id !== "string" || raw.id === "") return undefined;
 
   const params = Array.isArray(raw.supported_parameters) ? raw.supported_parameters : [];
+  // Workshop's agent is entirely tool-driven -- every turn sends a tool list and every action
+  // goes through executeCode -- so a model without tool support can never do anything useful
+  // here. Before this provider, everything the picker offered came from a curated list and was
+  // implicitly tool-capable; an unfiltered catalog dump has to re-establish that guarantee.
+  if (!params.includes("tools")) return undefined;
   const contextWindow = typeof raw.context_length === "number" && raw.context_length > 0
       ? raw.context_length : undefined;
   const maxTokens = typeof raw.top_provider?.max_completion_tokens === "number"
@@ -70,7 +76,9 @@ export function mapOpenRouterModel(raw: RawModel): OpenRouterModel | undefined {
   };
 }
 
-// pi's baked catalog in the same shape, used when the live fetch fails.
+// pi's baked catalog in the same shape, used when the live fetch fails. pi's entries carry no
+// tool-capability flag, so this path cannot apply the same filter as the live one -- it is a
+// degraded fallback, not an equivalent.
 function staticCatalog(): OpenRouterModel[] {
   return Object.values(OPENROUTER_MODELS).map((model) => ({
     id: model.id,
@@ -89,7 +97,12 @@ export async function listOpenRouterModels(now = Date.now()): Promise<OpenRouter
 
   try {
     // The catalog endpoint is public; no key is needed to browse models.
-    const response = await fetch(MODELS_URL, { headers: { accept: "application/json" } });
+    const response = await fetch(MODELS_URL, {
+      headers: { accept: "application/json" },
+      // Bounded like the other outbound third-party call in this codebase (ai-gateway.ts): the
+      // UI awaits this RPC, so a black-holed route must fail fast rather than hold the request.
+      signal: AbortSignal.timeout(10_000),
+    });
     if (!response.ok) throw new Error(`OpenRouter models returned ${response.status}`);
 
     const payload = await response.json() as { data?: unknown };

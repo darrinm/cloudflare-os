@@ -26,10 +26,15 @@ const DEFAULT_CONTEXT_WINDOW = 128_000;
 export function getModelTokenLimits(config: AiModelConfig):
     {inputBudget: number, maxOutputTokens?: number} {
   let model = SUGGESTED_MODELS[config.provider][config.model];
-  let maxOutputTokens = model?.outputLimit ??
+  // Metadata captured when the model was configured, for providers whose catalog is fetched
+  // rather than bundled. Without it a small-context model picked from a live catalog keeps the
+  // 128k default and never compacts before the provider starts rejecting the request outright.
+  let caps = config.capabilities;
+  let maxOutputTokens = model?.outputLimit ?? caps?.maxTokens ??
       (config.provider === "cloudflare" ? WORKERS_AI_OUTPUT_LIMIT : undefined);
+  let contextWindow = model?.contextWindow ?? caps?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   return {
-    inputBudget: (model?.contextWindow ?? DEFAULT_CONTEXT_WINDOW) - (maxOutputTokens ?? 0),
+    inputBudget: contextWindow - (maxOutputTokens ?? 0),
     maxOutputTokens,
   };
 }

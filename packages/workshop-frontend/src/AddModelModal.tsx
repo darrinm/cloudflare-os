@@ -132,6 +132,7 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
       setApiUrl('')
       setErrors({})
       setAdvancedOpen(false)
+      setOpenRouterModels([])
     }
   }, [visible])
 
@@ -200,12 +201,30 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
         name: finalDisplayName,
       }
 
+      // Capture what the live catalog knows about the chosen model. The backend's bundled catalog
+      // is a release-time snapshot, so for anything newer this is the only source of its real
+      // cost, context window and reasoning support -- without it the model runs with $0 recorded
+      // spend, a guessed context window, and no thinking control.
+      const catalogEntry = selection!.provider === 'openrouter'
+          ? openRouterModels.find(m => m.id === finalModelId)
+          : undefined
+
       const config: AiModelConfig = {
         provider: selection!.provider,
         model: finalModelId,
         apiToken: gatewayMode ? '' : apiToken.trim(),
         ...(!gatewayMode && accountId.trim() && { accountId: accountId.trim() }),
         ...(!gatewayMode && apiUrl.trim() && { apiUrl: apiUrl.trim() }),
+        ...(catalogEntry && {
+          capabilities: {
+            contextWindow: catalogEntry.contextWindow,
+            maxTokens: catalogEntry.maxTokens,
+            reasoning: catalogEntry.reasoning,
+            inputCost: catalogEntry.inputCost,
+            outputCost: catalogEntry.outputCost,
+            cacheReadCost: catalogEntry.cacheReadCost,
+          },
+        }),
       }
 
       await authenticatedApi.addModel(profile, config)
@@ -232,6 +251,11 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
       .catch(err => console.error('Failed to load OpenRouter models:', err))
     return () => { cancelled = true }
   }, [showCustomFields, selection?.provider, openRouterModels.length, authenticatedApi])
+
+  // Gate on the provider, not just on whether the catalog happens to be loaded. Without this the
+  // datalist stays bound after switching the Select to another provider, and picking an
+  // OpenRouter ID there silently saves a provider/model pair that fails on every turn.
+  const showOpenRouterCatalog = selection?.provider === 'openrouter' && openRouterModels.length > 0
   const example = selection ? exampleModel(selection.provider) : null
   const isOllama = selection?.provider === 'ollama'
   const isCloudflare = selection?.provider === 'cloudflare'
@@ -292,18 +316,18 @@ export default function AddModelModal({ visible, onCancel, onSuccess, authentica
               <Input
                 label="Model ID"
                 placeholder={`e.g., ${example!.modelId}`}
-                description={openRouterModels.length > 0
+                description={showOpenRouterCatalog
                     ? `${openRouterModels.length} models available - type to search, or enter any OpenRouter model ID`
                     : `The model identifier as specified by the provider (e.g., '${example!.modelId}')`}
                 value={modelId}
-                list={openRouterModels.length > 0 ? 'openrouter-models' : undefined}
+                list={showOpenRouterCatalog ? 'openrouter-models' : undefined}
                 onChange={(e) => { setModelId(e.target.value); setErrors(prev => ({ ...prev, modelId: '' })) }}
                 error={errors.modelId}
                 variant={errors.modelId ? 'error' : 'default'}
               />
               {/* A datalist keeps the field free-text -- any OpenRouter model ID stays valid,
                   including ones added after this catalog snapshot. */}
-              {openRouterModels.length > 0 && (
+              {showOpenRouterCatalog && (
                 <datalist id="openrouter-models">
                   {openRouterModels.map(model => (
                     <option key={model.id} value={model.id}>{model.name}</option>

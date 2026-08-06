@@ -148,9 +148,15 @@ function catalogModel(provider: AiModelConfig["provider"], modelId: string): Mod
 // Levels a model supports, for the composer's control. From pi's catalog, so the UI can't offer
 // something the request path would reject. Unknown models yield [] -- fails closed.
 export function supportedThinkingLevels(config: AiModelConfig): ThinkingLevel[] {
-  const catalog = catalogModel(config.provider, config.model);
-  if (!catalog) return [];
-  const levels = getSupportedThinkingLevels(catalog) as ThinkingLevel[];
+  // Prefer the bundled catalog entry; failing that, fall back to the capability captured when the
+  // model was configured, so a model newer than the bundle still gets a control. pi derives the
+  // level set from `reasoning` plus `thinkingLevelMap` alone, and a descriptor with no map yields
+  // the conservative ladder (no xhigh/max) -- which is the right answer for a model whose exact
+  // ceiling we do not know.
+  const descriptor = catalogModel(config.provider, config.model)
+      ?? (config.capabilities?.reasoning ? { reasoning: true } as Model<Api> : undefined);
+  if (!descriptor) return [];
+  const levels = getSupportedThinkingLevels(descriptor) as ThinkingLevel[];
   // A single level is not a choice; treat it as "no control" so the UI stays honest.
   return levels.length > 1 ? levels : [];
 }
@@ -392,6 +398,17 @@ export function getModel(env: Cloudflare.Env, config: AiModelConfig,
   // BYOK: a connected user's own Cloudflare account pays for everything (all providers, including
   // Workers AI), routed through the user's own AI Gateway with unified billing. Honored regardless
   // of whether a platform AI Gateway is configured, so connected users are always billed correctly.
+
+  // OpenRouter always uses the key stored on its own config, so it bypasses both gateway paths.
+  // Neither applies to it: unified billing exists to bill a user's Cloudflare credits for a
+  // provider they hold no key for, and the platform gateway funds a fixed provider catalog --
+  // an OpenRouter model is already paid for by the OpenRouter key the user supplied. Without
+  // this, a BYOK-eligible user (which checkUsageAndBalance grants regardless of model) got
+  // "Provider \"openrouter\" is not supported via unified billing" on every turn.
+  if (config.provider === "openrouter") {
+    return getModelDirect(config, options.sessionAffinity);
+  }
+
   if (options.userGateway) {
     return getModelViaUserGateway(
         config, buildMetadata(initiator, options.metadata), options.userGateway,
@@ -589,10 +606,25 @@ function getModelDirect(config: AiModelConfig, sessionAffinity?: string): ModelH
         apiKey: config.apiToken,
         sessionAffinity,
       });
-    case "openrouter":
+    case "openrouter": {
       // OpenRouter speaks the OpenAI Chat Completions API at a fixed base, authenticated with a
-      // plain bearer key. Uncataloged ids (OpenRouter adds models faster than pi bakes them) fall
-      // back to synthesized defaults: usable, but with zero cost data and no reasoning control.
+      // plain bearer key.
+      //
+      // Metadata precedence: capabilities captured from the live catalog when the model was
+      // added, then pi's bundled catalog, then defaults. The live values have to win -- pi's
+      // catalog is a release-time snapshot, and the models it lacks are exactly the ones live
+      // discovery exists to reach. Without them a paid model records $0 spend, a reasoning model
+      // gets no thinking control, and a 262k model is capped at a guessed 128k/4096.
+      const caps = config.capabilities;
+      const cost = catalog?.cost ?? (
+          caps?.inputCost !== undefined || caps?.outputCost !== undefined
+              ? {
+                  input: caps.inputCost ?? 0,
+                  output: caps.outputCost ?? 0,
+                  cacheRead: caps.cacheReadCost ?? 0,
+                  cacheWrite: 0,
+                }
+              : ZERO_COST);
       return makeHandle({
         model: {
           id: config.model,
@@ -600,16 +632,22 @@ function getModelDirect(config: AiModelConfig, sessionAffinity?: string): ModelH
           api: "openai-completions",
           provider: "openrouter",
           baseUrl: config.apiUrl ?? "https://openrouter.ai/api/v1",
-          reasoning: catalog?.reasoning ?? false,
-          input: catalog?.input ?? ["text"],
-          cost: catalog?.cost ?? ZERO_COST,
+          reasoning: catalog?.reasoning ?? caps?.reasoning ?? false,
+          // Matches chat-attachment-validation.ts, which accepts images for this provider.
+          input: catalog?.input ?? ["text", "image"],
+          cost,
           ...window,
+          ...(catalog === undefined && caps?.contextWindow !== undefined
+              ? { contextWindow: caps.contextWindow } : {}),
+          ...(catalog === undefined && caps?.maxTokens !== undefined
+              ? { maxTokens: caps.maxTokens } : {}),
           thinkingLevelMap: catalog?.thinkingLevelMap,
           compat: catalog?.compat,
         },
         apiKey: config.apiToken,
         sessionAffinity,
       });
+    }
     case "ollama":
       // `apiUrl` is the Ollama server base; its OpenAI-compat endpoint lives under /v1. Accept
       // (and strip) a trailing `/api` or `/v1` path: configs saved before the pi migration store
