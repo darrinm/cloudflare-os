@@ -312,6 +312,11 @@ export interface AuthenticatedApi extends RpcTarget {
   // map means no reasoning control. (Off AiChatAuthorInfo, which rides on every chat message.)
   getModelThinkingLevels(): Promise<Record<string, ThinkingLevel[]>>;
 
+  // A provider's model catalog, for the picker. Fetched live and cached server-side where the
+  // provider publishes one; empty for providers whose models are bundled or user-defined.
+  // Discovery only -- addModel captures what the request path needs.
+  listProviderModels(provider: AiModelProvider): Promise<ProviderModel[]>;
+
   // Adds a new model to the user's configured set. The ID must be unique among the user's
   // configured models.
   addModel(profile: AiChatAuthorInfo, config: AiModelConfig): Promise<void>;
@@ -921,7 +926,8 @@ export type CloudflareAccountOption = {
 };
 
 // Supported AI providers.
-export type AiModelProvider = "openai" | "anthropic" | "google" | "cloudflare" | "ollama";
+export type AiModelProvider =
+    "openai" | "anthropic" | "google" | "cloudflare" | "ollama" | "openrouter";
 
 // Information about the AI gateway configuration. Returned by `AuthenticatedApi.getAiConfig()`.
 export type AiGatewayInfo = {
@@ -939,6 +945,27 @@ export type ThinkingLevel =
 // already means "leave the chat's level alone", so callers predating the control can't reset it.
 export type ThinkingLevelChoice = ThinkingLevel | "default";
 
+
+// Model metadata a provider can report, in the shapes the request path already uses. Costs are
+// USD per million tokens, matching the model registry; undefined means the provider published no
+// price, which is distinct from free.
+export type ModelCapabilities = {
+  contextWindow?: number;
+  maxTokens?: number;
+  reasoning?: boolean;
+  cost?: { input: number, output: number, cacheRead: number, cacheWrite: number };
+};
+
+// One entry in a provider's fetched model catalog, as shown in the model picker.
+export type ProviderModel = ModelCapabilities & {
+  id: string;
+  name: string;
+  reasoning: boolean;
+  // Whether the model can call tools. Undefined means the catalog did not say -- reported rather
+  // than silently filtered, so the picker (not the mapper) decides what to do about it.
+  tools?: boolean;
+};
+
 // Configuration specifying how to connect to an AI model provider.
 export type AiModelConfig = {
   // Which AI provider hosts the model?
@@ -949,6 +976,12 @@ export type AiModelConfig = {
 
   // Secret API token for the respective provider, for billing purposes.
   apiToken: string;
+
+  // Metadata captured when the model was configured, for providers whose catalog is fetched
+  // rather than bundled. The bundled catalog is a release-time snapshot, so a model added after
+  // it -- exactly what live discovery exists to reach -- would otherwise fall back to zero cost,
+  // no reasoning and a guessed context window. Merged into the model registry by catalogModel().
+  capabilities?: ModelCapabilities;
 
   // Cloudflare account ID owning the Workers AI deployment the token authorizes. Required for
   // provider "cloudflare" (whose REST endpoint is account-scoped); unused for other providers.
@@ -967,6 +1000,9 @@ export const WORKERS_AI_OUTPUT_LIMIT = 32768;
 // Models offered in the picker. `contextWindow` is the maximum tokens one request may total.
 // `outputLimit`, when present, is both the requested response cap and the space reserved for it,
 // leaving the remainder as the prompt budget context compaction sizes against.
+// One entry per provider. For OpenRouter this is only a shortlist -- its full catalog is fetched
+// live via listOpenRouterModels(), and any model can be named directly through the custom-model
+// path, so listing hundreds here would be noise.
 export const SUGGESTED_MODELS: Record<
   AiModelProvider,
   Record<string, {name: string, contextWindow: number, outputLimit?: number}>
@@ -996,6 +1032,11 @@ export const SUGGESTED_MODELS: Record<
     "gemini-3.6-flash": {name: "Gemini 3.6 Flash", contextWindow: 1048576},
   },
   "ollama": {
+  },
+  "openrouter": {
+    "deepseek/deepseek-v3.2": { name: "DeepSeek V3.2", contextWindow: 163840 },
+    "z-ai/glm-5": { name: "GLM-5", contextWindow: 204800 },
+    "moonshotai/kimi-k2.6": { name: "Kimi K2.6", contextWindow: 262144 },
   },
 };
 

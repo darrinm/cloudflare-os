@@ -17,10 +17,11 @@ import { ANTHROPIC_MODELS } from "@earendil-works/pi-ai/providers/anthropic.mode
 import { CLOUDFLARE_WORKERS_AI_MODELS } from "@earendil-works/pi-ai/providers/cloudflare-workers-ai.models";
 import { GOOGLE_MODELS } from "@earendil-works/pi-ai/providers/google.models";
 import { OPENAI_MODELS } from "@earendil-works/pi-ai/providers/openai.models";
+import { OPENROUTER_MODELS } from "@earendil-works/pi-ai/providers/openrouter.models";
 import { ApprovalQueue, Gatekeeper, ResourceDescription } from '@gadgets/workshop-shared/gatekeeper';
 import { LanguageModelBinding } from "./ai-model-binding";
 import AI_MODEL_BINDING_TYPES from "./ai-model-binding.txt";
-import { AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, WORKERS_AI_OUTPUT_LIMIT,
+import { AiChatAuthorInfo, AiModelConfig, AiModelProvider, SUGGESTED_MODELS, WORKERS_AI_OUTPUT_LIMIT,
   type ThinkingLevel } from "@gadgets/workshop-shared/api";
 import { AiGatewayConfig, getAiGatewayConfig, type AiGatewayLogRoute } from "./ai-gateway.js";
 import { completeText } from "./ai-invoke.js";
@@ -128,28 +129,60 @@ const API_STREAMS = {
   "google-generative-ai": [googleGenerativeAiStream, googleGenerativeAiStreamSimple],
 } as Record<string, [raw: ApiStream, simple: ApiStream]>;
 
+// Which providers AI Gateway can front. `satisfies Record<AiModelProvider, ...>` on purpose: the
+// next provider added has to state its answer instead of defaulting into a gateway path that
+// would throw for it.
+const GATEWAY_ROUTABLE = {
+  anthropic: true,
+  openai: true,
+  google: true,
+  cloudflare: true,
+  ollama: false,      // local endpoint
+  openrouter: false,  // user's own key
+} satisfies Record<AiModelProvider, boolean>;
+
 const ZERO_COST: ModelCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
 // Consult pi's builtin catalog for cost/compat metadata of a known model id. Unknown models are
 // fine (synthesized with zero cost). Import per-provider, not providers/all.
-function catalogModel(provider: AiModelConfig["provider"], modelId: string): Model<Api> | undefined {
+function bundledModel(provider: AiModelConfig["provider"], modelId: string): Model<Api> | undefined {
   switch (provider) {
     case "anthropic": return (ANTHROPIC_MODELS as Record<string, Model<Api>>)[modelId];
     case "openai": return (OPENAI_MODELS as Record<string, Model<Api>>)[modelId];
     case "google": return (GOOGLE_MODELS as Record<string, Model<Api>>)[modelId];
     case "cloudflare": return (CLOUDFLARE_WORKERS_AI_MODELS as Record<string, Model<Api>>)[modelId];
+    case "openrouter": return (OPENROUTER_MODELS as Record<string, Model<Api>>)[modelId];
     case "ollama": return undefined;
     default: return undefined;
   }
 }
 
+// The single owner of "where does this model's metadata come from": the bundled catalog, else the
+// capabilities captured when the model was configured (providers whose catalog is fetched rather
+// than bundled). Everything downstream -- token windows, cost, thinking levels, the request
+// descriptor -- reads this one answer, so they cannot disagree about a given model.
+function catalogModel(config: AiModelConfig): Model<Api> | undefined {
+  const bundled = bundledModel(config.provider, config.model);
+  if (bundled) return bundled;
+  const caps = config.capabilities;
+  if (!caps) return undefined;
+  return {
+    contextWindow: caps.contextWindow,
+    maxTokens: caps.maxTokens,
+    reasoning: caps.reasoning ?? false,
+    cost: caps.cost,
+  } as Model<Api>;
+}
+
 // Levels a model supports, for the composer's control. From pi's catalog, so the UI can't offer
 // something the request path would reject. Unknown models yield [] -- fails closed.
 export function supportedThinkingLevels(config: AiModelConfig): ThinkingLevel[] {
-  const catalog = catalogModel(config.provider, config.model);
-  if (!catalog) return [];
-  const levels = getSupportedThinkingLevels(catalog) as ThinkingLevel[];
-  // A single level is not a choice; treat it as "no control" so the UI stays honest.
+  const descriptor = catalogModel(config);
+  if (!descriptor) return [];
+  // pi derives the set from `reasoning` plus `thinkingLevelMap`: no map yields the conservative
+  // ladder (no xhigh/max), which is the right answer for a model whose ceiling we don't know, and
+  // a non-reasoning model yields just ["off"] -- which the length check below reads as no control.
+  const levels = getSupportedThinkingLevels(descriptor) as ThinkingLevel[];
   return levels.length > 1 ? levels : [];
 }
 
@@ -166,9 +199,11 @@ export function withReasoning(handle: ModelHandle, level: ThinkingLevel | undefi
 }
 
 // Token limits for a synthesized model. SUGGESTED_MODELS remains authoritative (compaction
-// budgets in agent-compaction.ts are computed from it and must not change); pi's catalog fills
-// gaps for models we don't list, and unknown models get conservative defaults.
-function modelTokenWindow(config: AiModelConfig, catalog: Model<Api> | undefined)
+// budgets in agent-compaction.ts are computed from it and must not change); catalogModel fills
+// gaps for models we don't list, and unknown models get conservative defaults. Exported so
+// compaction resolves the same window the request path sends, rather than a second opinion.
+export function modelTokenWindow(
+    config: AiModelConfig, catalog: Model<Api> | undefined = catalogModel(config))
     : { contextWindow: number, maxTokens: number } {
   const suggested = SUGGESTED_MODELS[config.provider]?.[config.model];
   return {
@@ -201,7 +236,7 @@ function workersAiCompat(catalog: Model<Api> | undefined): OpenAICompletionsComp
 // including unified billing on a user's own gateway -- is orthogonal to which API a request
 // speaks. Returns undefined for providers AI Gateway cannot serve (ollama).
 function gatewayNativeModel(config: AiModelConfig, gatewayUrl: string): Model<Api> | undefined {
-  const catalog = catalogModel(config.provider, config.model);
+  const catalog = catalogModel(config);
   const window = modelTokenWindow(config, catalog);
   switch (config.provider) {
     case "anthropic":
@@ -390,6 +425,16 @@ export function getModel(env: Cloudflare.Env, config: AiModelConfig,
   // BYOK: a connected user's own Cloudflare account pays for everything (all providers, including
   // Workers AI), routed through the user's own AI Gateway with unified billing. Honored regardless
   // of whether a platform AI Gateway is configured, so connected users are always billed correctly.
+
+  // Providers that bring their own endpoint or key are not gateway-routable: neither unified
+  // billing (which exists to bill Cloudflare credits for a provider the user holds no key for)
+  // nor the platform gateway's funded catalog applies to them. BYOK routing is chosen by
+  // usage/balance alone, with no regard for provider, so without this an OpenRouter or Ollama
+  // model threw "not supported via unified billing" on every turn.
+  if (!GATEWAY_ROUTABLE[config.provider]) {
+    return getModelDirect(config, options.sessionAffinity);
+  }
+
   if (options.userGateway) {
     return getModelViaUserGateway(
         config, buildMetadata(initiator, options.metadata), options.userGateway,
@@ -472,7 +517,7 @@ function getModelViaGateway(
     // CF_AI_GATEWAY_WAI_DIRECT: the plain Workers AI REST endpoint -- no gateway, no log route,
     // no gateway metadata (mirroring the old direct-binding path, which had no
     // aiGatewayLogRoute). Reuses the CF_AI_GATEWAY_* account/token pair.
-    const catalog = catalogModel(config.provider, config.model);
+    const catalog = catalogModel(config);
     const model: Model<Api> = {
       id: config.model,
       name: catalog?.name ?? config.model,
@@ -522,7 +567,7 @@ function getModelViaGateway(
 
 // Direct provider access using the credentials in the model config itself (no AI Gateway).
 function getModelDirect(config: AiModelConfig, sessionAffinity?: string): ModelHandle {
-  const catalog = catalogModel(config.provider, config.model);
+  const catalog = catalogModel(config);
   const window = modelTokenWindow(config, catalog);
   switch (config.provider) {
     case "anthropic":
@@ -583,6 +628,28 @@ function getModelDirect(config: AiModelConfig, sessionAffinity?: string): ModelH
           cost: catalog?.cost ?? ZERO_COST,
           ...window,
           thinkingLevelMap: catalog?.thinkingLevelMap,
+        },
+        apiKey: config.apiToken,
+        sessionAffinity,
+      });
+    case "openrouter":
+      // OpenRouter speaks the OpenAI Chat Completions API at a fixed base, authenticated with a
+      // plain bearer key. Metadata comes from catalogModel, which merges the bundled catalog with
+      // whatever addModel captured for models newer than it.
+      return makeHandle({
+        model: {
+          id: config.model,
+          name: catalog?.name ?? config.model,
+          api: "openai-completions",
+          provider: "openrouter",
+          baseUrl: config.apiUrl ?? "https://openrouter.ai/api/v1",
+          reasoning: catalog?.reasoning ?? false,
+          // Matches chat-attachment-validation.ts, which accepts images for this provider.
+          input: catalog?.input ?? ["text", "image"],
+          cost: catalog?.cost ?? ZERO_COST,
+          ...window,
+          thinkingLevelMap: catalog?.thinkingLevelMap,
+          compat: catalog?.compat,
         },
         apiKey: config.apiToken,
         sessionAffinity,

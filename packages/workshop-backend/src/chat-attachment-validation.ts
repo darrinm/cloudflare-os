@@ -32,12 +32,18 @@ const isTextImageOrPdfMime = (mimeType: string) =>
 // image part and are bridged to a provider's native document input where one exists: Gemini takes
 // application/pdf inline data as-is, and Anthropic/OpenAI payloads are rewritten in flight (see
 // chat-attachment-pdf.ts). Workers AI and Ollama chat endpoints have no document input at all.
+//
+// OpenRouter is text+image only: the PDF bridging in chat-attachment-pdf.ts keys off the API
+// (anthropic-messages / openai-responses), and OpenRouter arrives as openai-completions, so a PDF
+// would reach the provider as a raw image part. Whether it is understood then depends on whichever
+// upstream model was routed to -- so this rejects it up front rather than failing mid-request.
 const ATTACHMENT_SUPPORT_BY_PROVIDER = {
   anthropic: isTextImageOrPdfMime,
   openai: isTextImageOrPdfMime,
   google: isTextImageOrPdfMime,
   cloudflare: isTextOrImageMime,
   ollama: isTextOrImageMime,
+  openrouter: isTextOrImageMime,
 } satisfies Record<AiModelProvider, (mimeType: string) => boolean>;
 
 function sanitizeChatAttachmentMimeType(mimeType: string | undefined): string {
