@@ -7733,8 +7733,9 @@ function ChatInterface({
                     })()}
                   />
 
-                  {/* Token / cost summary. */}
-                  <div className="-mt-1 flex min-h-[1.25rem] items-start justify-end gap-4 px-4 pb-1 font-mono text-[11px] leading-4 text-kumo-inactive">
+                  {/* Token / cost summary. Hidden below md: on a phone it costs a line of
+                      vertical space under the composer for numbers the header already carries. */}
+                  <div className="-mt-1 hidden min-h-[1.25rem] items-start justify-end gap-4 px-4 pb-1 font-mono text-[11px] leading-4 text-kumo-inactive md:flex">
                     {currentChatMetadata?.totalTokens != null && (
                       <span>
                         {currentChatMetadata.totalTokens.toLocaleString()} tokens
