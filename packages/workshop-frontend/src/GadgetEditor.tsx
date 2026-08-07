@@ -328,6 +328,11 @@ const MIN_CHAT_WIDTH = 280
 const MIN_WORKSPACE_WIDTH = 400
 const DEFAULT_CHAT_WIDTH = 420
 const WORKSPACE_TRANSITION_MS = 200
+// Below this width the chat/app split degenerates: MIN_CHAT_WIDTH plus the remainder leaves the
+// app pane a ~110px sliver on phones. Show one pane at a time instead -- the open app pane takes
+// the full width, and the existing close button / app rail already toggle between panes.
+// cloudflare/cloudflare-os#64.
+const NARROW_VIEWPORT_WIDTH = 768
 
 const isBrowser = typeof window !== 'undefined'
 
@@ -481,6 +486,7 @@ export default function GadgetEditor() {
   // ── layout ───────────────────────────────────────────────────────────────────
   const [chatWidth, setChatWidth] = useState(getInitialChatWidth)
   const chatWidthRef = useRef(chatWidth)
+  const [isNarrow, setIsNarrow] = useState(() => isBrowser && window.innerWidth < NARROW_VIEWPORT_WIDTH)
   const [isResizing, setIsResizing] = useState(false)
   const [activeTab, setActiveTab] = useState<RightTab>('app')
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView | null>(() =>
@@ -913,6 +919,7 @@ export default function GadgetEditor() {
   useEffect(() => {
     const handleResize = () => {
       setChatWidth(width => clampChatWidth(width))
+      setIsNarrow(window.innerWidth < NARROW_VIEWPORT_WIDTH)
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -1470,10 +1477,10 @@ export default function GadgetEditor() {
 
         {/* ── LEFT: Chat pane ──────────────────────────────────────────────────── */}
         <div
-          className={`flex flex-col flex-shrink-0 ${workspaceTransitionClass} ${showFullEditor ? 'border-r border-kumo-line' : ''}`}
+          className={`flex flex-col flex-shrink-0 ${workspaceTransitionClass} ${showFullEditor && !isNarrow ? 'border-r border-kumo-line' : ''} ${showFullEditor && isNarrow ? 'overflow-hidden' : ''}`}
           style={{
             width: showFullEditor
-              ? chatWidth
+              ? (isNarrow ? 0 : chatWidth)
               : `calc(100% - ${outputRailWidth}px)`,
           }}
         >
@@ -1532,7 +1539,7 @@ export default function GadgetEditor() {
         {/* ── Resize handle ───────────────────────────────────────────────────── */}
         <div
           className={`flex-shrink-0 overflow-visible bg-kumo-line cursor-col-resize relative touch-none ${workspaceTransitionClass}`}
-          style={{ width: showFullEditor ? 1 : 0 }}
+          style={{ width: showFullEditor && !isNarrow ? 1 : 0 }}
           onPointerDown={handleResizePointerDown}
           onPointerMove={handleResizePointerMove}
           onPointerUp={handleResizePointerUp}
@@ -1545,7 +1552,7 @@ export default function GadgetEditor() {
         <div
           className={`flex flex-shrink-0 min-w-0 overflow-hidden bg-kumo-base ${workspaceTransitionClass}`}
           style={{
-            width: showFullEditor ? `calc(100% - ${chatWidth}px - 1px)` : 0,
+            width: showFullEditor ? (isNarrow ? '100%' : `calc(100% - ${chatWidth}px - 1px)`) : 0,
             opacity: showFullEditor ? 1 : 0,
           }}
         >
