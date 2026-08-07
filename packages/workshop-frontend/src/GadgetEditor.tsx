@@ -500,7 +500,9 @@ export default function GadgetEditor() {
   const [blueprintModalOpen, setBlueprintModalOpen] = useState(false)
   const [previewMode, _setPreviewMode] = useState(false)
   const [workpieceRailExpanded, setWorkpieceRailExpanded] = useState(getInitialAppRailExpanded)
-  const workpieceRailWidth = workpieceRailExpanded
+  // On narrow viewports the expanded rail (220px) would take over half the screen from the chat,
+  // so force the icon-only rail there regardless of the stored preference.
+  const workpieceRailWidth = workpieceRailExpanded && !isNarrow
     ? WORKPIECE_RAIL_EXPANDED_WIDTH
     : WORKPIECE_RAIL_COLLAPSED_WIDTH
   const handleWorkpieceRailExpandedChange = useCallback((expanded: boolean) => {
@@ -1601,7 +1603,7 @@ export default function GadgetEditor() {
                   ))}
               </div>
 
-              {!paneShowsActivity && (
+              {!paneShowsActivity && !isNarrow && (
                 <GadgetExportMenu
                   gadget={selectedGadgetStub}
                   gadgetTitle={selectedGadgetSummary?.title ?? 'Gadget'}
@@ -1610,7 +1612,9 @@ export default function GadgetEditor() {
                 />
               )}
 
-              {!paneShowsActivity && (
+              {/* Export and full-screen are hidden on narrow viewports so the close button --
+                  the only way back to the chat -- can never be pushed past the right edge. */}
+              {!paneShowsActivity && !isNarrow && (
                 <WorkshopIconButton
                   aria-label="Enter full screen"
                   title={activeTab === 'app' && !previewMode
@@ -1734,7 +1738,7 @@ export default function GadgetEditor() {
             selectedId={null}
             agentEditingId={streamingActiveFile?.workpieceId ?? null}
             hookedGadgetIds={hookedGadgetIds}
-            expanded={workpieceRailExpanded}
+            expanded={workpieceRailExpanded && !isNarrow}
             onExpandedChange={handleWorkpieceRailExpandedChange}
             onSelect={handleSelectWorkpiece}
             onRename={handleRenameWorkpiece}
