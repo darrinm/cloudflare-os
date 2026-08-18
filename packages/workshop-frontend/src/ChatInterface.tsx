@@ -5100,15 +5100,18 @@ function ChatInterface({
         setSelectedModel(activeAgent.id);
       } else {
         // 2. Otherwise, derive the model from the most recent agent message or agent error.
+        const inferred = inferSelectedModelFromMessages(currentMessages);
+        // 3. A chat created by an agent spawner (a Bot's conversation) is meant to be answered by an
+        //    agent even before it has taken a turn: default to the user's model rather than
+        //    "No agent", so a human message typed there is not silently stored unanswered.
         setSelectedModel(
-          fallbackToStoredModelSelection(
-            inferSelectedModelFromMessages(currentMessages),
-            availableModels,
-          ),
+          inferred === null && currentChatMetadata?.spawnerName
+            ? getStoredSelectedModel(availableModels)
+            : fallbackToStoredModelSelection(inferred, availableModels),
         );
       }
     }
-  }, [selectedChatId, availableModels, currentMessages, activeAgent]);
+  }, [selectedChatId, availableModels, currentMessages, activeAgent, currentChatMetadata?.spawnerName]);
 
   // Keep the ref in sync with selectedChatId state
   useEffect(() => {
