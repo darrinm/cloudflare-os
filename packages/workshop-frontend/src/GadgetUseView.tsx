@@ -72,7 +72,7 @@ export default function GadgetUseView({
 
           <span className="text-kumo-inactive flex-shrink-0">/</span>
 
-          <span className="text-[14px] leading-5 font-medium tracking-[-0.25px] text-kumo-default truncate">
+          <span className="text-[15px] md:text-[14px] leading-5 font-medium tracking-[-0.25px] text-kumo-default truncate">
             {metadata.title}
           </span>
 
@@ -92,7 +92,7 @@ export default function GadgetUseView({
                 type="button"
                 onClick={() => onSelectGadget(g.id)}
                 aria-current={g.id === selectedGadgetId ? 'true' : undefined}
-                className={`flex-shrink-0 cursor-pointer rounded-full px-3 py-1 text-[12px] leading-4 tracking-[-0.2px] transition-colors duration-150 ease-out ${
+                className={`flex-shrink-0 cursor-pointer rounded-full px-3 py-1 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] transition-colors duration-150 ease-out ${
                   g.id === selectedGadgetId
                     ? 'bg-kumo-contrast font-medium text-kumo-inverse'
                     : 'bg-kumo-tint text-kumo-subtle hover:text-kumo-default'

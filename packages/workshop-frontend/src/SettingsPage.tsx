@@ -15,15 +15,15 @@ import { useDocumentTitle } from './useDocumentTitle'
 // the gatekeepers toolbar, the command palette). Kept here so the profile page reads as part of the
 // system rather than a stack of default Kumo cards.
 const PRIMARY_BTN =
-  'press inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-kumo-brand px-3.5 text-[13px] font-medium tracking-[-0.25px] text-white transition-colors hover:bg-kumo-brand-hover disabled:cursor-not-allowed disabled:opacity-60'
+  'press inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-kumo-brand px-3.5 text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-white transition-colors hover:bg-kumo-brand-hover disabled:cursor-not-allowed disabled:opacity-60'
 const ICON_BTN =
   'press grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default'
 const INPUT =
-  'h-9 w-full rounded-lg border border-kumo-line bg-kumo-base px-3 text-[14px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15'
+  'h-9 w-full rounded-lg border border-kumo-line bg-kumo-base px-3 text-[15px] md:text-[14px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="px-1 text-[12px] font-medium uppercase tracking-[0.08em] text-kumo-inactive">
+    <h2 className="px-1 text-[13px] md:text-[12px] font-medium uppercase tracking-[0.08em] text-kumo-inactive">
       {children}
     </h2>
   )
@@ -31,7 +31,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[12px] font-medium tracking-[-0.1px] text-kumo-subtle">{children}</p>
+    <p className="text-[13px] md:text-[12px] font-medium tracking-[-0.1px] text-kumo-subtle">{children}</p>
   )
 }
 
@@ -77,9 +77,9 @@ function PasswordField({
         </button>
       </div>
       {error ? (
-        <p className="mt-1 text-[12px] tracking-[-0.1px] text-kumo-danger">{error}</p>
+        <p className="mt-1 text-[13px] md:text-[12px] tracking-[-0.1px] text-kumo-danger">{error}</p>
       ) : description ? (
-        <p className="mt-1 text-[12px] tracking-[-0.1px] text-kumo-subtle">{description}</p>
+        <p className="mt-1 text-[13px] md:text-[12px] tracking-[-0.1px] text-kumo-subtle">{description}</p>
       ) : null}
     </div>
   )
@@ -241,7 +241,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-1 items-center justify-center">
-        <p className="text-[13px] tracking-[-0.25px] text-kumo-subtle">Loading profile…</p>
+        <p className="text-[14px] md:text-[13px] tracking-[-0.25px] text-kumo-subtle">Loading profile…</p>
       </div>
     )
   }
@@ -250,7 +250,7 @@ export default function SettingsPage() {
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-6 pb-16 sm:px-10">
       <header className="px-1 pb-2 pt-10">
         <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Profile</h1>
-        <p className="mt-1 text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
+        <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
           Manage your account details, avatar, and security.
         </p>
       </header>
@@ -297,7 +297,7 @@ export default function SettingsPage() {
                 <p className="truncate text-[15px] font-medium tracking-[-0.25px] text-kumo-default">
                   {userInfo?.name}
                 </p>
-                <p className="mt-0.5 text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
+                <p className="mt-0.5 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
                   Click the avatar to upload a new photo
                 </p>
               </div>
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                     className={`mt-1.5 ${INPUT}`}
                   />
                 ) : (
-                  <p className="mt-1 text-[14px] tracking-[-0.25px] text-kumo-default">
+                  <p className="mt-1 text-[15px] md:text-[14px] tracking-[-0.25px] text-kumo-default">
                     {userInfo?.name}
                   </p>
                 )}
@@ -362,7 +362,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <FieldLabel>User ID</FieldLabel>
-                <p className="mt-1 truncate font-mono text-[12px] tracking-[-0.1px] text-kumo-subtle">
+                <p className="mt-1 truncate font-mono text-[13px] md:text-[12px] tracking-[-0.1px] text-kumo-subtle">
                   {userInfo?.id}
                 </p>
               </div>

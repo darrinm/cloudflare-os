@@ -350,7 +350,7 @@ export default function ObserverConfigModal({
                       fallback={<Plus size={16} />}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[14px] font-medium text-kumo-default truncate">
+                      <div className="text-[15px] md:text-[14px] font-medium text-kumo-default truncate">
                         {need.resourceTitle}
                       </div>
                       {need.resourceUrl && (
@@ -390,7 +390,7 @@ export default function ObserverConfigModal({
                       {matching.length === 1 ? (
                         <div className="flex min-h-10 items-center gap-3 rounded-lg border border-kumo-line bg-kumo-elevated/50 px-3 py-2">
                           <div className="min-w-0 flex-1">
-                            <div className="text-[11px] leading-4 text-kumo-subtle">Using your account</div>
+                            <div className="text-[12px] md:text-[11px] leading-4 text-kumo-subtle">Using your account</div>
                             <div className="truncate text-sm font-medium text-kumo-default">
                               {accountLabel(matching[0], matching[0].id)}
                             </div>

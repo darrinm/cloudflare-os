@@ -14,7 +14,7 @@ function AssistantAvatar() {
 function UserAvatar() {
   return (
     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-kumo-tint">
-      <span className="text-[10px] font-semibold text-kumo-strong">U</span>
+      <span className="text-[11px] md:text-[10px] font-semibold text-kumo-strong">U</span>
     </div>
   )
 }
@@ -37,7 +37,7 @@ function RichContent({ text }: { text: string }) {
           return (
             <code
               key={i}
-              className="text-[11px] px-1 py-0.5 rounded bg-kumo-tint font-mono text-kumo-brand"
+              className="text-[12px] md:text-[11px] px-1 py-0.5 rounded bg-kumo-tint font-mono text-kumo-brand"
             >
               {part.slice(1, -1)}
             </code>

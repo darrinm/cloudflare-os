@@ -137,7 +137,7 @@ export default function AdminFormatsPanel({
           }
         />
         <DropdownMenu.Content className={MENU_CONTENT}>
-          <p className="px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
+          <p className="px-2 pb-1.5 pt-1 text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
             Offer as a standard format
           </p>
           {available.map((candidate) => (
@@ -148,10 +148,10 @@ export default function AdminFormatsPanel({
             >
               <FormatGlyph output={candidate.declared} size="lg" className="shrink-0 text-kumo-subtle" />
               <span className="min-w-0">
-                <span className="block truncate text-[13px] text-kumo-default">
+                <span className="block truncate text-[14px] md:text-[13px] text-kumo-default">
                   {candidate.title || 'Untitled blueprint'}
                 </span>
-                <span className="block truncate text-[11px] text-kumo-inactive">
+                <span className="block truncate text-[12px] md:text-[11px] text-kumo-inactive">
                   {candidate.declared
                     ? `Produces ${candidate.declared.plural}`
                     : 'No declared format. You’ll name it.'}
@@ -169,11 +169,11 @@ export default function AdminFormatsPanel({
 function PreviewStrip({ formats }: { formats: AdminFormat[] }) {
   return (
     <div className="mb-5 rounded-lg border border-dashed border-kumo-line bg-kumo-tint/40 p-4">
-      <p className="mb-2.5 text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
+      <p className="mb-2.5 text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
         What people will see
       </p>
       {formats.length === 0 ? (
-        <p className="text-[13px] italic text-kumo-inactive">
+        <p className="text-[14px] md:text-[13px] italic text-kumo-inactive">
           Nothing yet. People will only see “New workspace”.
         </p>
       ) : (
@@ -181,7 +181,7 @@ function PreviewStrip({ formats }: { formats: AdminFormat[] }) {
           {formats.map((format) => (
             <span
               key={format.blueprintId}
-              className="flex items-center gap-2 rounded-full border border-kumo-line bg-kumo-base px-3.5 py-2 text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-default"
+              className="flex items-center gap-2 rounded-full border border-kumo-line bg-kumo-base px-3.5 py-2 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-default"
             >
               <FormatGlyph output={format.output} size="md" className="text-kumo-subtle" />
               New {format.output!.noun}
@@ -189,7 +189,7 @@ function PreviewStrip({ formats }: { formats: AdminFormat[] }) {
           ))}
         </div>
       )}
-      <p className="mt-2.5 text-[12px] leading-4 text-kumo-subtle">
+      <p className="mt-2.5 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
         In the composer’s + menu, the command palette, and on an empty Outputs page, in this order.
       </p>
     </div>
@@ -200,7 +200,7 @@ function EmptyState() {
   return (
     <div className="mb-5 rounded-lg border border-kumo-line bg-kumo-base px-4 py-5 text-center">
       <p className="text-sm font-medium text-kumo-default">No standard formats yet</p>
-      <p className="mx-auto mt-1 max-w-md text-[13px] leading-[18px] text-kumo-subtle">
+      <p className="mx-auto mt-1 max-w-md text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
         Promote a blueprint to offer it by name wherever people start something, and to have the
         agent prefer it over building the same thing from scratch.
       </p>
@@ -301,7 +301,7 @@ function FormatRow({
       {open && (
         <div className="flex flex-col gap-4 border-t border-kumo-line px-3 py-4">
           {format.missing ? (
-            <p className="text-[13px] text-kumo-subtle">
+            <p className="text-[14px] md:text-[13px] text-kumo-subtle">
               The blueprint behind this format was deleted, so nobody is offered it. Remove the
               entry.
             </p>
@@ -353,7 +353,7 @@ function FormatRow({
                       the Outputs page, and that shouldn't be discovered there. */}
                   <figure className="hidden shrink-0 flex-col items-center gap-1.5 sm:flex">
                     <FormatPreview output={format.output} width={112} />
-                    <figcaption className="text-[10px] uppercase tracking-[0.06em] text-kumo-inactive">
+                    <figcaption className="text-[11px] md:text-[10px] uppercase tracking-[0.06em] text-kumo-inactive">
                       On Outputs
                     </figcaption>
                   </figure>
@@ -375,7 +375,7 @@ function FormatRow({
                     only its last line, and showing the label alone made an empty hint look like the
                     agent had been told nothing. Mirrors #listStandardFormats in overseer.ts. */}
                 {format.output && (
-                  <p className="mt-2 flex items-start gap-1.5 rounded-md bg-kumo-tint/60 px-2.5 py-2 font-mono text-[11px] leading-4 text-kumo-subtle">
+                  <p className="mt-2 flex items-start gap-1.5 rounded-md bg-kumo-tint/60 px-2.5 py-2 font-mono text-[12px] md:text-[11px] leading-4 text-kumo-subtle">
                     <Sparkle size={12} className="mt-0.5 shrink-0" />
                     <span className="min-w-0">
                       <span className="block">
@@ -397,7 +397,7 @@ function FormatRow({
                   when it comes back. Removing would discard all three to reach the same visible
                   result. The backend refuses it too -- this is an RPC. */}
               <div className="flex items-end justify-between gap-4 border-t border-kumo-line pt-3">
-                <p className="text-[12px] leading-4 text-kumo-subtle">
+                <p className="text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
                   {(format.enabled
                     ? 'Turning this off removes it from the menus above and from the agent’s catalog. Outputs already made from it keep working. '
                     : 'Currently hidden from the menus above and from the agent’s catalog. ') +
@@ -440,8 +440,8 @@ function Fieldset({
 }) {
   return (
     <div>
-      <p className="text-[13px] font-medium text-kumo-default">{title}</p>
-      <p className="mb-2 mt-0.5 text-[12px] leading-4 text-kumo-subtle">{detail}</p>
+      <p className="text-[14px] md:text-[13px] font-medium text-kumo-default">{title}</p>
+      <p className="mb-2 mt-0.5 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">{detail}</p>
       {children}
     </div>
   )
@@ -450,7 +450,7 @@ function Fieldset({
 function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'warn' }) {
   return (
     <span
-      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${
+      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] md:text-[10px] font-medium leading-none ${
         tone === 'warn' ? 'bg-kumo-danger/10 text-kumo-danger' : 'bg-kumo-fill text-kumo-subtle'
       }`}
     >
@@ -490,7 +490,7 @@ function OverrideField({
 
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
+      <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
         {label}
         {overridden && (
           <span className="ml-1 normal-case tracking-normal text-kumo-subtle">(overridden)</span>
@@ -526,7 +526,7 @@ function IconPicker({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
+      <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
         Icon
       </span>
       <DropdownMenu>

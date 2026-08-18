@@ -162,10 +162,10 @@ function OutputCard({
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <FormatTile output={output.output} size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium leading-[18px] tracking-[-0.25px] text-kumo-default">
+          <p className="truncate text-[14px] md:text-[13px] font-medium leading-[18px] tracking-[-0.25px] text-kumo-default">
             {output.title || 'Untitled'}
           </p>
-          <p className="mt-0.5 truncate text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
+          <p className="mt-0.5 truncate text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
             {subtitle(output)}
           </p>
         </div>
@@ -192,7 +192,7 @@ function OutputRow({
         <p className="truncate text-sm font-medium tracking-[-0.25px] text-kumo-default">
           {output.title || 'Untitled'}
         </p>
-        <p className="mt-0.5 truncate text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
+        <p className="mt-0.5 truncate text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
           {formatOf(output.output).noun} · {output.workspaceTitle || 'Untitled workspace'}
         </p>
       </div>
@@ -227,7 +227,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium tracking-[-0.25px] transition-colors ${
+      className={`inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-[14px] md:text-[13px] font-medium tracking-[-0.25px] transition-colors ${
         active
           ? 'bg-kumo-fill text-kumo-strong'
           : 'text-kumo-subtle hover:bg-kumo-tint hover:text-kumo-default'
@@ -274,7 +274,7 @@ function ScopeSelect({
         render={
           <button
             type="button"
-            className={`inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium tracking-[-0.25px] transition-colors ${
+            className={`inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[14px] md:text-[13px] font-medium tracking-[-0.25px] transition-colors ${
               value === 'all'
                 ? 'border-kumo-line text-kumo-subtle hover:text-kumo-default'
                 : 'border-kumo-line bg-kumo-fill text-kumo-strong'
@@ -349,7 +349,7 @@ function RenameOutputDialog({
               </Dialog.Title>
               {/* Renames the output itself, unlike the sidebar's workspace rename, which relabels
                   only your own copy. */}
-              <Dialog.Description className="mt-1 text-[12px] leading-4 text-kumo-subtle">
+              <Dialog.Description className="mt-1 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
                 Renames the output for everyone with access to “{output?.workspaceTitle}”.
               </Dialog.Description>
             </div>
@@ -358,7 +358,7 @@ function RenameOutputDialog({
             </WorkshopIconButton>
           </div>
           <div className="px-5 py-4">
-            <label className="block text-[12px] font-medium text-kumo-subtle" htmlFor="rename-output-title">
+            <label className="block text-[13px] md:text-[12px] font-medium text-kumo-subtle" htmlFor="rename-output-title">
               Name
             </label>
             <input
@@ -367,7 +367,7 @@ function RenameOutputDialog({
               value={value}
               disabled={busy}
               onChange={(event) => onValueChange(event.target.value)}
-              className="mt-1.5 h-9 w-full rounded-lg border border-kumo-line bg-kumo-base px-3 text-[13px] text-kumo-default focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
+              className="mt-1.5 h-9 w-full rounded-lg border border-kumo-line bg-kumo-base px-3 text-[14px] md:text-[13px] text-kumo-default focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
             />
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-kumo-line px-5 py-3">
@@ -577,7 +577,7 @@ function OutputsPage() {
       <header className="flex items-end justify-between gap-4 px-3 pb-4 pt-10">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Outputs</h1>
-          <p className="mt-1 text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
+          <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
             Everything your workspaces have produced, in one place.
           </p>
         </div>
@@ -624,7 +624,7 @@ function OutputsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search outputs…"
-              className="h-9 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[13px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] duration-150 ease-out focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
+              className="h-9 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[14px] md:text-[13px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] duration-150 ease-out focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
             />
           </div>
         </div>
@@ -653,7 +653,7 @@ function OutputsPage() {
               <p className="text-sm font-medium text-kumo-default">
                 {isFiltered ? 'No outputs match' : 'No outputs yet'}
               </p>
-              <p className="mt-1 text-[13px] leading-[18px] text-kumo-subtle">
+              <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
                 {isFiltered
                   ? 'Try a different filter or search term.'
                   : 'Anything your workspaces build will show up here.'}

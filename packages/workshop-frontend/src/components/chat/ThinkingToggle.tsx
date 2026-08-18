@@ -69,7 +69,7 @@ export function ThinkingToggle({ level, levels, onChange }: ThinkingToggleProps)
             type="button"
             aria-label="Thinking effort level"
             title="How hard the model should think"
-            className="group inline-flex h-8 min-w-0 flex-shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 text-[13px] leading-5 tracking-[-0.25px] text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default"
+            className="group inline-flex h-8 min-w-0 flex-shrink-0 cursor-pointer items-center gap-1 rounded-lg px-2 text-[14px] md:text-[13px] leading-5 tracking-[-0.25px] text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default"
           >
             <Lightbulb
               size={15}

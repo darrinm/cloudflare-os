@@ -13,11 +13,11 @@ export default function NotificationSettings() {
   if (state.status === 'unavailable' || state.status === 'unsupported' || state.status === 'loading') return null
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="px-1 text-[12px] font-medium uppercase tracking-[0.08em] text-kumo-inactive">Notifications</h2>
+      <h2 className="px-1 text-[13px] md:text-[12px] font-medium uppercase tracking-[0.08em] text-kumo-inactive">Notifications</h2>
       <div className="flex items-center justify-between gap-4 rounded-xl border border-kumo-line bg-kumo-base px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[13px] font-medium text-kumo-default">Push notifications on this device</div>
-          <div className="text-[12px] text-kumo-subtle">
+          <div className="text-[14px] md:text-[13px] font-medium text-kumo-default">Push notifications on this device</div>
+          <div className="text-[13px] md:text-[12px] text-kumo-subtle">
             {state.status === 'on' && 'On. Bots will notify you here when they finish work or need you.'}
             {state.status === 'off' && 'Off. Turn on to hear from your Bots while you are away.'}
             {state.status === 'denied' && 'Blocked by the browser. Allow notifications for this site in the browser settings, then reload.'}

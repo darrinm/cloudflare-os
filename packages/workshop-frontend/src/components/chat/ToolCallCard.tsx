@@ -55,7 +55,7 @@ export default function ToolCallCard({ tool }: { tool: ToolCall }) {
         <Icon size={14} weight="duotone" className="text-kumo-subtle flex-shrink-0" />
         <span className="flex-1 text-xs text-kumo-default truncate">{tool.label}</span>
         {tool.duration != null && (
-          <span className="font-mono text-[11px] text-kumo-subtle tabular-nums flex-shrink-0">
+          <span className="font-mono text-[12px] md:text-[11px] text-kumo-subtle tabular-nums flex-shrink-0">
             {tool.duration >= 1000
               ? `${(tool.duration / 1000).toFixed(1)}s`
               : `${tool.duration}ms`}
@@ -78,7 +78,7 @@ export default function ToolCallCard({ tool }: { tool: ToolCall }) {
         <div className="px-3 pb-3 pt-1 border-t border-kumo-line space-y-2">
           {tool.input && (
             <div>
-              <span className="font-mono text-[10px] text-kumo-subtle uppercase tracking-wider">Input</span>
+              <span className="font-mono text-[11px] md:text-[10px] text-kumo-subtle uppercase tracking-wider">Input</span>
               <pre className="text-xs font-mono text-kumo-subtle whitespace-pre-wrap leading-relaxed mt-1 bg-kumo-tint rounded-md px-2 py-1.5">
                 {JSON.stringify(tool.input, null, 2)}
               </pre>
@@ -86,7 +86,7 @@ export default function ToolCallCard({ tool }: { tool: ToolCall }) {
           )}
           {tool.output && (
             <div>
-              <span className="font-mono text-[10px] text-kumo-subtle uppercase tracking-wider">Output</span>
+              <span className="font-mono text-[11px] md:text-[10px] text-kumo-subtle uppercase tracking-wider">Output</span>
               <p className="text-xs text-kumo-subtle mt-1">{tool.output}</p>
             </div>
           )}

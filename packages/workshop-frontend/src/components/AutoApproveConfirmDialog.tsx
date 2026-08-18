@@ -41,7 +41,7 @@ export default function AutoApproveConfirmDialog({
             <Dialog.Title className="text-[15px] leading-5 font-medium tracking-[-0.3px] text-kumo-default">
               Always approve “{actionLabel}”?
             </Dialog.Title>
-            <Dialog.Description className="mt-1 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+            <Dialog.Description className="mt-1 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
               Future <span className="font-medium text-kumo-default">{actionLabel}</span> actions on{' '}
               <span className="font-medium text-kumo-default">{resourceTitle}</span> will be applied
               automatically, without asking for approval. This action will be applied now too.

@@ -192,14 +192,14 @@ function PaneLabel({
   return (
     <div
       title={title}
-      className="inline-flex w-full min-w-0 max-w-[180px] items-center gap-1.5 overflow-hidden rounded-lg bg-kumo-tint px-2.5 py-1.5 text-[13px] font-medium tracking-[-0.15px] text-kumo-default"
+      className="inline-flex w-full min-w-0 max-w-[180px] items-center gap-1.5 overflow-hidden rounded-lg bg-kumo-tint px-2.5 py-1.5 text-[14px] md:text-[13px] font-medium tracking-[-0.15px] text-kumo-default"
     >
       {LabelIcon
         ? <LabelIcon size={14} weight="bold" className="flex-shrink-0" />
         : <FormatGlyph output={output} size="sm" className="flex-shrink-0" weight="regular" />}
       <span className="truncate">{title}</span>
       {badge !== undefined && (
-        <span className="rounded-full bg-kumo-fill px-1.5 py-0.5 text-[10px] font-medium leading-none text-kumo-subtle">
+        <span className="rounded-full bg-kumo-fill px-1.5 py-0.5 text-[11px] md:text-[10px] font-medium leading-none text-kumo-subtle">
           {badge}
         </span>
       )}
@@ -276,7 +276,7 @@ function PaneWorkpieceTabs({
             title={gadget.title}
             aria-current={active ? 'page' : undefined}
             // The open one gets room for its whole name; the others yield first.
-            className={`inline-flex flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium tracking-[-0.15px] transition-colors duration-150 ${
+            className={`inline-flex flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[14px] md:text-[13px] font-medium tracking-[-0.15px] transition-colors duration-150 ${
               active
                 ? 'max-w-[240px] bg-kumo-tint text-kumo-default'
                 : 'max-w-[150px] text-kumo-subtle hover:bg-kumo-tint/50 hover:text-kumo-default'
@@ -285,7 +285,7 @@ function PaneWorkpieceTabs({
             <FormatGlyph output={gadget.output} size="sm" className="flex-shrink-0" weight="regular" />
             <span className="truncate">{gadget.title}</span>
             {gadget.chatId !== undefined && (
-              <span className="flex-shrink-0 rounded-full bg-kumo-fill px-1.5 py-0.5 text-[10px] font-medium leading-none text-kumo-subtle">
+              <span className="flex-shrink-0 rounded-full bg-kumo-fill px-1.5 py-0.5 text-[11px] md:text-[10px] font-medium leading-none text-kumo-subtle">
                 Draft
               </span>
             )}
@@ -411,7 +411,7 @@ function NoGadgetPlaceholder({ height }: { height: string }) {
         <p className="m-0 text-[15px] leading-[22px] font-semibold tracking-[-0.3px] text-kumo-default">
           No gadgets yet
         </p>
-        <p className="mt-1.5 mb-0 text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
+        <p className="mt-1.5 mb-0 text-[14px] md:text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
           Ask the agent in chat to build something, and it will appear here.
         </p>
       </div>
@@ -1366,7 +1366,7 @@ export default function GadgetEditor() {
                   if (e.key === 'Escape') handleCancelEdit()
                 }}
                 autoFocus
-                className="!h-7 w-56 bg-kumo-tint text-[14px] leading-5 font-medium tracking-[-0.25px]"
+                className="!h-7 w-56 bg-kumo-tint text-[15px] md:text-[14px] leading-5 font-medium tracking-[-0.25px]"
               />
               <WorkshopIconButton
                 onClick={handleSaveTitle}
@@ -1386,7 +1386,7 @@ export default function GadgetEditor() {
             </div>
           ) : (
             <div className="flex items-center gap-1 min-w-0">
-              <span className="text-[14px] leading-5 font-medium tracking-[-0.25px] text-kumo-default truncate">
+              <span className="text-[15px] md:text-[14px] leading-5 font-medium tracking-[-0.25px] text-kumo-default truncate">
                 {metadata.title}
               </span>
               <WorkshopIconButton
@@ -1416,7 +1416,7 @@ export default function GadgetEditor() {
           />
 
           {metadata.totalCost != null && (
-            <span className="ml-3 mr-2 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+            <span className="ml-3 mr-2 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
               {formatHeaderCost(metadata.totalCost)}
             </span>
           )}
@@ -1684,8 +1684,8 @@ export default function GadgetEditor() {
                   aria-live="polite"
                   className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 transform"
                 >
-                  <div className="rounded-full border border-kumo-line bg-kumo-base/90 px-4 py-1.5 text-[13px] leading-[18px] text-kumo-default shadow-md backdrop-blur-sm">
-                    Press <kbd className="rounded border border-kumo-line bg-kumo-elevated px-1.5 py-0.5 text-[11px] font-medium">Esc</kbd> to exit full screen
+                  <div className="rounded-full border border-kumo-line bg-kumo-base/90 px-4 py-1.5 text-[14px] md:text-[13px] leading-[18px] text-kumo-default shadow-md backdrop-blur-sm">
+                    Press <kbd className="rounded border border-kumo-line bg-kumo-elevated px-1.5 py-0.5 text-[12px] md:text-[11px] font-medium">Esc</kbd> to exit full screen
                   </div>
                 </div>
               )}

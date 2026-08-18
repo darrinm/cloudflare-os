@@ -42,7 +42,7 @@ export default function DeleteConfirmationDialog({
             <Dialog.Title className="text-[15px] leading-5 font-medium tracking-[-0.3px] text-kumo-default">
               {title}
             </Dialog.Title>
-            <Dialog.Description className="mt-1 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+            <Dialog.Description className="mt-1 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
               {description}
             </Dialog.Description>
           </div>
