@@ -6709,22 +6709,24 @@ function ChatInterface({
       return (
         <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
           <div className="rounded-2xl border border-kumo-brand/40 bg-kumo-brand/10 px-4 py-3">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-kumo-tint text-kumo-brand" aria-hidden="true">
-                <ShieldCheck size={20} weight="fill" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="min-w-0 truncate font-medium text-kumo-default">
-                    {log.description.title}
-                  </span>
-                  {resourceMeta}
-                </div>
-                <div className={`chat-panel mt-1 max-h-[200px] overflow-y-auto pr-1 text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
-                  <MarkdownMessage message={log.description.description} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-kumo-tint text-kumo-brand" aria-hidden="true">
+                  <ShieldCheck size={20} weight="fill" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="min-w-0 break-words font-medium text-kumo-default sm:truncate">
+                      {log.description.title}
+                    </span>
+                    {resourceMeta}
+                  </div>
+                  <div className={`chat-panel mt-1 max-h-[200px] overflow-y-auto overflow-x-hidden break-words pr-1 text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
+                    <MarkdownMessage message={log.description.description} />
+                  </div>
                 </div>
               </div>
-              <div className="ml-3 flex flex-shrink-0 items-center gap-1 self-center">
+              <div className="flex flex-wrap items-center justify-end gap-1 sm:ml-3 sm:flex-shrink-0 sm:self-center">
                 {actionControls}
               </div>
             </div>
@@ -6753,7 +6755,7 @@ function ChatInterface({
                 {log.description.title}
               </span>
             </div>
-            <div className="ml-auto flex flex-shrink-0 items-center gap-0.5">{actionControls}</div>
+            <div className="ml-auto flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5">{actionControls}</div>
           </div>
         ) : (
           <button
