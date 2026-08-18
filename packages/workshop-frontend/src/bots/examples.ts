@@ -97,9 +97,31 @@ type SeedDeps = {
 
 type GadgetClient = ReturnType<RpcStub<Overseer>['getGadget']>
 
+const RESTART_RE = /restart|disposed|broken|reset|code update/i
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Runs `fn`, retrying while the hub gadget is restarting under it. Binding anything to the hub
+ * (a Bot's spawner, browser, sandbox, sender) restarts its gadget, and a call that lands during
+ * the restart fails with "Gadget restarted due to code update" or a broken/disposed stub. Retries
+ * with a short backoff; anything else is rethrown at once.
+ */
+async function whileRestarting<T>(fn: () => Promise<T>, onRetry?: (msg: string) => void, attempts = 6): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await fn() }
+    catch (err) {
+      const msg = String(err instanceof Error ? err.message : err)
+      if (attempt >= attempts || !RESTART_RE.test(msg)) throw err
+      onRetry?.(msg)
+      await sleep(1000 + attempt * 500)
+    }
+  }
+}
+
 /** Creates one per-Bot resource gatekeeper and binds it into the hub (skips if the binding exists). */
 async function ensureResource(deps: SeedDeps, client: GadgetClient, bindingName: string, vendorId: string, resourceUrl: string): Promise<number | null> {
-  const existing = (await client.listBindings()).find((b) => b.name === bindingName)
+  const retry = (m: string) => deps.onProgress?.(`hub busy, retrying… (${m.slice(0, 50)})`)
+  const existing = (await whileRestarting(() => client.listBindings(), retry)).find((b) => b.name === bindingName)
   if (existing) return existing.target
   const accountId = await findOrProvisionAccount(deps.api, vendorId)
   if (accountId === null) { deps.onProgress?.(`(no ${vendorId} gatekeeper on this deployment — skipped)`); return null }
@@ -107,7 +129,7 @@ async function ensureResource(deps: SeedDeps, client: GadgetClient, bindingName:
   if (!gk) return null
   try {
     const id = await gk.getId()
-    await client.bind(bindingName, id)
+    await whileRestarting(() => client.bind(bindingName, id), retry)
     return id
   } finally { gk[Symbol.dispose]() }
 }
@@ -126,21 +148,21 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
   const client = overseer.getGadget(hubWorkpieceId)
   let hub: HubStub = deps.hub
   let ownHub = null as HubStub | null
+  const retryNote = (m: string) => onProgress?.(`hub busy, retrying… (${m.slice(0, 50)})`)
   const freshHub = async (): Promise<HubStub> => {
     try { ownHub?.[Symbol.dispose]() } catch { /* already gone */ }
-    ownHub = (await client.connectToGadget()) as unknown as HubStub
+    ownHub = await whileRestarting(async () => (await client.connectToGadget()) as unknown as HubStub, retryNote)
     return ownHub
   }
-  // The gadget may still be restarting when the next call lands ("Gadget restarted due to code
-  // update" / broken stub); retry that call once on a fresh stub before giving up.
+  // A hub call that lands during a restart is retried on a fresh stub.
   const onHub = async <T>(fn: (h: HubStub) => Promise<T>): Promise<T> => {
     for (let attempt = 0; ; attempt++) {
       try { return await fn(hub) }
       catch (err) {
         const msg = String(err instanceof Error ? err.message : err)
-        if (attempt >= 2 || !/restart|disposed|broken|reset/i.test(msg)) throw err
-        onProgress?.(`hub restarted, retrying… (${msg.slice(0, 60)})`)
-        await new Promise((r) => setTimeout(r, 1500))
+        if (attempt >= 4 || !RESTART_RE.test(msg)) throw err
+        retryNote(msg)
+        await sleep(1000 + attempt * 500)
         hub = await freshHub()
       }
     }
@@ -158,7 +180,7 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
     for (const def of EXAMPLE_BOTS) {
       const bot = bots[def.key]
       const spawnerName = exampleBindingName('SPAWNER', bot.id)
-      if ((await client.listBindings()).some((b) => b.name === spawnerName)) continue
+      if ((await whileRestarting(() => client.listBindings(), retryNote)).some((b) => b.name === spawnerName)) continue
       const env: Record<string, number> = { HUB: hubWorkpieceId }
       const name = computerNameFor(bot)
       if (def.browser) {
@@ -174,7 +196,7 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
         if (id !== null) env.EMAIL_SEND = id
       }
       const spawner = await overseer.newAgentSpawnerGatekeeper({ displayName: `${bot.name} agent`, modelId, env })
-      try { await client.bind(spawnerName, await spawner.getId()) } finally { spawner[Symbol.dispose]() }
+      try { const spawnerId = await spawner.getId(); await whileRestarting(() => client.bind(spawnerName, spawnerId), retryNote) } finally { spawner[Symbol.dispose]() }
       hub = await freshHub()
       await onHub((h) => h.respawnAgent(bot.id, spawnerName))
       onProgress?.(`${bot.name}: grants ${Object.keys(env).join(', ')}`)
