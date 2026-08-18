@@ -28,6 +28,9 @@ import { handleClientErrorRequest } from "./client-errors.js";
 import { verifyCfAccessJwt, resolveAccessIdentity } from "./access.js";
 import { resolveUiFeatureFlags } from "./feature-flags";
 import { serveSiteLogo, SITE_LOGO_PATH } from "./site-logo.js";
+
+/** Web app manifest path (see the fetch handler). */
+const MANIFEST_PATH = "/api/manifest.webmanifest";
 import { createWorkshopLogger } from "./observability";
 import { wrapDoStubForTelemetry } from "./do-telemetry";
 
@@ -159,6 +162,19 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
   }
   setPreferredModel(id: string | null): Promise<void> {
     return this.#user.setPreferredModel(id);
+  }
+
+  getPushConfig(): Promise<{ publicKey: string } | null> {
+    return this.#user.getPushConfig();
+  }
+  subscribePush(subscription: unknown, userAgent?: string): Promise<void> {
+    return this.#user.subscribePush(subscription, userAgent);
+  }
+  unsubscribePush(endpoint: string): Promise<void> {
+    return this.#user.unsubscribePush(endpoint);
+  }
+  listPushSubscriptions(): Promise<Array<{ endpoint: string; created: Date; userAgent?: string }>> {
+    return this.#user.listPushSubscriptions();
   }
   isOnboardingCompleted(): Promise<boolean> {
     return this.#user.isOnboardingCompleted();
@@ -805,6 +821,28 @@ export default {
 
     if (url.pathname === SITE_LOGO_PATH) {
       return serveSiteLogo(req, env.BLUEPRINT_CONTENT);
+    }
+
+    // Web app manifest, built from admin branding so the installed PWA carries the deployment's
+    // name, logo and accent. Served from /api so the Router forwards it without a route change;
+    // index.html links to it and the service worker at /sw.js is a static frontend asset.
+    if (url.pathname === MANIFEST_PATH) {
+      let config = await readAdminConfig(env);
+      let manifest = {
+        name: config.siteName,
+        short_name: config.siteName.length <= 12 ? config.siteName : config.siteName.slice(0, 12),
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        background_color: "#ffffff",
+        theme_color: config.accentColor || "#000000",
+        icons: [
+          { src: config.siteLogoConfigured ? SITE_LOGO_PATH : "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+        ],
+      };
+      return new Response(JSON.stringify(manifest), {
+        headers: { "content-type": "application/manifest+json", "cache-control": "public, max-age=300" },
+      });
     }
 
     if (url.pathname.startsWith(BLUEPRINT_SCREENSHOT_PATH_PREFIX)) {

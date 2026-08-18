@@ -6,6 +6,7 @@ import {
   Hexagon,
   House,
   MagnifyingGlass,
+  Robot,
   SidebarSimple,
   SquaresFour,
   Stack,
@@ -140,6 +141,13 @@ export default function Sidebar({
               label="Outputs"
               icon={<Stack size={14} weight="regular" />}
               collapsed={collapsed}
+            />
+            <SidebarItem
+              to="/bots"
+              label="Bots"
+              icon={<Robot size={14} weight="regular" />}
+              collapsed={collapsed}
+              matchPrefix
             />
             {/* Gatekeeper management apps (e.g. the Context Library), listed dynamically. */}
             {gatekeeperApps.map((app) => {

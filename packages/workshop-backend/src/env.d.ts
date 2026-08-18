@@ -64,6 +64,11 @@ declare global {
       CF_ACCESS_AUD?: string;   // audience
       CF_ACCESS_ISS?: string;   // team URL, e.g. https://<team>.cloudflareaccess.com
 
+      // Optional Web Push (see push.ts): VAPID key pair + subject. All three or none.
+      VAPID_PUBLIC_KEY?: string;
+      VAPID_PRIVATE_KEY?: string;   // secret
+      VAPID_SUBJECT?: string;       // "mailto:ops@example.com" or an https origin
+
       // Optional deployment default model: an id from the AI Gateway catalog (or a user's own
       // model id) that is listed first, so composer, spawner and fallback defaults land on it.
       DEFAULT_MODEL_ID?: string;

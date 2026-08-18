@@ -13,6 +13,7 @@ import './styles.css'
 import FrontendErrorBoundary from './FrontendErrorBoundary'
 import { installWorkshopErrorReporting, reportIssue } from './errorReporting'
 import { applySiteFavicon, cacheBustSiteLogoUrl } from './siteLogoUtils'
+import { registerServiceWorker } from './usePushNotifications'
 
 // ---------------------------------------------------------------------------
 // Dev auto-login: if VITE_DEV_AUTO_LOGIN=true, automatically create/login
@@ -175,6 +176,9 @@ function AppWithConnection() {
     </ThemeProvider>
   );
 }
+
+// Installability + Web Push (see public/sw.js). No-op where unsupported.
+registerServiceWorker()
 
 const root = createRoot(document.getElementById('root')!, {
   onUncaughtError: (error) => reportIssue('workshop.react-root', error, {

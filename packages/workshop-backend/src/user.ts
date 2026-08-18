@@ -5,6 +5,7 @@ import { shouldAutoProvisionAccount, ambientGatekeeperMode } from "./provisionin
 import { CloudflareGatekeeperUser } from "@gadgets/workshop-shared/cloudflare-gatekeeper";
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import { createTypedStorage, collection } from "@gadgets/typed-storage";
+import { parsePushSubscription, pushConfigured, sendPush, type PushNotification, type StoredPushSubscription } from "./push.js";
 import { createWorkshopLogger } from "./observability";
 import { getAiGatewayConfig } from "./ai-gateway.js";
 import { supportedThinkingLevels } from "./ai-models.js";
@@ -200,6 +201,12 @@ function makeUserStorage(storage: DurableObjectStorage) {
         nonUniqueIndexes: {
           byWorkspace(record: OutputRecord) { return record.workspaceId; },
         },
+      }),
+
+      // Browsers/PWAs this user asked to be notified on (Web Push). Keyed by endpoint; pruned when
+      // the push service reports the subscription gone.
+      pushSubscriptions: collection<StoredPushSubscription>()({
+        primaryKey: record => record.endpoint,
       }),
     },
     singletons: {
@@ -650,6 +657,57 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
       }
     }
     this.storage.preferredModel.put(id);
+  }
+
+  // ---- Web Push -------------------------------------------------------------------------------
+
+  /** Whether the deployment can push, and the VAPID public key the browser subscribes with. */
+  async getPushConfig(): Promise<{ publicKey: string } | null> {
+    return pushConfigured(this.env) && this.env.VAPID_PUBLIC_KEY
+      ? { publicKey: this.env.VAPID_PUBLIC_KEY } : null;
+  }
+
+  async subscribePush(subscription: unknown, userAgent?: string): Promise<void> {
+    if (!pushConfigured(this.env)) throw new Error("Push notifications are not configured for this deployment.");
+    const parsed = parsePushSubscription(subscription);
+    // Cap per-user subscriptions; the oldest goes when a new device arrives.
+    const existing = [...this.storage.pushSubscriptions.list()]
+      .toSorted((a, b) => a.created.getTime() - b.created.getTime());
+    if (!existing.some(s => s.endpoint === parsed.endpoint) && existing.length >= 10) {
+      this.storage.pushSubscriptions.delete(existing[0].endpoint);
+    }
+    this.storage.pushSubscriptions.put({
+      ...parsed, created: new Date(),
+      userAgent: typeof userAgent === "string" ? userAgent.slice(0, 200) : undefined,
+    });
+  }
+
+  async unsubscribePush(endpoint: string): Promise<void> {
+    this.storage.pushSubscriptions.delete(endpoint);
+  }
+
+  async listPushSubscriptions(): Promise<Array<{ endpoint: string; created: Date; userAgent?: string }>> {
+    return [...this.storage.pushSubscriptions.list()]
+      .map(({ endpoint, created, userAgent }) => ({ endpoint, created, userAgent }));
+  }
+
+  /**
+   * Sends a notification to every subscription this user holds, forgetting ones the push service
+   * reports gone. Best-effort: never throws. Called by workspaces (agent turn ended while nobody was
+   * watching, action awaiting approval), so it runs on the workspace's dime, not a request's.
+   */
+  async notifyPush(notification: PushNotification): Promise<{ sent: number; gone: number; failed: number }> {
+    const summary = { sent: 0, gone: 0, failed: 0 };
+    if (!pushConfigured(this.env)) return summary;
+    // Materialize first: sending awaits between deletes, and a live cursor must not observe them.
+    const subscriptions = Array.from(this.storage.pushSubscriptions.list());
+    for (const subscription of subscriptions) {
+      const result = await sendPush(this.env, subscription, notification);
+      if (result === "gone") { this.storage.pushSubscriptions.delete(subscription.endpoint); summary.gone++; }
+      else if (result === "sent") summary.sent++;
+      else if (result === "failed") summary.failed++;
+    }
+    return summary;
   }
 
   async isOnboardingCompleted(): Promise<boolean> {
