@@ -130,7 +130,7 @@ describe("BotsPageContent", () => {
       catchingUp: false,
     });
     testState.workspaceOpen.overseer = { stub: {} };
-    const groupTranscript = vi.fn(async () => [
+    const groupTranscript = vi.fn<() => Promise<unknown[]>>(async () => [
       { id: 1, groupId: "g1", ts: 1, from: { type: "user", name: "Darrin", botId: null }, hops: 0, text: "Status please", deliveredTo: ["abc12345"] },
       { id: 2, groupId: "g1", ts: 2, from: { type: "bot", name: "Inbox Manager", botId: "abc12345" }, hops: 1, text: "All green", deliveredTo: [] },
     ]);
