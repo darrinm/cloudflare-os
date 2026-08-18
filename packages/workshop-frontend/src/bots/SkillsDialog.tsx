@@ -10,7 +10,7 @@ import type { HubSkill } from './types'
  * with `$ARGUMENT` where the invocation's args go. Agent Skills from the Context Library work too
  * (through the conversation's `/` menu); these are the hub-local kind that needs no collection.
  */
-export function SkillsDialog({ open, onClose, hub }: { open: boolean; onClose: () => void; hub: HubStub }) {
+export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null }) {
   const toasts = useKumoToastManager()
   const [skills, setSkills] = useState<HubSkill[] | null>(null)
   const [editing, setEditing] = useState<{ name: string; description: string; body: string } | null>(null)
@@ -74,7 +74,13 @@ export function SkillsDialog({ open, onClose, hub }: { open: boolean; onClose: (
                   </li>
                 ))}
               </ul>
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 text-[11px] text-kumo-subtle">
+                  {onAddExamples && (
+                    <Button variant="secondary" size="sm" onClick={onAddExamples} loading={!!addingExamples}>Add example Bots</Button>
+                  )}
+                  {addingExamples && <span className="ml-2">{addingExamples}</span>}
+                </div>
                 <Button variant="primary" onClick={() => setEditing({ name: '', description: '', body: '' })}>New skill</Button>
               </div>
             </>

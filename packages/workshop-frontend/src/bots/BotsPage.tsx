@@ -340,7 +340,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           navigate({ to: '/bots/group/$groupId', params: { groupId: g.id } })
         }}
       />
-      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} />}
+      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding} />}
     </div>
   )
 }

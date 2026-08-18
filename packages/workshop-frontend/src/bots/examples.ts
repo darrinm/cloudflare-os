@@ -131,13 +131,27 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
     ownHub = (await client.connectToGadget()) as unknown as HubStub
     return ownHub
   }
+  // The gadget may still be restarting when the next call lands ("Gadget restarted due to code
+  // update" / broken stub); retry that call once on a fresh stub before giving up.
+  const onHub = async <T>(fn: (h: HubStub) => Promise<T>): Promise<T> => {
+    for (let attempt = 0; ; attempt++) {
+      try { return await fn(hub) }
+      catch (err) {
+        const msg = String(err instanceof Error ? err.message : err)
+        if (attempt >= 2 || !/restart|disposed|broken|reset/i.test(msg)) throw err
+        onProgress?.(`hub restarted, retrying… (${msg.slice(0, 60)})`)
+        await new Promise((r) => setTimeout(r, 1500))
+        hub = await freshHub()
+      }
+    }
+  }
   try {
-    const existing = await hub.listBots()
+    const existing = await onHub((h) => h.listBots())
     const bots: Record<string, Bot> = {}
     for (const def of EXAMPLE_BOTS) {
       let bot = existing.find((b) => b.name === def.name)
       if (bot) { onProgress?.(`${def.name}: already here`) }
-      else { bot = await hub.createBot({ name: def.name, role: def.role, instructions: def.instructions }); onProgress?.(`${def.name}: created`) }
+      else { bot = await onHub((h) => h.createBot({ name: def.name, role: def.role, instructions: def.instructions })); onProgress?.(`${def.name}: created`) }
       bots[def.key] = bot
     }
 
@@ -162,20 +176,20 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
       const spawner = await overseer.newAgentSpawnerGatekeeper({ displayName: `${bot.name} agent`, modelId, env })
       try { await client.bind(spawnerName, await spawner.getId()) } finally { spawner[Symbol.dispose]() }
       hub = await freshHub()
-      await hub.respawnAgent(bot.id, spawnerName)
+      await onHub((h) => h.respawnAgent(bot.id, spawnerName))
       onProgress?.(`${bot.name}: grants ${Object.keys(env).join(', ')}`)
     }
 
     hub = await freshHub()
-    for (const s of EXAMPLE_SKILLS) await hub.defineSkill(s)
-    const groups = await hub.listGroups()
+    for (const s of EXAMPLE_SKILLS) await onHub((h) => h.defineSkill(s))
+    const groups = await onHub((h) => h.listGroups())
     if (!groups.some((g) => g.name === EXAMPLE_GROUP.name)) {
-      await hub.createGroup({ ...EXAMPLE_GROUP, members: EXAMPLE_BOTS.map((d) => bots[d.key].id) })
+      await onHub((h) => h.createGroup({ ...EXAMPLE_GROUP, members: EXAMPLE_BOTS.map((d) => bots[d.key].id) }))
     }
     const routineBot = bots[EXAMPLE_ROUTINE.botKey]
-    const routines = await hub.listRoutines(routineBot.id)
+    const routines = await onHub((h) => h.listRoutines(routineBot.id))
     if (!routines.some((r) => r.title === EXAMPLE_ROUTINE.title)) {
-      await hub.newRoutine(routineBot.id, { title: EXAMPLE_ROUTINE.title, instructions: EXAMPLE_ROUTINE.instructions, schedule: EXAMPLE_ROUTINE.schedule })
+      await onHub((h) => h.newRoutine(routineBot.id, { title: EXAMPLE_ROUTINE.title, instructions: EXAMPLE_ROUTINE.instructions, schedule: EXAMPLE_ROUTINE.schedule }))
     }
     onProgress?.('skills, group and routine ready')
     return EXAMPLE_BOTS.map((d) => bots[d.key])
