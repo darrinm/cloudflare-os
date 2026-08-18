@@ -44,7 +44,7 @@ function fakes() {
       sub.ready()
       return { [Symbol.dispose]() {} }
     },
-    provisionAmbientAccount: vi.fn(async () => {}),
+    provisionAmbientAccount: vi.fn<() => Promise<void>>(async () => {}),
   }
   return { hub, overseer, api, bindings, gatekeepers, spawners, respawns, skills, groups, routines, bots }
 }
@@ -60,7 +60,7 @@ describe('example Bots', () => {
     expect(f.gatekeepers.filter((u) => u.startsWith('https://sandbox.iris2.local/box/')).map((u) => new URL(u).searchParams.get('mode'))).toEqual(['approve', 'write'])
     expect(f.gatekeepers.some((u) => u === senderResourceUrl({ local: 'ledger', mode: 'approve', displayName: 'Ledger (Iris2 Bot)' }))).toBe(true)
     // Each Bot got its own spawner with HUB plus its grants, bound and respawned.
-    expect(f.spawners.map((s) => Object.keys(s.env).sort().join(','))).toEqual(['BROWSER,HUB', 'HUB,SANDBOX', 'EMAIL_SEND,HUB,SANDBOX', 'HUB'])
+    expect(f.spawners.map((s) => Object.keys(s.env).toSorted().join(','))).toEqual(['BROWSER,HUB', 'HUB,SANDBOX', 'EMAIL_SEND,HUB,SANDBOX', 'HUB'])
     expect(f.bindings.filter((b) => b.name.startsWith('SPAWNER_'))).toHaveLength(4)
     expect(f.respawns).toHaveLength(4)
     expect(f.skills).toEqual(['weekly-report', 'summarize-url'])
