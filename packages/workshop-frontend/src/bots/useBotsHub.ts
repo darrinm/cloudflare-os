@@ -34,6 +34,10 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
     hub: null, bots: [], groups: [], info: null, error: null, version: 0, lastUpdate: null,
   })
   const hubRef = useRef<HubStub | null>(null)
+  // Bumped when the hub stub breaks (the gadget restarts whenever something is bound to it, e.g.
+  // a Bot's new spawner or computer), so the effect below reconnects instead of leaving the page
+  // on a dead stub.
+  const [attempt, setAttempt] = useState(0)
 
   const refreshBots = useCallback(async () => {
     const hub = hubRef.current
@@ -56,6 +60,7 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
         if (cancelled) { connected[Symbol.dispose](); return }
         hub = connected
         hubRef.current = connected
+        connected.onRpcBroken?.(() => { if (!cancelled) setAttempt((a) => a + 1) })
         subscriber = new HubSubscriber((u) => {
           if (cancelled) return
           if (u.type === 'bots' || u.type === 'groups') {
@@ -78,7 +83,7 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
       try { gadgetClient?.[Symbol.dispose]() } catch { /* ignore */ }
       setState({ hub: null, bots: [], groups: [], info: null, error: null, version: 0, lastUpdate: null })
     }
-  }, [overseer, workpieceId, refreshBots])
+  }, [overseer, workpieceId, refreshBots, attempt])
 
   return { ...state, refreshBots }
 }

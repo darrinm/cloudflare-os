@@ -139,6 +139,7 @@ export interface HubApi {
   groupPost(groupId: string, text: string, from: { type: string; name?: string; botId?: string; hops?: number }): Promise<{ postId: number; deliveredTo: string[]; held: string | null }>
   listMemories(botId: string, options?: { limit?: number }): Promise<BotMemory[]>
   forget(memoryId: string): Promise<boolean>
+  newRoutine(botId: string, input: { title: string; instructions: string; schedule?: string }): Promise<{ id: string }>
   listRoutines(botId?: string): Promise<BotRoutine[]>
   runRoutine(routineId: string): Promise<{ eventId?: number; delivered?: boolean; runId: string; skipped?: boolean }>
   removeRoutine(routineId: string): Promise<boolean>

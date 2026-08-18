@@ -24,6 +24,7 @@ import { useBotsWorkspace } from './useBotsWorkspace'
 import type { Bot, BotCosts, BotEvent, BotMemory, BotRoutine } from './types'
 import { GroupDialog, GroupView } from './GroupView'
 import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
+import { seedExampleBots } from './examples'
 import {
   COMPUTER_VENDORS, browserResourceUrl, computerBindingNameFor, computerNameFor, isPerBotBinding, parseSites,
   provisionComputer, sandboxResourceUrl, type ComputerKind,
@@ -165,6 +166,23 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [showNewGroup, setShowNewGroup] = useState(false)
   const [showSkills, setShowSkills] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [seeding, setSeeding] = useState<string | null>(null)
+
+  const addExamples = useCallback(async () => {
+    const hub = hubState.hub
+    if (!hub || !overseer) return
+    setSeeding('Starting…')
+    try {
+      const models = await overseer.stub.listModels()
+      const modelId = getStoredSelectedModel(models)
+      const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding })
+      await hubState.refreshBots()
+      toasts.add({ title: `${bots.length} example Bots ready`, description: 'Scout reads the web, Fixer runs code, Ledger reports (and emails), Concierge coordinates.', variant: 'success' })
+      if (bots[0]) navigate({ to: '/bots/$id', params: { id: bots[0].id } })
+    } catch (err) {
+      toasts.add({ title: 'Couldn’t add the examples', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+    } finally { setSeeding(null) }
+  }, [hubState, overseer, authenticatedApi, workpieceId, toasts, navigate])
 
   const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
   const selectedGroup = useMemo(() => hubState.groups.find((g) => g.id === groupId) ?? null, [hubState.groups, groupId])
@@ -198,7 +216,12 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Bots">
         {hubState.error && <div className="p-3 text-[12px] text-kumo-danger">{hubState.error}</div>}
         {hubState.bots.length === 0 && !hubState.error && (
-          <div className="p-4 text-[12px] text-kumo-subtle">No Bots yet. Create one to get a teammate.</div>
+          <div className="flex flex-col gap-2 p-4 text-[12px] text-kumo-subtle">
+            <div>No Bots yet. Create one with +, or start with a ready-made team.</div>
+            <Button variant="secondary" size="sm" onClick={addExamples} loading={seeding !== null} disabled={!hubState.hub}>Add example Bots</Button>
+            {seeding && <div className="text-[11px]">{seeding}</div>}
+            <div className="text-[11px]">Scout (browser), Fixer (sandbox, asks first), Ledger (sandbox + email), Concierge (coordinates) — plus two skills, a routine and a group.</div>
+          </div>
         )}
         {hubState.bots.map((bot) => (
           <button
@@ -801,7 +824,10 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       const existing = (await client.listBindings()).find((b) => b.name === bindingName)
       if (existing) await client.unbind(bindingName)
       await client.bind(bindingName, spawnerId)
-      const result = await hub.respawnAgent(bot.id, bindingName)
+      // Binding restarts the hub gadget and breaks the page's stub; use a fresh one for the respawn.
+      const fresh = (await client.connectToGadget()) as unknown as HubStub
+      let result: { generation: number }
+      try { result = await fresh.respawnAgent(bot.id, bindingName) } finally { fresh[Symbol.dispose]() }
       toasts.add({ title: 'Grants updated', description: `${bot.name} now runs with its own spawner (agent #${result.generation}).`, variant: 'success' })
       onClose()
     } catch (err) {
