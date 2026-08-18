@@ -18,6 +18,19 @@ import { buildGatekeeperVendorMap } from "./auth/auth-vendors.js";
 
 const logger = createWorkshopLogger("workshop.user");
 
+/**
+ * Puts the deployment's default model first so every "first model" default -- the composer's
+ * initial selection, agent-spawner forms, external-message fallbacks -- lands on it. Only reorders
+ * when the id resolves to a listed model; an unknown DEFAULT_MODEL_ID changes nothing.
+ */
+export function orderDefaultModelFirst<T extends { profile: { id: string } }>(
+    models: T[], defaultModelId: string | undefined): T[] {
+  if (!defaultModelId) return models;
+  let index = models.findIndex(entry => entry.profile.id === defaultModelId);
+  if (index <= 0) return models;
+  return [models[index], ...models.slice(0, index), ...models.slice(index + 1)];
+}
+
 // How many workspaces one Outputs catch-up pass examines, bounding the Durable Objects a single
 // listOutputs() call wakes and how long it waits. The client calls again until catch-up is done.
 const OUTPUTS_BACKFILL_PAGE = 16;
@@ -549,7 +562,7 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
         result.push({ profile: model.profile, config: model.config });
       }
     }
-    return result;
+    return orderDefaultModelFirst(result, this.env.DEFAULT_MODEL_ID);
   }
 
   async listModels(): Promise<AiChatAuthorInfo[]> {

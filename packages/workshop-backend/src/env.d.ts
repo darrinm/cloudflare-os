@@ -64,6 +64,10 @@ declare global {
       CF_ACCESS_AUD?: string;   // audience
       CF_ACCESS_ISS?: string;   // team URL, e.g. https://<team>.cloudflareaccess.com
 
+      // Optional deployment default model: an id from the AI Gateway catalog (or a user's own
+      // model id) that is listed first, so composer, spawner and fallback defaults land on it.
+      DEFAULT_MODEL_ID?: string;
+
       // Optional automation identity for Cloudflare Access deployments: an Access service token
       // (Service Auth policy) whose client id matches CF_ACCESS_AUTOMATION_CLIENT_ID authenticates
       // as CF_ACCESS_AUTOMATION_EMAIL, letting smoke tests and agents use the API headlessly. The
