@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
-import { CaretLeft, Info, Lightning, Plus, Robot, UsersThree, X } from '@phosphor-icons/react'
+import { CaretLeft, Info, Lightning, Plus, Robot, UsersThree, Wrench, X } from '@phosphor-icons/react'
 import type {
   AiChatAuthorInfo,
   AiChatMetadata,
@@ -167,6 +167,10 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [showSkills, setShowSkills] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [seeding, setSeeding] = useState<string | null>(null)
+  // "Show work": the conversation is a teammate view by default (what the Bot says, approvals,
+  // errors); the code runs / callbacks / gadget calls are one tap away, remembered per browser.
+  const [showWork, setShowWork] = useState<boolean>(() => { try { return localStorage.getItem('bots:showWork') === '1' } catch { return false } })
+  const toggleShowWork = useCallback(() => setShowWork((v) => { try { localStorage.setItem('bots:showWork', v ? '0' : '1') } catch { /* ignore */ } return !v }), [])
 
   const addExamples = useCallback(async () => {
     const hub = hubState.hub
@@ -278,11 +282,14 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 <div className="truncate text-[13px] font-medium text-kumo-default">{selected.name}</div>
                 <div className="truncate text-[11px] text-kumo-subtle">{selected.role || 'Bot'}</div>
               </div>
+              <WorkshopIconButton onClick={toggleShowWork} className={`!h-8 !w-8 ${showWork ? 'text-kumo-brand' : ''}`} aria-label={showWork ? 'Hide the Bot’s work' : 'Show the Bot’s work'} title={showWork ? 'Hide work (code runs, callbacks)' : 'Show work (code runs, callbacks)'} aria-pressed={showWork}>
+                <Wrench size={14} />
+              </WorkshopIconButton>
               <WorkshopIconButton onClick={() => setDetailsOpen((o) => !o)} className="!h-8 !w-8 lg:hidden" aria-label="Bot details" title="Bot details">
                 <Info size={14} />
               </WorkshopIconButton>
             </header>
-            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} />
+            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} />
           </section>
           <BotDetails
             key={selected.id}
@@ -352,7 +359,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
  * by its unique title. Rendered with the full ChatInterface, so approvals, streaming and slash
  * commands behave exactly as elsewhere. Human messages typed here go straight into that chat.
  */
-function BotTranscript({ overseer, bot, workspaceId }: { overseer: RpcStub<Overseer>; bot: Bot; workspaceId: string }) {
+function BotTranscript({ overseer, bot, workspaceId, showWork }: { overseer: RpcStub<Overseer>; bot: Bot; workspaceId: string; showWork: boolean }) {
   const [chatId, setChatId] = useState<number | null>(null)
   const [looked, setLooked] = useState(false)
 
@@ -392,6 +399,8 @@ function BotTranscript({ overseer, bot, workspaceId }: { overseer: RpcStub<Overs
         selectedChatId={chatId}
         onNavigateToChat={() => {}}
         hideChatHeader
+        conversationView
+        showWork={showWork}
         constrainChatWidth
         pendingConsoleLogCount={0}
         consoleLogPreview=""
