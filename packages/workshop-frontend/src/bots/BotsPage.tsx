@@ -27,8 +27,8 @@ import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
 import { seedExampleBots } from './examples'
 import { BOTS_BLUEPRINT_ID } from './types'
 import {
-  COMPUTER_VENDORS, browserResourceUrl, computerBindingNameFor, computerNameFor, isPerBotBinding, parseSites,
-  provisionComputer, sandboxResourceUrl, type ComputerKind,
+  COMPUTER_VENDORS, HOUSEHOLD_PROFILE, browserResourceUrl, computerBindingNameFor, computerNameFor, isPerBotBinding,
+  parseSites, provisionComputer, sandboxResourceUrl, type ComputerKind,
 } from './computer'
 
 const AVATAR_COLORS = ['#5b4bc4', '#1f7a5c', '#b23a48', '#9a6300', '#2f6fb0', '#7a3fa0', '#0f766e']
@@ -825,6 +825,8 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
   const [replaceComputer, setReplaceComputer] = useState<Set<ComputerKind>>(new Set())
   const [sites, setSites] = useState('')
   const [browseAnywhere, setBrowseAnywhere] = useState(true)
+  // Whose cookies: this Bot's own profile, or the shared household one every granted Bot shares.
+  const [sharedBrowser, setSharedBrowser] = useState(false)
   const [sandboxMode, setSandboxMode] = useState<'read-only' | 'approve' | 'write'>('approve')
   const { authenticatedApi } = useAuthenticatedApi()
 
@@ -877,7 +879,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
         if (existing && !replaceComputer.has(kind)) { env[COMPUTER_VENDORS[kind].envName] = existing.target; continue }
         const name = computerNameFor(bot)
         const resourceUrl = kind === 'browser'
-          ? browserResourceUrl({ name, allowedSites: parseSites(sites), browseAnywhere })
+          ? browserResourceUrl({ name: sharedBrowser ? HOUSEHOLD_PROFILE : name, allowedSites: parseSites(sites), browseAnywhere })
           : sandboxResourceUrl({ name, mode: sandboxMode })
         env[COMPUTER_VENDORS[kind].envName] = await provisionComputer(authenticatedApi, overseer, hubWorkpieceId, bot.id, kind, resourceUrl)
       }
@@ -902,7 +904,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       spawner?.[Symbol.dispose]()
       setBusy(false)
     }
-  }, [bindings, chosen, modelId, overseer, hub, bot, hubWorkpieceId, toasts, onClose, wantBrowser, wantSandbox, existingComputer, replaceComputer, sites, browseAnywhere, sandboxMode, authenticatedApi])
+  }, [bindings, chosen, modelId, overseer, hub, bot, hubWorkpieceId, toasts, onClose, wantBrowser, wantSandbox, existingComputer, replaceComputer, sites, browseAnywhere, sandboxMode, sharedBrowser, authenticatedApi])
 
   const computerRow = (kind: ComputerKind, want: boolean, setWant: (v: boolean) => void, config: React.ReactNode) => {
     const existing = existingComputer[kind]
@@ -974,6 +976,15 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
                     <label className="flex items-center gap-2 text-[13px] md:text-[12px] text-kumo-default">
                       <input type="checkbox" checked={browseAnywhere} onChange={(e) => setBrowseAnywhere(e.target.checked)} />
                       May read pages on any site
+                    </label>
+                    <label className="flex items-start gap-2 text-[13px] md:text-[12px] text-kumo-default">
+                      <input type="checkbox" className="mt-0.5" checked={sharedBrowser} onChange={(e) => setSharedBrowser(e.target.checked)} />
+                      <span>
+                        Use the shared household profile
+                        <span className="block text-[12px] md:text-[11px] text-kumo-subtle">
+                          One set of logins every Bot you tick this for shares — sign in once instead of per Bot. Leave it off to keep this Bot’s cookies to itself.
+                        </span>
+                      </span>
                     </label>
                   </>
                 ))}
