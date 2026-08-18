@@ -125,7 +125,7 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
   const { overseer, hubWorkpieceId, modelId, onProgress } = deps
   const client = overseer.getGadget(hubWorkpieceId)
   let hub: HubStub = deps.hub
-  let ownHub: HubStub | null = null
+  let ownHub = null as HubStub | null
   const freshHub = async (): Promise<HubStub> => {
     try { ownHub?.[Symbol.dispose]() } catch { /* already gone */ }
     ownHub = (await client.connectToGadget()) as unknown as HubStub
