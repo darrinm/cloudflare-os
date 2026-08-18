@@ -77,6 +77,8 @@ describe("pickBotsOutput", () => {
     ] as unknown as Parameters<typeof pickBotsOutput>[0];
     expect(pickBotsOutput(outputs)?.workspaceId).toBe("older");
     expect(pickBotsOutput([])).toBeNull();
+    // With no owned hub, a shared one (e.g. seeded by an operator) is used so /bots is not empty.
+    expect(pickBotsOutput(outputs.filter((o) => o.owner || o.output?.id !== "bots"))?.workspaceId).toBe("shared");
   });
 });
 
