@@ -178,12 +178,12 @@ function CreatedGadgetChatCard({
         </span>
         <span className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-3 pr-10">
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium tracking-[-0.2px] text-kumo-default">
+            <span className="block truncate text-[15px] md:text-[14px] font-medium tracking-[-0.2px] text-kumo-default">
               {gadget.title}
             </span>
-            <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-kumo-subtle">
+            <span className="mt-0.5 flex items-center gap-1.5 text-[13px] md:text-[12px] text-kumo-subtle">
               {gadget.isPending && (
-                <span className="rounded-full bg-kumo-fill px-1.5 py-0.5 text-[10px] font-medium leading-none">
+                <span className="rounded-full bg-kumo-fill px-1.5 py-0.5 text-[11px] md:text-[10px] font-medium leading-none">
                   Draft
                 </span>
               )}
@@ -1379,16 +1379,16 @@ const AttachmentPreviewModal = memo(function AttachmentPreviewModal(
                 <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-kumo-line/70 bg-kumo-base text-kumo-inactive">
                   <FileIcon size={26} />
                 </div>
-                <div className="text-[14px] font-medium text-kumo-default">{title}</div>
-                <div className="text-[12px] leading-5 text-kumo-subtle">
+                <div className="text-[15px] md:text-[14px] font-medium text-kumo-default">{title}</div>
+                <div className="text-[13px] md:text-[12px] leading-5 text-kumo-subtle">
                   {attachment.mimeType || "Unknown file type"}{sizeLabel ? ` · ${sizeLabel}` : ""}
                 </div>
-                <div className="text-[12px] leading-5 text-kumo-inactive">This file can’t be previewed here.</div>
+                <div className="text-[13px] md:text-[12px] leading-5 text-kumo-inactive">This file can’t be previewed here.</div>
                 {onDownload && (
                   <button
                     type="button"
                     onClick={() => onDownload(attachment)}
-                    className="mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-kumo-line/70 bg-kumo-base px-3 py-1.5 text-[12px] font-medium text-kumo-default transition-colors hover:bg-kumo-tint/40"
+                    className="mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-kumo-line/70 bg-kumo-base px-3 py-1.5 text-[13px] md:text-[12px] font-medium text-kumo-default transition-colors hover:bg-kumo-tint/40"
                   >
                     Download
                   </button>
@@ -1436,11 +1436,11 @@ const ChatAttachmentThumbnail = memo(function ChatAttachmentThumbnail(
             onError={() => setImageState("error")}
           />
           {imageState !== "loaded" && (
-            <div className="absolute inset-0 grid place-items-center bg-kumo-elevated text-[11px] text-kumo-inactive">Loading image…</div>
+            <div className="absolute inset-0 grid place-items-center bg-kumo-elevated text-[12px] md:text-[11px] text-kumo-inactive">Loading image…</div>
           )}
         </>
       ) : (
-        <div className="flex h-full w-full min-w-0 items-center justify-center gap-2 p-3 text-[12px] leading-4 text-kumo-subtle">
+        <div className="flex h-full w-full min-w-0 items-center justify-center gap-2 p-3 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
           <FileIcon size={20} className="shrink-0 text-kumo-inactive" />
           <span className="min-w-0 truncate">{attachment.name ?? "Attached file"}</span>
         </div>
@@ -1493,31 +1493,31 @@ const ToolCallDetails = memo(function ToolCallDetails(
   return (
     <div className="space-y-2">
       {tc.error && (
-        <pre className="rounded-xl border border-kumo-danger/20 bg-kumo-danger-tint/40 p-3 font-mono text-[12px] leading-[18px] text-kumo-danger whitespace-pre-wrap">
+        <pre className="rounded-xl border border-kumo-danger/20 bg-kumo-danger-tint/40 p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-danger whitespace-pre-wrap">
           {tc.error}
         </pre>
       )}
       {tc.toolName === "executeCode" ? (
         <>
-          <span className="font-mono text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">
+          <span className="font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">
             Code
           </span>
-          <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+          <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
             {tc.input.code}
           </pre>
           {tc.output && (
             <>
-              <span className="font-mono text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">
+              <span className="font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">
                 Output
               </span>
-              <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+              <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
                 {tc.output}
               </pre>
             </>
           )}
         </>
       ) : (
-        <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+        <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
           {JSON.stringify(tc.input, null, 2)}
         </pre>
       )}
@@ -1533,7 +1533,7 @@ const ObservationDetails = memo(function ObservationDetails(
   const metadata = log.resourceTitle;
 
   return (
-    <div className="px-1 py-1.5 text-[13px] leading-[19px] tracking-[-0.25px]">
+    <div className="px-1 py-1.5 text-[14px] md:text-[13px] leading-[19px] tracking-[-0.25px]">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center">
           <WorkIcon Icon={MagnifyingGlass} />
@@ -1543,7 +1543,7 @@ const ObservationDetails = memo(function ObservationDetails(
             {log.description.title}
           </p>
           {metadata && (
-            <p className="mt-0.5 mb-0 truncate text-[12px] leading-4 text-kumo-inactive">
+            <p className="mt-0.5 mb-0 truncate text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
               {safeResourceUrl && log.resourceTitle ? (
                 <a
                   href={safeResourceUrl}
@@ -1556,7 +1556,7 @@ const ObservationDetails = memo(function ObservationDetails(
               ) : metadata}
             </p>
           )}
-          <div className="mt-1.5 text-[12px] leading-[18px] tracking-[-0.2px] text-kumo-subtle">
+          <div className="mt-1.5 text-[13px] md:text-[12px] leading-[18px] tracking-[-0.2px] text-kumo-subtle">
             <MarkdownMessage message={log.description.description} />
           </div>
         </div>
@@ -1592,10 +1592,10 @@ const NestedToolCallRow = memo(function NestedToolCallRow({
         <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
           <WorkIcon Icon={Icon} />
         </span>
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-[14px] leading-5 tracking-[-0.25px]">
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px]">
           <span className="min-w-0 truncate">{label}</span>
           {tc.error && (
-            <span className="flex-shrink-0 rounded-full bg-kumo-danger-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-kumo-danger">
+            <span className="flex-shrink-0 rounded-full bg-kumo-danger-tint px-2 py-0.5 text-[11px] md:text-[10px] font-semibold uppercase tracking-[0.04em] text-kumo-danger">
               Error
             </span>
           )}
@@ -1639,7 +1639,7 @@ const NestedObservationRow = memo(function NestedObservationRow({
         <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
           <WorkIcon Icon={MagnifyingGlass} />
         </span>
-        <span className="inline-flex min-w-0 max-w-full items-center gap-2 text-[14px] leading-5 tracking-[-0.25px]">
+        <span className="inline-flex min-w-0 max-w-full items-center gap-2 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px]">
           <span className="min-w-0 truncate">{label}</span>
           <CaretRight
             size={13}
@@ -1664,7 +1664,7 @@ const ThinkingTraceRow = memo(function ThinkingTraceRow({
 }) {
   return (
     <div className="min-w-0 py-1 text-kumo-subtle">
-      <div className={`min-w-0 text-[13px] leading-[19px] ${styles.markdownContent}`}>
+      <div className={`min-w-0 text-[14px] md:text-[13px] leading-[19px] ${styles.markdownContent}`}>
         <MarkdownMessage message={reasoning} />
       </div>
     </div>
@@ -1711,10 +1711,10 @@ const ToolGroupRow = memo(function ToolGroupRow({
           <WorkIcon Icon={group.Icon} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-2 text-[14px] leading-5 tracking-[-0.25px]">
+          <span className="flex min-w-0 items-center gap-2 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px]">
             <span className="min-w-0 truncate">{group.label}</span>
             {group.hasError && (
-              <span className="flex-shrink-0 rounded-full bg-kumo-danger-tint px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-kumo-danger">
+              <span className="flex-shrink-0 rounded-full bg-kumo-danger-tint px-2 py-0.5 text-[11px] md:text-[10px] font-semibold uppercase tracking-[0.04em] text-kumo-danger">
                 Error
               </span>
             )}
@@ -1725,7 +1725,7 @@ const ToolGroupRow = memo(function ToolGroupRow({
             />
           </span>
           {group.detailLines.length > 1 && (
-            <span className="mt-1 block truncate font-mono text-[12px] leading-4 text-kumo-inactive">
+            <span className="mt-1 block truncate font-mono text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
               {group.detailLines.join(" · ")}
             </span>
           )}
@@ -1782,7 +1782,7 @@ const ToolGroupRow = memo(function ToolGroupRow({
             </button>
           </Tooltip>
           <Tooltip content={formatFullTimestamp(footerTimestamp)} asChild>
-            <span className="px-1 font-mono text-[11px] leading-4 text-kumo-inactive">
+            <span className="px-1 font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive">
               {footerTimestamp.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -3217,11 +3217,11 @@ export const ChatInput = ({
       {pendingConsoleLogCount > 0 && (
         <div className="pointer-events-none absolute inset-x-4 -top-10 z-10 flex justify-center">
           <div
-            className={`themed-floating-shadow pointer-events-auto flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] leading-4 tracking-[-0.2px] ${logBannerClass}`}
+            className={`themed-floating-shadow pointer-events-auto flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] ${logBannerClass}`}
           >
             <Tooltip
               content={
-                <pre className="m-0 whitespace-pre-wrap text-[11px] max-h-[300px] overflow-auto max-w-[500px]">
+                <pre className="m-0 whitespace-pre-wrap text-[12px] md:text-[11px] max-h-[300px] overflow-auto max-w-[500px]">
                   {consoleLogPreview}
                 </pre>
               }
@@ -3266,7 +3266,7 @@ export const ChatInput = ({
       >
         {isAttachmentDragActive && (
           <div className={`themed-inset-outline pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-2xl border-2 border-dashed p-4 backdrop-blur-[1px] transition-[opacity,transform] duration-150 ease-out ${canAttachMore ? "border-kumo-brand/55 bg-kumo-brand/10" : "border-kumo-warning/60 bg-kumo-warning/10"}`}>
-            <div className={`themed-floating-shadow flex items-center gap-2 rounded-full border bg-kumo-base/90 px-3 py-2 text-[13px] font-medium leading-4 tracking-[-0.2px] text-kumo-default ${canAttachMore ? "border-kumo-brand/25" : "border-kumo-warning/30"}`}>
+            <div className={`themed-floating-shadow flex items-center gap-2 rounded-full border bg-kumo-base/90 px-3 py-2 text-[14px] md:text-[13px] font-medium leading-4 tracking-[-0.2px] text-kumo-default ${canAttachMore ? "border-kumo-brand/25" : "border-kumo-warning/30"}`}>
               <span className={`grid h-7 w-7 place-items-center rounded-full ${canAttachMore ? "bg-kumo-brand/12 text-kumo-brand" : "bg-kumo-warning/15 text-kumo-warning"}`}>
                 <FileIcon size={16} weight="duotone" />
               </span>
@@ -3460,7 +3460,7 @@ export const ChatInput = ({
                   syncMirrorScroll(el);
                 }
               }}
-              className={`relative z-[1] w-full resize-none border-none bg-transparent p-0 text-[14px] leading-[22px] tracking-[-0.25px] outline-none placeholder:text-kumo-inactive disabled:cursor-not-allowed ${composerTextareaClass}`}
+              className={`relative z-[1] w-full resize-none border-none bg-transparent p-0 text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] outline-none placeholder:text-kumo-inactive disabled:cursor-not-allowed ${composerTextareaClass}`}
             />
           </div>
         </div>
@@ -3475,7 +3475,7 @@ export const ChatInput = ({
                   <FileIcon size={22} className="text-kumo-inactive" />
                 )}
                 {attachment.uploadState === "uploading" && (
-                  <div className="absolute inset-0 grid place-items-center rounded-lg bg-black/35 text-[10px] text-white">Uploading</div>
+                  <div className="absolute inset-0 grid place-items-center rounded-lg bg-black/35 text-[11px] md:text-[10px] text-white">Uploading</div>
                 )}
                 {attachment.uploadState === "error" && (
                   <div className="absolute inset-0 grid place-items-center rounded-lg bg-kumo-danger/80 px-1 text-center text-[9px] leading-3 text-white">Failed</div>
@@ -3517,7 +3517,7 @@ export const ChatInput = ({
                 {onToggleThinkingTraces && (
                   <DropdownMenu.Item
                     onClick={onToggleThinkingTraces}
-                    className="!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
+                    className="!h-auto rounded-xl !px-2 !py-1.5 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
                   >
                     <span className="mr-2 inline-flex h-4 w-4 items-center justify-center text-kumo-inactive">
                       <Brain size={14} />
@@ -3529,7 +3529,7 @@ export const ChatInput = ({
                 )}
                 <DropdownMenu.Item
                   onClick={() => attachmentInputRef.current?.click()}
-                  className="!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
+                  className="!h-auto rounded-xl !px-2 !py-1.5 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
                 >
                   <span className="mr-2 inline-flex h-4 w-4 items-center justify-center text-kumo-inactive">
                     <FileIcon size={14} />
@@ -3541,7 +3541,7 @@ export const ChatInput = ({
             <button
               type="button"
               onClick={handleAttachOpen}
-              className="inline-flex h-8 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[13px] leading-none tracking-[-0.25px] text-kumo-inactive transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-subtle focus-visible:bg-kumo-tint focus-visible:text-kumo-subtle focus-visible:outline-none active:scale-[0.97]"
+              className="inline-flex h-8 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[14px] md:text-[13px] leading-none tracking-[-0.25px] text-kumo-inactive transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-subtle focus-visible:bg-kumo-tint focus-visible:text-kumo-subtle focus-visible:outline-none active:scale-[0.97]"
             >
               <Plug size={15} className="flex-shrink-0" />
               <span className={`leading-none ${styles.attachLabelText}`}>{attachLabel ?? "Add resource"}</span>
@@ -3562,7 +3562,7 @@ export const ChatInput = ({
                   render={
                     <button
                       type="button"
-                      className="group inline-flex h-8 min-w-0 max-w-[180px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[13px] leading-5 tracking-[-0.25px] text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default"
+                      className="group inline-flex h-8 min-w-0 max-w-[180px] cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[14px] md:text-[13px] leading-5 tracking-[-0.25px] text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default"
                       aria-label="Select model"
                     >
                       <span className="min-w-0 truncate">{selectedModelLabel}</span>
@@ -3581,7 +3581,7 @@ export const ChatInput = ({
                       <DropdownMenu.Item
                         key={model.id}
                         onClick={() => onModelChange(model.id)}
-                        className="!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
+                        className="!h-auto rounded-xl !px-2 !py-1.5 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
                       >
                         <span className="min-w-0 flex-1 truncate">{model.name}</span>
                         {active && (
@@ -3593,7 +3593,7 @@ export const ChatInput = ({
                   <div className="my-1 border-t border-kumo-line/70" />
                   <DropdownMenu.Item
                     onClick={() => onModelChange(null)}
-                    className="!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
+                    className="!h-auto rounded-xl !px-2 !py-1.5 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default"
                   >
                     <span className="min-w-0 flex-1 truncate">No agent</span>
                     {selectedModel == null && (
@@ -3838,7 +3838,7 @@ function DiscardPendingChangesPopover({
           <button
             type="button"
             disabled={disabled}
-            className="inline-flex h-[30px] cursor-pointer items-center justify-center rounded-md border border-kumo-fill bg-kumo-base px-2.5 text-[12px] font-medium leading-[18px] tracking-[-0.25px] text-kumo-default transition-colors enabled:hover:bg-kumo-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-[30px] cursor-pointer items-center justify-center rounded-md border border-kumo-fill bg-kumo-base px-2.5 text-[13px] md:text-[12px] font-medium leading-[18px] tracking-[-0.25px] text-kumo-default transition-colors enabled:hover:bg-kumo-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-40"
           >
             Discard…
           </button>
@@ -3852,14 +3852,14 @@ function DiscardPendingChangesPopover({
         className="themed-floating-shadow !z-[1100] !w-[min(300px,calc(100vw-24px))] !min-w-0 overflow-hidden rounded-xl border border-kumo-line bg-kumo-base !p-0 !outline-none [&>:first-child]:hidden"
       >
         <div className="px-3.5 pb-2.5 pt-3">
-          <Popover.Title className="text-[13px] font-medium leading-[18px] tracking-[-0.25px] text-kumo-default">
+          <Popover.Title className="text-[14px] md:text-[13px] font-medium leading-[18px] tracking-[-0.25px] text-kumo-default">
             Discard all pending changes?
           </Popover.Title>
-          <p className="mt-0.5 text-[11.5px] leading-4 tracking-[-0.15px] text-kumo-subtle">
+          <p className="mt-0.5 text-[12.5px] md:text-[11.5px] leading-4 tracking-[-0.15px] text-kumo-subtle">
             Return to the last accepted version. Any gadgets created by these changes will be
             permanently deleted. Pending changes can&apos;t be restored.
           </p>
-          <p className="mt-2 border-t border-kumo-line pt-2 text-[11px] leading-[15px] tracking-[-0.1px] text-kumo-inactive">
+          <p className="mt-2 border-t border-kumo-line pt-2 text-[12px] md:text-[11px] leading-[15px] tracking-[-0.1px] text-kumo-inactive">
             Use the <ArrowUUpLeft size={12} className="mx-0.5 inline-block align-[-2px]" aria-hidden="true" /><span className="sr-only">undo arrow</span> under any agent response to discard from that turn onward.
           </p>
         </div>
@@ -3868,7 +3868,7 @@ function DiscardPendingChangesPopover({
             type="button"
             disabled={isDiscarding}
             onClick={() => onOpenChange(false)}
-            className="flex h-6 cursor-pointer items-center rounded-md px-2 text-[12px] font-medium tracking-[-0.15px] text-kumo-inactive transition-colors enabled:hover:bg-kumo-tint enabled:hover:text-kumo-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-6 cursor-pointer items-center rounded-md px-2 text-[13px] md:text-[12px] font-medium tracking-[-0.15px] text-kumo-inactive transition-colors enabled:hover:bg-kumo-tint enabled:hover:text-kumo-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-40"
           >
             Cancel
           </button>
@@ -3876,7 +3876,7 @@ function DiscardPendingChangesPopover({
             type="button"
             disabled={disabled || isDiscarding}
             onClick={onConfirm}
-            className="flex h-6 cursor-pointer items-center rounded-md px-2 text-[12px] font-medium tracking-[-0.15px] text-kumo-default transition-colors enabled:hover:bg-kumo-tint enabled:hover:text-kumo-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-6 cursor-pointer items-center rounded-md px-2 text-[13px] md:text-[12px] font-medium tracking-[-0.15px] text-kumo-default transition-colors enabled:hover:bg-kumo-tint enabled:hover:text-kumo-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isDiscarding ? "Discarding..." : "Discard changes"}
           </button>
@@ -6441,7 +6441,7 @@ function ChatInterface({
     const scope = msg.resourceTitle ?? msg.resourceUrl;
 
     return (
-      <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+      <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
         <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-3">
           <div className="flex items-start gap-3">
             <GatekeeperIcon
@@ -6455,24 +6455,24 @@ function ChatInterface({
                   Connect {msg.vendorName}
                 </span>
                 {scope && (
-                  <span className="rounded-full bg-kumo-tint px-2 py-0.5 text-[11px] leading-4 text-kumo-subtle">
+                  <span className="rounded-full bg-kumo-tint px-2 py-0.5 text-[12px] md:text-[11px] leading-4 text-kumo-subtle">
                     {scope}
                   </span>
                 )}
                 {stateLabel && (
-                  <span className={`text-[12px] font-medium ${stateLabelCls}`}>
+                  <span className={`text-[13px] md:text-[12px] font-medium ${stateLabelCls}`}>
                     {stateLabel}
                   </span>
                 )}
               </div>
               {msg.reason && (
-                <p className="mt-1 text-[13px] leading-[18px] text-kumo-subtle">
+                <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
                   {msg.reason}
                 </p>
               )}
             </div>
             {isPending && (
-              <div className="ml-3 flex flex-shrink-0 items-center gap-2 self-center text-[13px] leading-4">
+              <div className="ml-3 flex flex-shrink-0 items-center gap-2 self-center text-[14px] md:text-[13px] leading-4">
                 <button
                   type="button"
                   onClick={() => handleDenyConnection(msg.requestId)}
@@ -6521,7 +6521,7 @@ function ChatInterface({
           : "text-kumo-subtle";
 
       return (
-        <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+        <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
           <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-3">
             <div className="flex items-start gap-3">
               <GatekeeperIcon
@@ -6533,17 +6533,17 @@ function ChatInterface({
                   <span className="font-medium text-kumo-default">
                     Hook: {log.description.title}
                   </span>
-                  <span className={`text-[12px] font-medium ${stateLabelCls}`}>
+                  <span className={`text-[13px] md:text-[12px] font-medium ${stateLabelCls}`}>
                     {stateLabel}
                   </span>
                 </div>
                 {log.description.description && (
-                  <div className={`mt-1 text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
+                  <div className={`mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
                     <MarkdownMessage message={log.description.description} />
                   </div>
                 )}
                 {log.resourceTitle && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] leading-4 text-kumo-inactive">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
                     <span className="min-w-0 truncate">
                       {safeResourceUrl ? (
                         <a
@@ -6581,7 +6581,7 @@ function ChatInterface({
       const metadata = log.resourceTitle;
 
       return (
-        <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+        <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
           <button
             type="button"
             onClick={() => toggleActionExpansion(msg.actionId)}
@@ -6601,14 +6601,14 @@ function ChatInterface({
                 />
               </span>
               {metadata && (
-                <span className="mt-1 block truncate text-[12px] leading-4 text-kumo-inactive">
+                <span className="mt-1 block truncate text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
                   {metadata}
                 </span>
               )}
             </span>
           </button>
           {open && (
-            <div className="themed-surface-inset ml-8 mt-1 rounded-2xl border border-kumo-line/70 bg-kumo-elevated/45 p-3 text-[13px] leading-[19px] text-kumo-subtle">
+            <div className="themed-surface-inset ml-8 mt-1 rounded-2xl border border-kumo-line/70 bg-kumo-elevated/45 p-3 text-[14px] md:text-[13px] leading-[19px] text-kumo-subtle">
               <MarkdownMessage message={log.description.description} />
             </div>
           )}
@@ -6681,7 +6681,7 @@ function ChatInterface({
     // Resource label, shown at the top of the blocking callout and at the bottom of the subtle
     // inline row.
     const resourceMeta = metadata ? (
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] leading-4 text-kumo-inactive">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
         {log.resourceTitle && (
           <span className="min-w-0 truncate">
             {safeResourceUrl ? (
@@ -6707,7 +6707,7 @@ function ChatInterface({
     // details, and the approve/deny actions.
     if (isBlocking) {
       return (
-        <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+        <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
           <div className="rounded-2xl border border-kumo-brand/40 bg-kumo-brand/10 px-4 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
               <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -6721,7 +6721,7 @@ function ChatInterface({
                     </span>
                     {resourceMeta}
                   </div>
-                  <div className={`chat-panel mt-1 max-h-[200px] overflow-y-auto overflow-x-hidden break-words pr-1 text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
+                  <div className={`chat-panel mt-1 max-h-[200px] overflow-y-auto overflow-x-hidden break-words pr-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
                     <MarkdownMessage message={log.description.description} />
                   </div>
                 </div>
@@ -6746,7 +6746,7 @@ function ChatInterface({
     );
 
     return (
-      <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+      <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
         {isPending ? (
           <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-1.5 py-1">
             <div className="flex min-w-[8rem] flex-1 items-center gap-3">
@@ -6768,7 +6768,7 @@ function ChatInterface({
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="min-w-0 truncate">{log.description.title}</span>
               {stateLabel && (
-                <span className={`flex-shrink-0 text-[12px] font-medium ${stateLabelCls}`}>
+                <span className={`flex-shrink-0 text-[13px] md:text-[12px] font-medium ${stateLabelCls}`}>
                   {stateLabel}
                 </span>
               )}
@@ -6781,7 +6781,7 @@ function ChatInterface({
           </button>
         )}
         {showDescription && (
-          <div className="themed-surface-inset ml-8 mt-1 space-y-1.5 rounded-2xl border border-kumo-line/70 bg-kumo-elevated/45 p-3 text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
+          <div className="themed-surface-inset ml-8 mt-1 space-y-1.5 rounded-2xl border border-kumo-line/70 bg-kumo-elevated/45 p-3 text-[14px] md:text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
             <div className={`chat-panel max-h-[200px] overflow-y-auto pr-1 ${styles.markdownContent}`}>
               <MarkdownMessage message={log.description.description} />
             </div>
@@ -6805,7 +6805,7 @@ function ChatInterface({
                 className="group flex h-8 -ml-1.5 cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-left transition-colors duration-150 ease-out hover:bg-kumo-tint/60 focus-visible:bg-kumo-tint/60 focus-visible:outline-none data-[popup-open]:bg-kumo-tint/60"
                 aria-label="Filter conversations"
               >
-                <span className="text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+                <span className="text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
                   {CHAT_LIST_SCOPE_LABELS[chatListScope]}
                 </span>
                 <CaretDown
@@ -6823,13 +6823,13 @@ function ChatInterface({
                 <DropdownMenu.Item
                   key={scope.value}
                   onClick={() => setChatListScope(scope.value)}
-                  className="!h-auto rounded-md !px-2.5 !py-1.5 text-[12px] leading-4 tracking-[-0.2px] text-kumo-default transition-colors data-highlighted:bg-kumo-tint"
+                  className="!h-auto rounded-md !px-2.5 !py-1.5 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-default transition-colors data-highlighted:bg-kumo-tint"
                 >
                   <span className="mr-2 inline-flex h-3 w-3 items-center justify-center text-kumo-default">
                     {active ? <Check size={11} weight="bold" /> : null}
                   </span>
                   <span className="flex-1">{CHAT_LIST_SCOPE_LABELS[scope.value]}</span>
-                  <span className="ml-3 font-mono text-[11px] text-kumo-inactive">
+                  <span className="ml-3 font-mono text-[12px] md:text-[11px] text-kumo-inactive">
                     {scope.count}
                   </span>
                 </DropdownMenu.Item>
@@ -6854,13 +6854,13 @@ function ChatInterface({
               // Only reachable when a non-"all" scope filters everything out;
               // the all-empty case is handled by the outer chatList.length check.
               <div className="py-8 text-center">
-                <p className="text-[13px] leading-[18px] text-kumo-inactive">
+                <p className="text-[14px] md:text-[13px] leading-[18px] text-kumo-inactive">
                   No conversations started by {chatListScope === "agents" ? "agents" : "people"} yet
                 </p>
                 <button
                   type="button"
                   onClick={() => setChatListScope("all")}
-                  className="mt-2 cursor-pointer rounded-md px-2 py-1 text-[12px] leading-4 font-medium text-kumo-subtle transition-colors duration-150 ease-out hover:text-kumo-default focus-visible:text-kumo-default focus-visible:outline-none"
+                  className="mt-2 cursor-pointer rounded-md px-2 py-1 text-[13px] md:text-[12px] leading-4 font-medium text-kumo-subtle transition-colors duration-150 ease-out hover:text-kumo-default focus-visible:text-kumo-default focus-visible:outline-none"
                 >
                   Show all
                 </button>
@@ -6869,7 +6869,7 @@ function ChatInterface({
               <div className="flex flex-col gap-4">
                 {bucketedVisibleChats.map(({ bucket, items }) => (
                   <section key={bucket} className="flex flex-col gap-0.5">
-                    <p className="mb-1 px-1 text-[11px] font-medium uppercase tracking-[0.08em] text-kumo-inactive">
+                    <p className="mb-1 px-1 text-[12px] md:text-[11px] font-medium uppercase tracking-[0.08em] text-kumo-inactive">
                       {CHAT_TIME_BUCKET_LABELS[bucket]}
                     </p>
                     {items.map((chat) => (
@@ -6910,28 +6910,28 @@ function ChatInterface({
                             autoCapitalize="off"
                             autoCorrect="off"
                             aria-label={`Rename ${chat.title}`}
-                            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default outline-none placeholder:text-kumo-inactive"
+                            className="min-w-0 flex-1 bg-transparent text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default outline-none placeholder:text-kumo-inactive"
                           />
                         ) : (
-                          <span className="truncate text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+                          <span className="truncate text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
                             {chat.title}
                           </span>
                         )}
                         {!isRenaming && chat.activeAgent ? (
-                          <span className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1 text-[11px] leading-4 font-medium text-kumo-brand">
+                          <span className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1 text-[12px] md:text-[11px] leading-4 font-medium text-kumo-brand">
                             <span className="h-1.5 w-1.5 rounded-full bg-kumo-brand animate-pulse" />
                             Working
                           </span>
                         ) : !isRenaming && chat.hasProposedChanges ? (
                           <Tooltip content="This conversation has pending changes" asChild>
-                            <span className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1 text-[11px] leading-4 font-medium text-kumo-warning">
+                            <span className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1 text-[12px] md:text-[11px] leading-4 font-medium text-kumo-warning">
                               <span className="h-1.5 w-1.5 rounded-full bg-kumo-warning" />
                               Pending changes
                             </span>
                           </Tooltip>
                         ) : null}
                       </div>
-                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-kumo-inactive">
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
                         {chat.spawnerName && (
                           <>
                             <span className="truncate">Agent · {chat.spawnerName}</span>
@@ -6971,7 +6971,7 @@ function ChatInterface({
                           <DropdownMenu.Item
                             icon={<Pencil size={12} className="mr-2" />}
                             onClick={() => startListRename(chat.id, chat.title)}
-                            className="!h-auto rounded-md !px-2.5 !py-1.5 text-[12px] leading-4 tracking-[-0.2px] text-kumo-default transition-colors data-highlighted:bg-kumo-tint"
+                            className="!h-auto rounded-md !px-2.5 !py-1.5 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-default transition-colors data-highlighted:bg-kumo-tint"
                           >
                             Rename
                           </DropdownMenu.Item>
@@ -6979,7 +6979,7 @@ function ChatInterface({
                             icon={<Trash size={12} className="mr-2" />}
                             variant="danger"
                             onClick={() => handleDeleteChat(chat.id, chat.title)}
-                            className="!h-auto rounded-md !px-2.5 !py-1.5 text-[12px] leading-4 tracking-[-0.2px] transition-colors data-highlighted:bg-kumo-danger-tint"
+                            className="!h-auto rounded-md !px-2.5 !py-1.5 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] transition-colors data-highlighted:bg-kumo-danger-tint"
                           >
                             Delete
                           </DropdownMenu.Item>
@@ -7072,7 +7072,7 @@ function ChatInterface({
               <button
                 type="button"
                 onClick={() => setSidebarActiveTab("chat")}
-                className={`relative flex h-full cursor-pointer items-center text-[13px] leading-[18px] tracking-[-0.25px] transition-colors ${
+                className={`relative flex h-full cursor-pointer items-center text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] transition-colors ${
                   sidebarActiveTab === "chat"
                     ? "font-medium text-kumo-default after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-kumo-contrast/70"
                     : "font-normal text-kumo-subtle hover:text-kumo-default"
@@ -7083,7 +7083,7 @@ function ChatInterface({
               <button
                 type="button"
                 onClick={() => setSidebarActiveTab("connections")}
-                className={`relative flex h-full cursor-pointer items-center text-[13px] leading-[18px] tracking-[-0.25px] transition-colors ${
+                className={`relative flex h-full cursor-pointer items-center text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] transition-colors ${
                   sidebarActiveTab === "connections"
                     ? "font-medium text-kumo-default after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-kumo-contrast/70"
                     : "font-normal text-kumo-subtle hover:text-kumo-default"
@@ -7128,7 +7128,7 @@ function ChatInterface({
                           if (e.key === "Escape") handleCancelTitleEdit();
                         }}
                         autoFocus
-                        className="!h-8 min-w-0 flex-1 bg-kumo-tint text-[13px] font-medium"
+                        className="!h-8 min-w-0 flex-1 bg-kumo-tint text-[14px] md:text-[13px] font-medium"
                       />
                       <WorkshopIconButton
                         onClick={handleSaveChatTitle}
@@ -7148,7 +7148,7 @@ function ChatInterface({
                     </div>
                   ) : (
                     <>
-                      <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+                      <span className="min-w-0 flex-1 truncate text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
                         {currentChatMetadata?.title || "Chat"}
                       </span>
                       <WorkshopIconButton
@@ -7189,7 +7189,7 @@ function ChatInterface({
                     className={`flex flex-col px-6 pt-8 ${pendingConsoleLogCount > 0 ? "pb-16" : "pb-8"} ${useConstrainedChatWidth ? "mx-auto w-full max-w-[920px]" : ""}`}
                   >
                     {isLoadingEarlier && (
-                      <div className="mx-auto mb-6 text-[12px] leading-4 font-medium text-kumo-inactive">
+                      <div className="mx-auto mb-6 text-[13px] md:text-[12px] leading-4 font-medium text-kumo-inactive">
                         Loading earlier messages…
                       </div>
                     )}
@@ -7204,7 +7204,7 @@ function ChatInterface({
                           <div key={entry.key} className={`${entryTopClass} mb-4 max-w-[860px]`}>
                             <div className="flex items-center gap-3" role="separator">
                               <span className="h-px flex-1 bg-kumo-line/60" aria-hidden="true" />
-                              <span className="flex-shrink-0 text-[11px] leading-4 font-medium tracking-[0.6px] text-kumo-inactive uppercase">
+                              <span className="flex-shrink-0 text-[12px] md:text-[11px] leading-4 font-medium tracking-[0.6px] text-kumo-inactive uppercase">
                                 Kept in full from here
                               </span>
                               <span className="h-px flex-1 bg-kumo-line/60" aria-hidden="true" />
@@ -7221,14 +7221,14 @@ function ChatInterface({
                             {kept !== undefined && (
                               // Says what the agent traded away and what it still has, since the
                               // marker sits at the request rather than at the cut it describes.
-                              <p className="mb-3 text-[12px] leading-[17px] text-kumo-subtle">
+                              <p className="mb-3 text-[13px] md:text-[12px] leading-[17px] text-kumo-subtle">
                                 The agent reads this in place of everything earlier in the chat.{" "}
                                 {kept === 0
                                   ? "Nothing after it was kept."
                                   : `The ${kept === 1 ? "message" : `${kept} messages`} after the cut ${kept === 1 ? "was" : "were"} kept in full.`}
                               </p>
                             )}
-                            <div className={`min-w-0 text-[13px] leading-[19px] ${styles.markdownContent}`}>
+                            <div className={`min-w-0 text-[14px] md:text-[13px] leading-[19px] ${styles.markdownContent}`}>
                               <MarkdownMessage message={entry.boundary.summary} />
                             </div>
                           </div>
@@ -7244,7 +7244,7 @@ function ChatInterface({
                                 type="button"
                                 onClick={() => toggleCompactionSummary(entry.boundary.to)}
                                 aria-expanded={expanded}
-                                className="inline-flex cursor-pointer items-center gap-3 rounded-md px-1.5 text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle transition-colors duration-150 ease-out hover:text-kumo-default focus-visible:text-kumo-default focus-visible:outline-none"
+                                className="inline-flex cursor-pointer items-center gap-3 rounded-md px-1.5 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle transition-colors duration-150 ease-out hover:text-kumo-default focus-visible:text-kumo-default focus-visible:outline-none"
                               >
                                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
                                   <Brain size={16} />
@@ -7271,7 +7271,7 @@ function ChatInterface({
                                 type="button"
                                 onClick={() => toggleCompactionSummary(entry.boundary.to)}
                                 aria-expanded={expanded}
-                                className="flex flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] leading-4 font-medium tracking-[0.6px] text-kumo-inactive uppercase transition-colors duration-150 ease-out hover:text-kumo-default focus-visible:text-kumo-default focus-visible:outline-none"
+                                className="flex flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] md:text-[11px] leading-4 font-medium tracking-[0.6px] text-kumo-inactive uppercase transition-colors duration-150 ease-out hover:text-kumo-default focus-visible:text-kumo-default focus-visible:outline-none"
                               >
                                 <Brain size={13} aria-hidden="true" />
                                 Context compacted
@@ -7290,7 +7290,7 @@ function ChatInterface({
 
                       if (entry.type === "modelChange") {
                         return (
-                          <div key={entry.key} className={`${entryTopClass} max-w-[860px] py-1 text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle`}>
+                          <div key={entry.key} className={`${entryTopClass} max-w-[860px] py-1 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle`}>
                             <div className="flex items-center gap-3 px-1.5 py-1">
                               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
                                 <Swap size={16} />
@@ -7319,7 +7319,7 @@ function ChatInterface({
                           createdGadgets.map((g) => g.title),
                         );
                         return (
-                          <div key={entry.key} className={`${entryTopClass} group/savedChanges max-w-[860px] py-1 text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle`}>
+                          <div key={entry.key} className={`${entryTopClass} group/savedChanges max-w-[860px] py-1 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle`}>
                             <div className="flex items-center gap-3 px-1.5 py-1">
                               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
                                 <PencilSimple size={15} />
@@ -7340,7 +7340,7 @@ function ChatInterface({
                                   </button>
                                 </Tooltip>
                                 <Tooltip content={formatFullTimestamp(entry.message.timestamp)} asChild>
-                                  <span className="px-1 font-mono text-[11px] leading-4 text-kumo-inactive">
+                                  <span className="px-1 font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive">
                                     {entry.message.timestamp.toLocaleTimeString([], {
                                       hour: "2-digit",
                                       minute: "2-digit",
@@ -7356,7 +7356,7 @@ function ChatInterface({
                       if (entry.type === "botWork") {
                         return (
                           <div key={entry.key} className={entryTopClass}>
-                            <div className="flex items-center gap-1.5 py-0.5 text-[12px] md:text-[11px] text-kumo-subtle">
+                            <div className="flex items-center gap-1.5 py-0.5 text-[13px] md:text-[12px] md:text-[11px] text-kumo-subtle">
                               <span className="h-px w-4 bg-kumo-line" aria-hidden />
                               <span>{describeBotWork(entry.counts)}</span>
                             </div>
@@ -7422,7 +7422,7 @@ function ChatInterface({
                         {/* ── user / AI text message ── */}
                         {msg.type === "slashCommand" && (
                           <div className="group/message relative flex flex-col items-end">
-                            <div className="themed-user-bubble-shadow w-fit max-w-[min(680px,78%)] rounded-[24px] rounded-br-lg border border-transparent bg-kumo-bubble-user px-4 py-2.5 text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default">
+                            <div className="themed-user-bubble-shadow w-fit max-w-[min(680px,78%)] rounded-[24px] rounded-br-lg border border-transparent bg-kumo-bubble-user px-4 py-2.5 text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default">
                               <span className="whitespace-pre-wrap">
                                 <SlashCommandMention
                                   name={msg.skillName}
@@ -7433,7 +7433,7 @@ function ChatInterface({
                                 />
                               </span>
                             </div>
-                            <div className="mt-0.5 flex items-center justify-end gap-2 pr-1 text-[11px] leading-4 text-kumo-inactive opacity-0 transition-opacity duration-150 ease-out group-hover/message:opacity-100 group-focus-within/message:opacity-100">
+                            <div className="mt-0.5 flex items-center justify-end gap-2 pr-1 text-[12px] md:text-[11px] leading-4 text-kumo-inactive opacity-0 transition-opacity duration-150 ease-out group-hover/message:opacity-100 group-focus-within/message:opacity-100">
                               {!(hideOwnUserName && msg.author.id === currentUser?.id) && (
                                 <span className="font-medium">{msg.author.name}</span>
                               )}
@@ -7451,7 +7451,7 @@ function ChatInterface({
                         {msg.type === "message" && (
                           msg.author.type === "user" ? (
                             <div className="group/message relative flex flex-col items-end">
-                              <div className={`themed-user-bubble-shadow w-fit max-w-[min(680px,78%)] rounded-[24px] rounded-br-lg border border-transparent bg-kumo-bubble-user px-4 py-2.5 text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
+                              <div className={`themed-user-bubble-shadow w-fit max-w-[min(680px,78%)] rounded-[24px] rounded-br-lg border border-transparent bg-kumo-bubble-user px-4 py-2.5 text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
                                 {msg.attachments && msg.attachments.length > 0 && (
                                   <ChatAttachmentGrid
                                     attachments={msg.attachments}
@@ -7482,7 +7482,7 @@ function ChatInterface({
                                   </div>
                                 )}
                               </div>
-                              <div className="mt-0.5 flex items-center justify-end gap-2 pr-1 text-[11px] leading-4 text-kumo-inactive opacity-0 transition-opacity duration-150 ease-out group-hover/message:opacity-100 group-focus-within/message:opacity-100">
+                              <div className="mt-0.5 flex items-center justify-end gap-2 pr-1 text-[12px] md:text-[11px] leading-4 text-kumo-inactive opacity-0 transition-opacity duration-150 ease-out group-hover/message:opacity-100 group-focus-within/message:opacity-100">
                                 {/* hideOwnUserName implies currentUser is non-null (see memo). */}
                                 {!(hideOwnUserName && msg.author.id === currentUser?.id) && (
                                   <span className="font-medium">{msg.author.name}</span>
@@ -7528,7 +7528,7 @@ function ChatInterface({
                               )}
 
                               {hasMessageText && (
-                                <div className={`text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
+                                <div className={`text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
                                   <MarkdownMessage
                                     message={msg.message}
                                     capsules={msg.capsules}
@@ -7575,7 +7575,7 @@ function ChatInterface({
                                     );
                                   })()}
                                   <Tooltip content={formatFullTimestamp(msg.timestamp)} asChild>
-                                    <span className="px-1 font-mono text-[11px] leading-4 text-kumo-inactive">
+                                    <span className="px-1 font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive">
                                       {msg.timestamp.toLocaleTimeString([], {
                                         hour: "2-digit",
                                         minute: "2-digit",
@@ -7642,7 +7642,7 @@ function ChatInterface({
                                   msg.sequence,
                                 );
                             return (
-                              <div className="max-w-[860px] py-1 text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+                              <div className="max-w-[860px] py-1 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
                                 <Tooltip
                                   content={
                                     isMerge
@@ -7672,7 +7672,7 @@ function ChatInterface({
                         {msg.type === "connectionRequest" && renderConnectionRequestCard(msg)}
 
                         {msg.type === "useGadget" && (
-                          <div className="max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+                          <div className="max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
                             <Tooltip content={`Used the gadget at ${formatFullTimestamp(msg.timestamp)}`} asChild>
                               <span className="inline-flex items-center gap-3 px-1.5 py-1">
                                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
@@ -7692,7 +7692,7 @@ function ChatInterface({
                               !isAgentActive;
                             const expanded = expandedErrors.has(key);
                             return (
-                              <div className="group/work max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+                              <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
                                 <div className="flex w-full items-center gap-2 px-1.5 py-1">
                                   <button
                                     type="button"
@@ -7724,7 +7724,7 @@ function ChatInterface({
                                       <button
                                         type="button"
                                         onClick={() => setUsageModalOpen(true)}
-                                        className="flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-[13px] leading-4 font-medium text-kumo-default transition-[color,opacity,transform] duration-150 ease-out hover:text-kumo-default-hover focus-visible:text-kumo-default-hover focus-visible:outline-none active:scale-[0.98]"
+                                        className="flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-[14px] md:text-[13px] leading-4 font-medium text-kumo-default transition-[color,opacity,transform] duration-150 ease-out hover:text-kumo-default-hover focus-visible:text-kumo-default-hover focus-visible:outline-none active:scale-[0.98]"
                                       >
                                         <Lightning size={12} weight="bold" />
                                         Continue
@@ -7737,7 +7737,7 @@ function ChatInterface({
                                         type="button"
                                         onClick={() => handleRetry()}
                                         disabled={selectedModel === null}
-                                        className="flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-[13px] leading-4 font-medium text-kumo-default transition-[color,opacity,transform] duration-150 ease-out hover:text-kumo-default-hover focus-visible:text-kumo-default-hover focus-visible:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 text-[14px] md:text-[13px] leading-4 font-medium text-kumo-default transition-[color,opacity,transform] duration-150 ease-out hover:text-kumo-default-hover focus-visible:text-kumo-default-hover focus-visible:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                                       >
                                         <ArrowsClockwise size={12} weight="bold" />
                                         Retry
@@ -7747,7 +7747,7 @@ function ChatInterface({
                                 </div>
                                 {expanded && (
                                   <div className="ml-8 mt-1">
-                                    <pre className="max-h-48 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+                                    <pre className="max-h-48 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
                                       {msg.message}
                                     </pre>
                                   </div>
@@ -7757,18 +7757,18 @@ function ChatInterface({
                           })()}
 
                         {msg.type === "agentCallback" && (
-                          <div className="max-w-[860px] text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
+                          <div className="max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
                             <div className="flex items-center gap-3 px-1.5 py-1">
                               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
                                 <Code size={16} />
                               </span>
-                              <span className="min-w-0 truncate font-mono text-[13px]">
+                              <span className="min-w-0 truncate font-mono text-[14px] md:text-[13px]">
                                 self.{msg.methodName}()
                               </span>
                             </div>
                             {msg.argsSummary && (
                               <div className="ml-8 mt-1">
-                                <pre className="max-h-24 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+                                <pre className="max-h-24 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
                                   {msg.argsSummary}
                                 </pre>
                               </div>
@@ -7801,7 +7801,7 @@ function ChatInterface({
                             ? "mt-2"
                             : "mt-4";
                       return (
-                        <div className={`${draftTopClass} max-w-[860px] py-1 text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle`}>
+                        <div className={`${draftTopClass} max-w-[860px] py-1 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle`}>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1.5">
                             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
                               <Pencil size={16} />
@@ -7814,7 +7814,7 @@ function ChatInterface({
                                 {title}
                               </span>
                             </Tooltip>
-                            <div className="flex flex-wrap items-center gap-2 text-[13px] leading-4">
+                            <div className="flex flex-wrap items-center gap-2 text-[14px] md:text-[13px] leading-4">
                               <Tooltip content="Throw away these draft edits." asChild>
                                 <button
                                   type="button"
@@ -7881,13 +7881,13 @@ function ChatInterface({
                       return (
                         <div className={`group/agent min-w-0 w-full max-w-[860px] space-y-2 ${provisionalTopClass}`}>
                           {isCompacting && (
-                            <div className={`inline-flex px-1.5 py-1 text-[14px] leading-5 tracking-[-0.25px] ${styles.thinkingShimmer}`}>
+                            <div className={`inline-flex px-1.5 py-1 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] ${styles.thinkingShimmer}`}>
                               Compacting…
                             </div>
                           )}
 
                           {showThinking && (
-                            <div className={`inline-flex px-1.5 py-1 text-[14px] leading-5 tracking-[-0.25px] ${styles.thinkingShimmer}`}>
+                            <div className={`inline-flex px-1.5 py-1 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] ${styles.thinkingShimmer}`}>
                               Thinking
                             </div>
                           )}
@@ -7897,7 +7897,7 @@ function ChatInterface({
                           )}
 
                           {currentProvisionalState?.text && (
-                            <div className={`text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
+                            <div className={`text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
                               <MarkdownMessage message={currentProvisionalState.text} />
                             </div>
                           )}
@@ -7924,7 +7924,7 @@ function ChatInterface({
                                       <WorkIcon Icon={getToolIcon(first.toolName, first.outputFormat)} />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                      <span className="flex min-w-0 items-center gap-2 text-[14px] leading-5 tracking-[-0.25px]">
+                                      <span className="flex min-w-0 items-center gap-2 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px]">
                                         <span className="min-w-0 truncate">{label}</span>
                                         <CaretRight
                                           size={13}
@@ -7933,7 +7933,7 @@ function ChatInterface({
                                         />
                                       </span>
                                       {detailLines.length > 1 && (
-                                        <span className="mt-1 block truncate font-mono text-[12px] leading-4 text-kumo-inactive">
+                                        <span className="mt-1 block truncate font-mono text-[13px] md:text-[12px] leading-4 text-kumo-inactive">
                                           {detailLines.join(" · ")}
                                         </span>
                                       )}
@@ -7948,16 +7948,16 @@ function ChatInterface({
                                         >
                                           {toolCall.code && (
                                             <>
-                                              <span className="font-mono text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">Code</span>
-                                              <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+                                              <span className="font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">Code</span>
+                                              <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
                                                 {toolCall.code}
                                               </pre>
                                             </>
                                           )}
                                           {toolCall.output && (
                                             <>
-                                              <span className="font-mono text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">Output</span>
-                                              <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
+                                              <span className="font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive uppercase tracking-[0.08em]">Output</span>
+                                              <pre className="max-h-56 overflow-auto rounded-xl border border-kumo-line/70 bg-kumo-base p-3 font-mono text-[13px] md:text-[12px] leading-[18px] text-kumo-subtle whitespace-pre-wrap">
                                                 {toolCall.output}
                                               </pre>
                                             </>
@@ -8043,7 +8043,7 @@ function ChatInterface({
                       return (
                         <div className="themed-surface-inset relative flex items-center gap-2 overflow-hidden rounded-t-[calc(1rem-1px)] border-b border-kumo-line bg-kumo-elevated px-3.5 py-2">
                           <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-kumo-brand/40 to-transparent" aria-hidden="true" />
-                          <span className="min-w-0 flex-1 truncate text-[12px] font-medium leading-4 tracking-[-0.2px] text-kumo-default">
+                          <span className="min-w-0 flex-1 truncate text-[13px] md:text-[12px] font-medium leading-4 tracking-[-0.2px] text-kumo-default">
                             Pending changes
                           </span>
                           <DiscardPendingChangesPopover
@@ -8069,7 +8069,7 @@ function ChatInterface({
                                 handleMergeChanges(mergeThrough, { includeDraft: true })
                               }
                               tone="primary"
-                              className="!h-7 !cursor-pointer !rounded-md !border-transparent !shadow-none gap-1 text-[12px]"
+                              className="!h-7 !cursor-pointer !rounded-md !border-transparent !shadow-none gap-1 text-[13px] md:text-[12px]"
                             >
                               <Check size={11} weight="bold" />
                               Accept changes
@@ -8082,7 +8082,7 @@ function ChatInterface({
 
                   {/* Token / cost summary. Hidden below md: on a phone it costs a line of
                       vertical space under the composer for numbers the header already carries. */}
-                  <div className="-mt-1 hidden min-h-[1.25rem] items-start justify-end gap-4 px-4 pb-1 font-mono text-[11px] leading-4 text-kumo-inactive md:flex">
+                  <div className="-mt-1 hidden min-h-[1.25rem] items-start justify-end gap-4 px-4 pb-1 font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive md:flex">
                     {currentChatMetadata?.totalTokens != null && (
                       <span>
                         {currentChatMetadata.totalTokens.toLocaleString()} tokens
