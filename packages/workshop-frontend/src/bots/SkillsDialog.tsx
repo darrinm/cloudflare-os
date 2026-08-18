@@ -29,7 +29,7 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
           <div className="flex items-start justify-between gap-3">
             <div>
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">Skills</Dialog.Title>
-              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">
+              <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">
                 Reusable instructions any Bot can be given by name. Write <code>$ARGUMENT</code> where the request’s details go.
               </Dialog.Description>
             </div>
@@ -47,9 +47,9 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
             >
               <Input label="Name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="weekly-report" required />
               <Input label="Description" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} placeholder="What it does, in one line" />
-              <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+              <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
                 Instructions
-                <textarea className="min-h-[180px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 font-mono text-[12px] text-kumo-default" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} placeholder={'Write a weekly report about $ARGUMENT.\nKeep it under 200 words.'} required />
+                <textarea className="min-h-[180px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 font-mono text-[13px] md:text-[12px] text-kumo-default" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} placeholder={'Write a weekly report about $ARGUMENT.\nKeep it under 200 words.'} required />
               </label>
               <div className="flex justify-end gap-2">
                 <Button variant="secondary" type="button" onClick={() => setEditing(null)} disabled={busy}>Back</Button>
@@ -59,13 +59,13 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
           ) : (
             <>
               {skills === null && <Loader />}
-              {skills?.length === 0 && <div className="text-[12px] text-kumo-subtle">No skills yet.</div>}
+              {skills?.length === 0 && <div className="text-[13px] md:text-[12px] text-kumo-subtle">No skills yet.</div>}
               <ul className="flex max-h-72 flex-col gap-1.5 overflow-y-auto">
                 {skills?.map((s) => (
-                  <li key={s.name} className="flex items-start justify-between gap-2 rounded-md border border-kumo-line px-2 py-1.5 text-[13px]">
+                  <li key={s.name} className="flex items-start justify-between gap-2 rounded-md border border-kumo-line px-2 py-1.5 text-[14px] md:text-[13px]">
                     <span className="min-w-0">
-                      <span className="block font-mono text-[12px] text-kumo-default">/{s.name}</span>
-                      <span className="block truncate text-[12px] text-kumo-subtle">{s.description || 'no description'}</span>
+                      <span className="block font-mono text-[13px] md:text-[12px] text-kumo-default">/{s.name}</span>
+                      <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">{s.description || 'no description'}</span>
                     </span>
                     <span className="flex flex-none gap-1">
                       <Button variant="secondary" size="sm" onClick={async () => { const full = await hub.getSkill(s.name); if (full) setEditing({ name: full.name, description: full.description, body: full.body ?? '' }) }}>Edit</Button>
@@ -75,7 +75,7 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
                 ))}
               </ul>
               <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 text-[11px] text-kumo-subtle">
+                <div className="min-w-0 text-[12px] md:text-[11px] text-kumo-subtle">
                   {onAddExamples && (
                     <Button variant="secondary" size="sm" onClick={onAddExamples} loading={!!addingExamples}>Add example Bots</Button>
                   )}
@@ -119,16 +119,16 @@ export function RunSkillDialog({ open, onClose, hub, botId, botName }: { open: b
           <div className="flex items-start justify-between gap-3">
             <div>
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">Run a skill</Dialog.Title>
-              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">{botName} gets the skill’s instructions as a work item; the result lands in its conversation.</Dialog.Description>
+              <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">{botName} gets the skill’s instructions as a work item; the result lands in its conversation.</Dialog.Description>
             </div>
             <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
           </div>
           {skills === null ? <Loader /> : skills.length === 0 ? (
-            <div className="text-[12px] text-kumo-subtle">No skills defined yet — add some under Skills in the roster.</div>
+            <div className="text-[13px] md:text-[12px] text-kumo-subtle">No skills defined yet — add some under Skills in the roster.</div>
           ) : (
-            <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+            <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
               Skill
-              <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default" value={name} onChange={(e) => setName(e.target.value)}>
+              <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[14px] md:text-[13px] text-kumo-default" value={name} onChange={(e) => setName(e.target.value)}>
                 {skills.map((s) => <option key={s.name} value={s.name}>/{s.name}{s.description ? ` — ${s.description}` : ''}</option>)}
               </select>
             </label>

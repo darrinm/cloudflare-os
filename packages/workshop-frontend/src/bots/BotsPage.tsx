@@ -84,7 +84,7 @@ export function BotsPageContent({ botId, groupId = null }: { botId: string | nul
 
 function CenteredNote({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full items-center justify-center p-8 text-[13px] text-kumo-subtle">
+    <div className="flex h-full items-center justify-center p-8 text-[14px] md:text-[13px] text-kumo-subtle">
       {children}
     </div>
   )
@@ -113,16 +113,16 @@ function CreateHubPanel({
     <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center gap-4 p-8 text-center">
       <Robot size={40} weight="duotone" className="text-kumo-brand" />
       <h1 className="text-[20px] font-medium tracking-[-0.4px] text-kumo-default">Bots</h1>
-      <p className="text-[13px] leading-[18px] text-kumo-subtle">
+      <p className="text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
         Bots are persistent AI teammates: give each one a name, a role and standing instructions, then
         message it, put it on a schedule, or let it hand work to other Bots. Your Bots live in one
         workspace created from the “Bots” blueprint.
       </p>
       {models === null ? <Loader /> : (
-        <label className="flex w-full flex-col gap-1 text-left text-[12px] text-kumo-subtle">
+        <label className="flex w-full flex-col gap-1 text-left text-[13px] md:text-[12px] text-kumo-subtle">
           Model your Bots think with
           <select
-            className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default"
+            className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[14px] md:text-[13px] text-kumo-default"
             value={modelId ?? ''}
             onChange={(e) => setModelId(e.target.value || null)}
           >
@@ -202,7 +202,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const roster = (
     <aside className={`${anySelected ? 'hidden md:flex' : 'flex'} h-full w-full flex-col border-r border-kumo-line bg-kumo-base md:w-64 md:flex-none`}>
       <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
-        <h1 className="text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
+        <h1 className="text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
         <div className="flex items-center gap-1">
           <WorkshopIconButton onClick={() => setShowSkills(true)} title="Skills" aria-label="Skills" className="!h-8 !w-8" disabled={!hubState.hub}>
             <Lightning size={14} />
@@ -213,12 +213,12 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         </div>
       </div>
       {hubState.info && !hubState.info.hasSpawner && (
-        <div className="m-2 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[12px] text-kumo-default">
+        <div className="m-2 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[13px] md:text-[12px] text-kumo-default">
           No agent spawner is bound to the hub yet, so Bots can’t run. Give a Bot grants (Details → Grants) or assign AGENT_SPAWNER in the workspace’s Connections.
         </div>
       )}
       <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Bots">
-        {hubState.error && <div className="p-3 text-[12px] text-kumo-danger">{hubState.error}</div>}
+        {hubState.error && <div className="p-3 text-[13px] md:text-[12px] text-kumo-danger">{hubState.error}</div>}
         {!hubState.hub && !hubState.error && (
           // Connecting to the hub: a quiet placeholder, not the empty state (which would flash on
           // every load before the roster arrives).
@@ -232,11 +232,11 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           </div>
         )}
         {hubState.hub && hubState.bots.length === 0 && !hubState.error && (
-          <div className="flex flex-col gap-2 p-4 text-[12px] text-kumo-subtle">
+          <div className="flex flex-col gap-2 p-4 text-[13px] md:text-[12px] text-kumo-subtle">
             <div>No Bots yet. Create one with +, or start with a ready-made team.</div>
             <Button variant="secondary" size="sm" onClick={addExamples} loading={seeding !== null} disabled={!hubState.hub}>Add example Bots</Button>
-            {seeding && <div className="text-[11px]">{seeding}</div>}
-            <div className="text-[11px]">Scout (browser), Fixer (sandbox, asks first), Ledger (sandbox + email), Concierge (coordinates) — plus two skills, a routine and a group.</div>
+            {seeding && <div className="text-[12px] md:text-[11px]">{seeding}</div>}
+            <div className="text-[12px] md:text-[11px]">Scout (browser), Fixer (sandbox, asks first), Ledger (sandbox + email), Concierge (coordinates) — plus two skills, a routine and a group.</div>
           </div>
         )}
         {hubState.bots.map((bot) => (
@@ -249,14 +249,14 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           >
             <BotAvatar bot={bot} />
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-medium text-kumo-default">{bot.name}</span>
-              <span className="block truncate text-[12px] text-kumo-subtle">{bot.role || 'Bot'}</span>
+              <span className="block truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{bot.name}</span>
+              <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">{bot.role || 'Bot'}</span>
             </span>
           </button>
         ))}
         {(hubState.groups.length > 0 || hubState.bots.length > 1) && (
           <div className="flex items-center justify-between border-b border-kumo-line px-3 py-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-kumo-subtle">Groups</span>
+            <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-wide text-kumo-subtle">Groups</span>
             <WorkshopIconButton onClick={() => setShowNewGroup(true)} title="New group" aria-label="New group" className="!h-6 !w-6"><Plus size={12} /></WorkshopIconButton>
           </div>
         )}
@@ -270,8 +270,8 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           >
             <span className="inline-grid h-8 w-8 flex-none place-items-center rounded-full bg-kumo-tint text-kumo-default" aria-hidden><UsersThree size={16} /></span>
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-medium text-kumo-default">{g.name}</span>
-              <span className="block truncate text-[12px] text-kumo-subtle">{g.members.length ? g.members.map((m) => m.name).join(', ') : 'No members'}</span>
+              <span className="block truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{g.name}</span>
+              <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">{g.members.length ? g.members.map((m) => m.name).join(', ') : 'No members'}</span>
             </span>
           </button>
         ))}
@@ -291,8 +291,8 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
               </WorkshopIconButton>
               <BotAvatar bot={selected} size={26} />
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-kumo-default">{selected.name}</div>
-                <div className="truncate text-[11px] text-kumo-subtle">{selected.role || 'Bot'}</div>
+                <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{selected.name}</div>
+                <div className="truncate text-[12px] md:text-[11px] text-kumo-subtle">{selected.role || 'Bot'}</div>
               </div>
               <WorkshopIconButton onClick={toggleShowWork} className={`!h-8 !w-8 ${showWork ? 'text-kumo-brand' : ''}`} aria-label={showWork ? 'Hide the Bot’s work' : 'Show the Bot’s work'} title={showWork ? 'Hide work (code runs, callbacks)' : 'Show work (code runs, callbacks)'} aria-pressed={showWork}>
                 <Wrench size={14} />
@@ -328,7 +328,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           onDeleted={() => navigate({ to: '/bots' })}
         />
       ) : (
-        <section className="hidden min-w-0 flex-1 items-center justify-center p-8 text-center text-[13px] text-kumo-subtle md:flex">
+        <section className="hidden min-w-0 flex-1 items-center justify-center p-8 text-center text-[14px] md:text-[13px] text-kumo-subtle md:flex">
           {!hubState.hub ? '' : hubState.bots.length ? 'Pick a Bot to open its conversation.' : 'Create your first Bot with the + button.'}
         </section>
       )}
@@ -455,22 +455,22 @@ function NewBotDialog({ open, onClose, onCreate }: {
           <div className="flex items-start justify-between gap-3">
             <div>
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">New Bot</Dialog.Title>
-              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">A teammate with a name, a role and standing instructions.</Dialog.Description>
+              <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">A teammate with a name, a role and standing instructions.</Dialog.Description>
             </div>
             <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
           </div>
           <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Inbox Manager" autoFocus required />
           <Input label="Role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Triages email and drafts replies" />
-          <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+          <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
             Instructions
             <textarea
-              className="min-h-[120px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default"
+              className="min-h-[120px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[14px] md:text-[13px] text-kumo-default"
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               placeholder="What to do, how to decide, when to ask you."
             />
           </label>
-          {error && <div className="text-[12px] text-kumo-danger">{error}</div>}
+          {error && <div className="text-[13px] md:text-[12px] text-kumo-danger">{error}</div>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
             <Button variant="primary" type="submit" loading={busy} disabled={!name.trim()}>Create Bot</Button>
@@ -556,17 +556,17 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
   const body = (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
       <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
-        <span className="text-[13px] font-medium text-kumo-default">Details</span>
-        <span className="text-[11px] text-kumo-subtle">{bot.id}</span>
+        <span className="text-[14px] md:text-[13px] font-medium text-kumo-default">Details</span>
+        <span className="text-[12px] md:text-[11px] text-kumo-subtle">{bot.id}</span>
         <WorkshopIconButton onClick={onClose} className="!h-8 !w-8 lg:hidden" aria-label="Close details"><X size={14} /></WorkshopIconButton>
       </div>
 
       <Section title="Persona">
         <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
         <Input label="Role" value={role} onChange={(e) => setRole(e.target.value)} />
-        <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+        <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
           Instructions
-          <textarea className="min-h-[140px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+          <textarea className="min-h-[140px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[14px] md:text-[13px] text-kumo-default" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
         </label>
         <div className="flex items-center justify-between gap-2">
           <Button
@@ -596,7 +596,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
       </Section>
 
       <Section title="Grants">
-        <p className="text-[12px] text-kumo-subtle">
+        <p className="text-[13px] md:text-[12px] text-kumo-subtle">
           What this Bot may use. Currently through <code className="text-kumo-default">{bot.spawnerBinding}</code>
           {bot.agentGeneration > 1 ? ` (agent #${bot.agentGeneration})` : ''}.
           {pendingCount > 0 && <> {pendingCount} action{pendingCount === 1 ? '' : 's'} awaiting approval in the conversation.</>}
@@ -609,12 +609,12 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 
       <Section title="Cost">
         {costs ? (
-          <p className="text-[12px] text-kumo-subtle">
+          <p className="text-[13px] md:text-[12px] text-kumo-subtle">
             <span className="text-kumo-default">${costs.todayUsd.toFixed(2)}</span> in the last 24 h · ${costs.totalUsd.toFixed(2)} lifetime over {costs.turns} turn{costs.turns === 1 ? '' : 's'}
             {costs.totalTokens ? ` · ${Intl.NumberFormat().format(costs.totalTokens)} tokens` : ''}
             {costs.dailyCapUsd !== null && costs.todayUsd >= costs.dailyCapUsd && <span className="text-kumo-danger"> · at cap: new work is held</span>}
           </p>
-        ) : <p className="text-[12px] text-kumo-subtle">Cost is recorded after each turn.</p>}
+        ) : <p className="text-[13px] md:text-[12px] text-kumo-subtle">Cost is recorded after each turn.</p>}
         <form
           className="flex items-end gap-2"
           onSubmit={async (e) => {
@@ -626,9 +626,9 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
             } catch (err) { toasts.add({ title: 'Couldn’t set the cap', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
           }}
         >
-          <label className="flex flex-1 flex-col gap-1 text-[12px] text-kumo-subtle">
+          <label className="flex flex-1 flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
             Daily cap (USD, blank = none)
-            <input className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[13px] text-kumo-default" inputMode="decimal" value={capDraft} onChange={(e) => setCapDraft(e.target.value)} placeholder="e.g. 5" />
+            <input className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[14px] md:text-[13px] text-kumo-default" inputMode="decimal" value={capDraft} onChange={(e) => setCapDraft(e.target.value)} placeholder="e.g. 5" />
           </label>
           <Button variant="secondary" size="sm" type="submit">Set</Button>
         </form>
@@ -638,7 +638,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
         {(['browser', 'sandbox'] as const).map((kind) => {
           const b = computer[kind]
           return (
-            <div key={kind} className="flex items-start justify-between gap-2 text-[12px]">
+            <div key={kind} className="flex items-start justify-between gap-2 text-[13px] md:text-[12px]">
               <span className="min-w-0">
                 <span className="block text-kumo-default">{COMPUTER_VENDORS[kind].title}</span>
                 <span className="block truncate text-kumo-subtle" title={b?.resourceTitle}>{b ? b.resourceTitle : 'none — give one in Grants'}</span>
@@ -650,12 +650,12 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
       </Section>
 
       <Section title={`Memory (${memories.length})`}>
-        {memories.length === 0 && <div className="text-[12px] text-kumo-subtle">Nothing remembered yet.</div>}
+        {memories.length === 0 && <div className="text-[13px] md:text-[12px] text-kumo-subtle">Nothing remembered yet.</div>}
         <ul className="flex flex-col gap-1.5">
           {memories.map((m) => (
-            <li key={m.id} className="flex items-start justify-between gap-2 text-[12px]">
+            <li key={m.id} className="flex items-start justify-between gap-2 text-[13px] md:text-[12px]">
               <span className="min-w-0">
-                <span className="block text-[11px] text-kumo-subtle">{m.kind} · {fmtTime(m.created)}</span>
+                <span className="block text-[12px] md:text-[11px] text-kumo-subtle">{m.kind} · {fmtTime(m.created)}</span>
                 <span className="block text-kumo-default">{m.text}</span>
               </span>
               <WorkshopIconButton onClick={() => hub.forget(m.id).catch(() => {})} className="!h-6 !w-6" aria-label="Forget"><X size={11} /></WorkshopIconButton>
@@ -666,11 +666,11 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 
       <Section title={`Routines (${routines.length})`}>
         {routines.length === 0 && (
-          <div className="text-[12px] text-kumo-subtle">None. Ask the Bot (or the workspace agent) to schedule one; hooks are enabled in Connections.</div>
+          <div className="text-[13px] md:text-[12px] text-kumo-subtle">None. Ask the Bot (or the workspace agent) to schedule one; hooks are enabled in Connections.</div>
         )}
         <ul className="flex flex-col gap-2">
           {routines.map((r) => (
-            <li key={r.id} className="text-[12px]">
+            <li key={r.id} className="text-[13px] md:text-[12px]">
               <div className="font-medium text-kumo-default">{r.title}</div>
               <div className="text-kumo-subtle">{r.schedule || 'no schedule text'} · {r.scheduleId ? 'scheduled' : 'not scheduled yet'} · runs: {r.runCount}</div>
               <div className="mt-1 flex gap-1.5">
@@ -689,8 +689,8 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
         </div>
         <ul className="flex flex-col gap-1.5">
           {events.filter((e) => e.type !== 'delivered').slice(-30).toReversed().map((e) => (
-            <li key={e.id} className="text-[12px]">
-              <span className="text-[11px] uppercase tracking-wide text-kumo-subtle">{e.type} · {fmtTime(e.ts)}</span>
+            <li key={e.id} className="text-[13px] md:text-[12px]">
+              <span className="text-[12px] md:text-[11px] uppercase tracking-wide text-kumo-subtle">{e.type} · {fmtTime(e.ts)}</span>
               {e.text && <div className="whitespace-pre-wrap text-kumo-default">{e.text.slice(0, 400)}</div>}
             </li>
           ))}
@@ -746,7 +746,7 @@ async function exportActivity(hub: HubStub, bot: Bot, format: 'json' | 'csv') {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2 border-b border-kumo-line px-3 py-3">
-      <h2 className="text-[12px] font-medium uppercase tracking-wide text-kumo-subtle">{title}</h2>
+      <h2 className="text-[13px] md:text-[12px] font-medium uppercase tracking-wide text-kumo-subtle">{title}</h2>
       {children}
     </section>
   )
@@ -865,13 +865,13 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
     const replacing = replaceComputer.has(kind)
     return (
       <li className="flex flex-col gap-1.5 rounded-md border border-kumo-line p-2">
-        <label className="flex items-center gap-2 text-[13px] text-kumo-default">
+        <label className="flex items-center gap-2 text-[14px] md:text-[13px] text-kumo-default">
           <input type="checkbox" checked={want} onChange={(e) => setWant(e.target.checked)} />
-          <span className="font-mono text-[12px]">{COMPUTER_VENDORS[kind].envName}</span>
+          <span className="font-mono text-[13px] md:text-[12px]">{COMPUTER_VENDORS[kind].envName}</span>
           <span className="truncate text-kumo-subtle">{COMPUTER_VENDORS[kind].title}</span>
         </label>
         {want && existing && !replacing && (
-          <div className="flex items-center justify-between gap-2 pl-6 text-[12px] text-kumo-subtle">
+          <div className="flex items-center justify-between gap-2 pl-6 text-[13px] md:text-[12px] text-kumo-subtle">
             <span className="truncate" title={existing.resourceTitle}>{existing.resourceTitle}</span>
             <button type="button" className="flex-none text-kumo-brand hover:underline" onClick={() => setReplaceComputer((prev) => new Set(prev).add(kind))}>Replace…</button>
           </div>
@@ -888,7 +888,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
           <div className="flex items-start justify-between gap-3">
             <div>
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">Grants for {bot.name}</Dialog.Title>
-              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">
+              <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">
                 Pick which of the hub’s connections this Bot may use, and its model. Applying re-creates the Bot’s agent; its memory carries over.
               </Dialog.Description>
             </div>
@@ -896,47 +896,47 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
           </div>
           {bindings === null ? <Loader /> : (
             <>
-              <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+              <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
                 Model
-                <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default" value={modelId ?? ''} onChange={(e) => setModelId(e.target.value || null)}>
+                <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[14px] md:text-[13px] text-kumo-default" value={modelId ?? ''} onChange={(e) => setModelId(e.target.value || null)}>
                   {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </label>
-              <div className="text-[12px] text-kumo-subtle">Connections (bind more to the hub under the workspace’s Connections)</div>
-              {bindings.length === 0 && <div className="text-[12px] text-kumo-subtle">The hub has no connections yet; the Bot gets HUB only.</div>}
+              <div className="text-[13px] md:text-[12px] text-kumo-subtle">Connections (bind more to the hub under the workspace’s Connections)</div>
+              {bindings.length === 0 && <div className="text-[13px] md:text-[12px] text-kumo-subtle">The hub has no connections yet; the Bot gets HUB only.</div>}
               <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto">
                 {bindings.map((b) => (
                   <li key={b.name}>
-                    <label className="flex items-center gap-2 text-[13px] text-kumo-default">
+                    <label className="flex items-center gap-2 text-[14px] md:text-[13px] text-kumo-default">
                       <input
                         type="checkbox"
                         checked={chosen.has(b.name)}
                         onChange={(e) => setChosen((prev) => { const next = new Set(prev); if (e.target.checked) next.add(b.name); else next.delete(b.name); return next })}
                       />
-                      <span className="font-mono text-[12px]">{b.name}</span>
+                      <span className="font-mono text-[13px] md:text-[12px]">{b.name}</span>
                       <span className="truncate text-kumo-subtle">{b.resourceTitle}</span>
                     </label>
                   </li>
                 ))}
               </ul>
-              <div className="text-[12px] text-kumo-subtle">Computer (a private browser profile and a Linux sandbox of its own)</div>
+              <div className="text-[13px] md:text-[12px] text-kumo-subtle">Computer (a private browser profile and a Linux sandbox of its own)</div>
               <ul className="flex flex-col gap-1.5">
                 {computerRow('browser', wantBrowser, setWantBrowser, (
                   <>
-                    <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+                    <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
                       Sites it may act on (comma-separated; interactions elsewhere ask you first)
-                      <input className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[13px] text-kumo-default" placeholder="github.com, docs.google.com" value={sites} onChange={(e) => setSites(e.target.value)} />
+                      <input className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[14px] md:text-[13px] text-kumo-default" placeholder="github.com, docs.google.com" value={sites} onChange={(e) => setSites(e.target.value)} />
                     </label>
-                    <label className="flex items-center gap-2 text-[12px] text-kumo-default">
+                    <label className="flex items-center gap-2 text-[13px] md:text-[12px] text-kumo-default">
                       <input type="checkbox" checked={browseAnywhere} onChange={(e) => setBrowseAnywhere(e.target.checked)} />
                       May read pages on any site
                     </label>
                   </>
                 ))}
                 {computerRow('sandbox', wantSandbox, setWantSandbox, (
-                  <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+                  <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
                     What it may do
-                    <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[13px] text-kumo-default" value={sandboxMode} onChange={(e) => setSandboxMode(e.target.value as typeof sandboxMode)}>
+                    <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[14px] md:text-[13px] text-kumo-default" value={sandboxMode} onChange={(e) => setSandboxMode(e.target.value as typeof sandboxMode)}>
                       <option value="read-only">Read only</option>
                       <option value="approve">Ask before running commands or writing files</option>
                       <option value="write">Act freely</option>

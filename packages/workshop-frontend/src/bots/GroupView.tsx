@@ -72,8 +72,8 @@ export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOp
       <header className="flex h-12 flex-none items-center gap-2 border-b border-kumo-line px-3">
         <WorkshopIconButton onClick={onBack} className="!h-8 !w-8 md:hidden" aria-label="Back to Bots" title="Back to Bots"><CaretLeft size={14} /></WorkshopIconButton>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium text-kumo-default">{group.name}</div>
-          <div className="truncate text-[11px] text-kumo-subtle">
+          <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{group.name}</div>
+          <div className="truncate text-[12px] md:text-[11px] text-kumo-subtle">
             {group.members.length ? group.members.map((m) => m.name).join(', ') : 'No members yet'}{group.purpose ? ` · ${group.purpose}` : ''}
           </div>
         </div>
@@ -83,7 +83,7 @@ export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOp
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {posts === null && <div className="flex justify-center py-8"><Loader /></div>}
         {posts?.length === 0 && (
-          <div className="py-8 text-center text-[13px] text-kumo-subtle">
+          <div className="py-8 text-center text-[14px] md:text-[13px] text-kumo-subtle">
             Nothing here yet. Post below and every member Bot gets it as work; their replies show up here.
           </div>
         )}
@@ -93,7 +93,7 @@ export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOp
             const mine = p.from.type === 'user'
             return (
               <li key={p.id} className={`flex flex-col gap-0.5 ${mine ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-center gap-1.5 text-[11px] text-kumo-subtle">
+                <div className="flex items-center gap-1.5 text-[12px] md:text-[11px] text-kumo-subtle">
                   {bot ? (
                     <button type="button" className="font-medium text-kumo-default hover:underline" onClick={() => onOpenBot(bot.id)}>{p.from.name}</button>
                   ) : <span className="font-medium text-kumo-default">{p.from.name}</span>}
@@ -101,7 +101,7 @@ export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOp
                   <span>· {fmtTime(p.ts)}</span>
                   {p.held && <span className="text-kumo-danger">· not delivered ({p.held})</span>}
                 </div>
-                <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[13px] ${mine ? 'bg-kumo-brand/10 text-kumo-default' : 'border border-kumo-line bg-kumo-base text-kumo-default'}`}>{p.text}</div>
+                <div className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[14px] md:text-[13px] ${mine ? 'bg-kumo-brand/10 text-kumo-default' : 'border border-kumo-line bg-kumo-base text-kumo-default'}`}>{p.text}</div>
               </li>
             )
           })}
@@ -111,7 +111,7 @@ export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOp
 
       <form className="flex flex-none items-end gap-2 border-t border-kumo-line p-3" onSubmit={(e) => { e.preventDefault(); void send() }}>
         <textarea
-          className="min-h-[40px] flex-1 resize-none rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default"
+          className="min-h-[40px] flex-1 resize-none rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[14px] md:text-[13px] text-kumo-default"
           placeholder={`Message ${group.name}…`}
           value={draft}
           rows={1}
@@ -170,18 +170,18 @@ export function GroupDialog({ open, onClose, bots, group, onSave, onDelete }: {
           <div className="flex items-start justify-between gap-3">
             <div>
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">{group ? 'Edit group' : 'New group'}</Dialog.Title>
-              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">A shared transcript for several Bots. Posts fan out to every member; a member replies only when it has something to add.</Dialog.Description>
+              <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">A shared transcript for several Bots. Posts fan out to every member; a member replies only when it has something to add.</Dialog.Description>
             </div>
             <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
           </div>
           <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Launch team" autoFocus required />
           <Input label="Purpose" value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="What this group is for (sent with every post)" />
-          <div className="text-[12px] text-kumo-subtle">Members</div>
-          {bots.length === 0 && <div className="text-[12px] text-kumo-subtle">Create some Bots first.</div>}
+          <div className="text-[13px] md:text-[12px] text-kumo-subtle">Members</div>
+          {bots.length === 0 && <div className="text-[13px] md:text-[12px] text-kumo-subtle">Create some Bots first.</div>}
           <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto">
             {bots.map((b) => (
               <li key={b.id}>
-                <label className="flex items-center gap-2 text-[13px] text-kumo-default">
+                <label className="flex items-center gap-2 text-[14px] md:text-[13px] text-kumo-default">
                   <input type="checkbox" checked={members.has(b.id)} onChange={(e) => setMembers((prev) => { const next = new Set(prev); if (e.target.checked) next.add(b.id); else next.delete(b.id); return next })} />
                   <span className="font-medium">{b.name}</span>
                   <span className="truncate text-kumo-subtle">{b.role}</span>
@@ -189,7 +189,7 @@ export function GroupDialog({ open, onClose, bots, group, onSave, onDelete }: {
               </li>
             ))}
           </ul>
-          {error && <div className="text-[12px] text-kumo-danger">{error}</div>}
+          {error && <div className="text-[13px] md:text-[12px] text-kumo-danger">{error}</div>}
           <div className="flex items-center justify-between gap-2">
             <div>
               {group && onDelete && (
