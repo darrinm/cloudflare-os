@@ -51,6 +51,7 @@ import TopBarNotice from './TopBarNotice'
 import { WorkshopButton, WorkshopIconButton, WorkshopInput } from './components/WorkshopControls'
 import { useActions } from './useActions'
 import DeleteConfirmationDialog from './components/DeleteConfirmationDialog'
+import ReconnectingChip from './components/ReconnectingChip'
 import WorkspaceOpenErrorPage from './components/WorkspaceOpenErrorPage'
 import { useWorkspaceOpen } from './useWorkspaceOpen'
 import { reportIssue } from './errorReporting'
@@ -1219,13 +1220,17 @@ export default function GadgetEditor() {
   }, [authenticatedApi])
 
   // ── title save/cancel ─────────────────────────────────────────────────────────
+  const titleSaveInFlight = useRef(false)
   const handleSaveTitle = async () => {
     if (!overseer || !titleInput.trim()) return
+    if (titleSaveInFlight.current) return
+    titleSaveInFlight.current = true
     try {
       await overseer.stub.setTitle(titleInput.trim())
       updateTitle(titleInput.trim())
       setIsEditingTitle(false)
     } catch { toasts.add({ title: 'Failed to update title', variant: 'error' }) }
+    finally { titleSaveInFlight.current = false }
   }
   const handleCancelEdit = () => {
     setTitleInput(metadata?.title || '')
@@ -1411,7 +1416,7 @@ export default function GadgetEditor() {
           />
 
           {metadata.totalCost != null && (
-            <span className="mr-2 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+            <span className="ml-3 mr-2 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
               {formatHeaderCost(metadata.totalCost)}
             </span>
           )}
@@ -1422,11 +1427,7 @@ export default function GadgetEditor() {
             onViewActivity={openActivity}
           />
 
-          {connectionLost && (
-            <span className="text-xs text-kumo-warning px-2 py-0.5 rounded-full bg-kumo-warning-tint border border-kumo-warning/20">
-              Reconnecting…
-            </span>
-          )}
+          {connectionLost && <ReconnectingChip />}
 
           <WorkshopIconButton
             onClick={() => setShareModalOpen(true)}
@@ -1491,6 +1492,7 @@ export default function GadgetEditor() {
               <div className={layoutModeReady ? 'h-full' : 'h-full invisible'}>
                 <ChatInterface
                   key={id}
+                  workspaceId={id}
                   overseer={overseer.stub}
                   selectedChatId={effectiveSelectedChatId}
                   onNavigateToChat={navigateToChat}

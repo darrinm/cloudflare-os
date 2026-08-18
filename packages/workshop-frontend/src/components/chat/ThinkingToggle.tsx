@@ -47,11 +47,11 @@ function clampLevel(level: ThinkingLevel, levels: ThinkingLevel[]): ThinkingLeve
 }
 
 export interface ThinkingToggleProps {
-  // Undefined = nothing stored, per-API default applies.
+  /** Undefined = nothing stored, per-API default applies. */
   level: ThinkingLevel | undefined;
-  // Weakest first. Empty renders nothing.
+  /** Weakest first. Empty renders nothing. */
   levels: ThinkingLevel[];
-  // "default" clears; anything else stores.
+  /** "default" clears; anything else stores. */
   onChange: (choice: ThinkingLevelChoice) => void;
 }
 

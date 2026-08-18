@@ -35,17 +35,21 @@ type RawModel = {
   pricing?: { prompt?: unknown, completion?: unknown, input_cache_read?: unknown },
 };
 
-// OpenRouter prices per token as decimal strings ("0.00000009"); ModelCost is per million tokens.
-// Returns undefined for absent/unparseable/negative values rather than coercing to 0, so "unknown
-// price" stays distinguishable from "free" -- they bill very differently.
+/**
+ * OpenRouter prices per token as decimal strings ("0.00000009"); ModelCost is per million tokens.
+ * Returns undefined for absent/unparseable/negative values rather than coercing to 0, so "unknown
+ * price" stays distinguishable from "free" -- they bill very differently.
+ */
 export function perMillionTokens(price: unknown): number | undefined {
   if (typeof price !== "string") return undefined;
   const parsed = Number.parseFloat(price);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed * 1_000_000 : undefined;
 }
 
-// The model registry's cost shape. Omitted entirely when OpenRouter published no usable price, so
-// "unknown" stays distinguishable from free -- a missing price must never read as $0 spend.
+/**
+ * The model registry's cost shape. Omitted entirely when OpenRouter published no usable price, so
+ * "unknown" stays distinguishable from free -- a missing price must never read as $0 spend.
+ */
 export function costOf(pricing: RawModel["pricing"]): ProviderModel["cost"] {
   const input = perMillionTokens(pricing?.prompt);
   const output = perMillionTokens(pricing?.completion);
@@ -58,9 +62,11 @@ export function costOf(pricing: RawModel["pricing"]): ProviderModel["cost"] {
   };
 }
 
-// Maps one OpenRouter record. Returns undefined when the record lacks the identity fields a
-// picker entry needs, or when the model cannot do tool calling; everything else degrades to an
-// undefined field rather than dropping the model.
+/**
+ * Maps one OpenRouter record. Returns undefined when the record lacks the identity fields a
+ * picker entry needs, or when the model cannot do tool calling; everything else degrades to an
+ * undefined field rather than dropping the model.
+ */
 export function mapProviderModel(raw: RawModel): ProviderModel | undefined {
   if (typeof raw?.id !== "string" || raw.id === "") return undefined;
 
@@ -140,7 +146,7 @@ async function fetchCatalog(): Promise<ProviderModel[]> {
   const models = rows
       .map(mapProviderModel)
       .filter((model): model is ProviderModel => model !== undefined)
-      .sort((a, b) => a.id.localeCompare(b.id));
+      .toSorted((a, b) => a.id.localeCompare(b.id));
 
   // An empty or unrecognizable payload is a failure, not an empty catalog.
   if (models.length === 0) throw new Error("OpenRouter models payload was empty");
