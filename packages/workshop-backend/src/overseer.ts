@@ -25,6 +25,7 @@ import { AgentGadgetInfo, AgentHooks, AiChatAgentContext, ChatBindingEntry, Seed
 import { deploymentOutputForBlueprint, FormatOffer, listFormatOffers, readAdminConfig } from "./admin-config";
 import { foldProposedChanges, isCompactionTurn, type ChangeBatch } from "./agent-compaction";
 import { ambientGatekeeperMode } from "./provisioning-policy";
+import { pushConfigured, type PushNotification } from "./push.js";
 import { listFeaturedBlueprintsFromKv, readBlueprintContent, readBlueprintKvRecord, sanitizeBlueprintOutput } from "./blueprint-archive";
 import { WebFetchEnv } from "./web-fetch";
 import { UserDurableObject, UserAiModelRecord, type UserChatContext, type WorkspaceOutputEntry } from "./user";
@@ -1190,6 +1191,31 @@ class OverseerImpl implements AgentHooks {
     for (let [token, sub] of this.#presenceSubscribers) {
       sub.remove(key).catch(() => this.#removePresenceSubscriber(token));
     }
+  }
+
+  // A Bot (agent-spawner chat) finished a turn. If nobody has the workspace open, tell the owner's
+  // installed browsers via Web Push so they can come back to it. Best-effort and fire-and-forget:
+  // the transcript is the durable record; the notification is a nudge.
+  #notifyBotTurnEnded(meta: AiChatMetadata) {
+    if (!meta.spawnerName || this.#presence.size > 0 || !this.ownerId) return;
+    if (!pushConfigured(this.env)) return;
+    let title = meta.title || meta.spawnerName;
+    let body = "";
+    // The last agent text in this chat, if any, makes a useful preview.
+    for (let msg of this.storage.chats.list({prefix: `${keyString(meta.id)}.`, reverse: true, limit: 12})) {
+      if (msg.type === "message" && msg.author.type === "agent" && msg.message.trim()) {
+        body = msg.message.trim().slice(0, 140);
+        break;
+      }
+    }
+    let ownerStub = this.users.get(this.users.idFromString(this.ownerId));
+    let notification: PushNotification = {
+      title, body: body || "Finished a turn.", url: "/bots",
+      tag: `chat-${keyString(meta.id)}`,
+    };
+    this.ctx.waitUntil(ownerStub.notifyPush(notification).catch((err: unknown) => {
+      this.logger.warn("push notify failed", { event: "push.notify.failed", error: err });
+    }));
   }
 
   // Mark a session as present. Returns a function that removes it.
@@ -4191,6 +4217,7 @@ class OverseerImpl implements AgentHooks {
         delete meta.activeAgent;
         meta.lastActive = this.getChatTimestamp();
         this.storage.chatMeta.put(meta);
+        this.#notifyBotTurnEnded(meta);
       }
 
       // Tear down the registry entry, persistent `activeAgents` record, and keep-alive alarm in the

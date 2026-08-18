@@ -1,0 +1,667 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { RpcStub } from 'capnweb'
+import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
+import { CaretLeft, Info, Plus, Robot, X } from '@phosphor-icons/react'
+import type {
+  AiChatAuthorInfo,
+  AiChatMetadata,
+  GadgetBindingInfo,
+  GadgetClient,
+  GatekeeperClient,
+  Overseer,
+} from '@gadgets/workshop-shared/api'
+import ChatInterface from '../ChatInterface'
+import { useAuthenticatedApi } from '../AuthContext'
+import { useWorkspaceOpen } from '../useWorkspaceOpen'
+import { useDocumentTitle } from '../useDocumentTitle'
+import WorkspaceOpenErrorPage from '../components/WorkspaceOpenErrorPage'
+import { WorkshopIconButton } from '../components/WorkshopControls'
+import { useActions } from '../useActions'
+import { getStoredSelectedModel } from '../modelSelection'
+import { useBotsHub, type HubStub } from './useBotsHub'
+import { useBotsWorkspace } from './useBotsWorkspace'
+import type { Bot, BotEvent, BotMemory, BotRoutine } from './types'
+
+const AVATAR_COLORS = ['#5b4bc4', '#1f7a5c', '#b23a48', '#9a6300', '#2f6fb0', '#7a3fa0', '#0f766e']
+
+function botColor(bot: Bot): string {
+  if (bot.color) return bot.color
+  let h = 0
+  for (const c of bot.id) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+}
+function botInitials(bot: Bot): string {
+  if (bot.avatar) return bot.avatar
+  return bot.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+}
+function fmtTime(ts: number | null | undefined): string {
+  return ts ? new Date(ts).toLocaleString() : ''
+}
+/** The hub gadget binding name for a Bot's own agent spawner. */
+export function spawnerBindingNameFor(botId: string): string {
+  return `SPAWNER_${botId.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
+}
+
+export function BotAvatar({ bot, size = 32 }: { bot: Bot; size?: number }) {
+  return (
+    <span
+      className="inline-grid flex-none place-items-center rounded-full font-semibold text-white"
+      style={{ width: size, height: size, background: botColor(bot), fontSize: Math.round(size * 0.4) }}
+      aria-hidden
+    >
+      {botInitials(bot)}
+    </span>
+  )
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/** Page body for /bots and /bots/$id. Exported separately from the route so tests can render it. */
+export function BotsPageContent({ botId }: { botId: string | null }) {
+  const { authenticatedApi } = useAuthenticatedApi()
+  const { state, create } = useBotsWorkspace(authenticatedApi)
+  useDocumentTitle('Bots')
+
+  if (state.status === 'loading') {
+    return <CenteredNote><Loader /></CenteredNote>
+  }
+  if (state.status === 'error') {
+    return <CenteredNote>Couldn’t look up your Bots: {state.message}</CenteredNote>
+  }
+  if (state.status === 'missing') {
+    return <CreateHubPanel authenticatedApi={authenticatedApi} onCreate={create} />
+  }
+  return <BotsWorkspace workspaceId={state.ref.workspaceId} workpieceId={state.ref.workpieceId} botId={botId} />
+}
+
+function CenteredNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full items-center justify-center p-8 text-[13px] text-kumo-subtle">
+      {children}
+    </div>
+  )
+}
+
+function CreateHubPanel({
+  authenticatedApi, onCreate,
+}: {
+  authenticatedApi: RpcStub<import('@gadgets/workshop-shared/api').AuthenticatedApi>
+  onCreate: (modelId: string | null) => Promise<unknown>
+}) {
+  const [models, setModels] = useState<AiChatAuthorInfo[] | null>(null)
+  const [modelId, setModelId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const toasts = useKumoToastManager()
+  useEffect(() => {
+    let cancelled = false
+    authenticatedApi.listModels().then((list) => {
+      if (cancelled) return
+      setModels(list)
+      setModelId(getStoredSelectedModel(list))
+    }).catch(() => { if (!cancelled) setModels([]) })
+    return () => { cancelled = true }
+  }, [authenticatedApi])
+  return (
+    <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center gap-4 p-8 text-center">
+      <Robot size={40} weight="duotone" className="text-kumo-brand" />
+      <h1 className="text-[20px] font-medium tracking-[-0.4px] text-kumo-default">Bots</h1>
+      <p className="text-[13px] leading-[18px] text-kumo-subtle">
+        Bots are persistent AI teammates: give each one a name, a role and standing instructions, then
+        message it, put it on a schedule, or let it hand work to other Bots. Your Bots live in one
+        workspace created from the “Bots” blueprint.
+      </p>
+      {models === null ? <Loader /> : (
+        <label className="flex w-full flex-col gap-1 text-left text-[12px] text-kumo-subtle">
+          Model your Bots think with
+          <select
+            className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default"
+            value={modelId ?? ''}
+            onChange={(e) => setModelId(e.target.value || null)}
+          >
+            {models.length === 0 && <option value="">No models configured — add one under Providers</option>}
+            {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </label>
+      )}
+      <Button
+        variant="primary"
+        disabled={busy || models === null || !modelId}
+        loading={busy}
+        onClick={async () => {
+          setBusy(true)
+          try { await onCreate(modelId) }
+          catch (err) { toasts.add({ title: 'Couldn’t create the Bots hub', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
+          finally { setBusy(false) }
+        }}
+      >
+        Set up Bots
+      </Button>
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------------------------------------
+
+function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: string; workpieceId: number; botId: string | null }) {
+  const { authenticatedApi } = useAuthenticatedApi()
+  const navigate = useNavigate()
+  const toasts = useKumoToastManager()
+  const { overseer, error, retry } = useWorkspaceOpen({
+    id: workspaceId,
+    authenticatedApi,
+    onMetadata: () => {},
+    onShareKeyConsumed: () => {},
+    onInvalidShareKey: () => {},
+  })
+  const hubState = useBotsHub(overseer?.stub ?? null, workpieceId)
+  const [showNew, setShowNew] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
+  const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
+
+  if (error) {
+    return error.kind === 'open'
+      ? <WorkspaceOpenErrorPage kind={error.failure} onGoToWorkspaces={() => navigate({ to: '/workspaces' })} onRetry={retry} />
+      : <CenteredNote>{error.message}</CenteredNote>
+  }
+  if (!overseer) return <CenteredNote><Loader /></CenteredNote>
+
+  const roster = (
+    <aside className={`${selected ? 'hidden md:flex' : 'flex'} h-full w-full flex-col border-r border-kumo-line bg-kumo-base md:w-64 md:flex-none`}>
+      <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
+        <h1 className="text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
+        <WorkshopIconButton onClick={() => setShowNew(true)} title="New Bot" aria-label="New Bot" className="!h-8 !w-8">
+          <Plus size={14} />
+        </WorkshopIconButton>
+      </div>
+      {hubState.info && !hubState.info.hasSpawner && (
+        <div className="m-2 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[12px] text-kumo-default">
+          No agent spawner is bound to the hub yet, so Bots can’t run. Give a Bot grants (Details → Grants) or assign AGENT_SPAWNER in the workspace’s Connections.
+        </div>
+      )}
+      <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Bots">
+        {hubState.error && <div className="p-3 text-[12px] text-kumo-danger">{hubState.error}</div>}
+        {hubState.bots.length === 0 && !hubState.error && (
+          <div className="p-4 text-[12px] text-kumo-subtle">No Bots yet. Create one to get a teammate.</div>
+        )}
+        {hubState.bots.map((bot) => (
+          <button
+            key={bot.id}
+            type="button"
+            onClick={() => navigate({ to: '/bots/$id', params: { id: bot.id } })}
+            className={`flex w-full items-center gap-2.5 border-b border-kumo-line px-3 py-2.5 text-left hover:bg-kumo-tint ${bot.id === botId ? 'bg-kumo-brand/10' : ''}`}
+            aria-current={bot.id === botId ? 'page' : undefined}
+          >
+            <BotAvatar bot={bot} />
+            <span className="min-w-0">
+              <span className="block truncate text-[13px] font-medium text-kumo-default">{bot.name}</span>
+              <span className="block truncate text-[12px] text-kumo-subtle">{bot.role || 'Bot'}</span>
+            </span>
+          </button>
+        ))}
+      </nav>
+    </aside>
+  )
+
+  return (
+    <div className="flex h-full min-h-0 w-full">
+      {roster}
+      {selected && hubState.hub ? (
+        <>
+          <section className="flex min-w-0 flex-1 flex-col">
+            <header className="flex h-12 flex-none items-center gap-2 border-b border-kumo-line px-3">
+              <WorkshopIconButton onClick={() => navigate({ to: '/bots' })} className="!h-8 !w-8 md:hidden" aria-label="Back to Bots" title="Back to Bots">
+                <CaretLeft size={14} />
+              </WorkshopIconButton>
+              <BotAvatar bot={selected} size={26} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-kumo-default">{selected.name}</div>
+                <div className="truncate text-[11px] text-kumo-subtle">{selected.role || 'Bot'}</div>
+              </div>
+              <WorkshopIconButton onClick={() => setDetailsOpen((o) => !o)} className="!h-8 !w-8 lg:hidden" aria-label="Bot details" title="Bot details">
+                <Info size={14} />
+              </WorkshopIconButton>
+            </header>
+            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} />
+          </section>
+          <BotDetails
+            key={selected.id}
+            bot={selected}
+            hub={hubState.hub}
+            hubVersion={hubState.version}
+            overseer={overseer.stub}
+            hubWorkpieceId={workpieceId}
+            open={detailsOpen}
+            onClose={() => setDetailsOpen(false)}
+            onDeleted={() => navigate({ to: '/bots' })}
+          />
+        </>
+      ) : (
+        <section className="hidden min-w-0 flex-1 items-center justify-center p-8 text-center text-[13px] text-kumo-subtle md:flex">
+          {hubState.bots.length ? 'Pick a Bot to open its conversation.' : 'Create your first Bot with the + button.'}
+        </section>
+      )}
+      <NewBotDialog
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        onCreate={async (input) => {
+          const hub = hubState.hub
+          if (!hub) throw new Error('Not connected to the Bots hub yet.')
+          const bot: Bot = await hub.createBot(input)
+          await hubState.refreshBots()
+          setShowNew(false)
+          navigate({ to: '/bots/$id', params: { id: bot.id } })
+          toasts.add({ title: `${bot.name} is ready`, variant: 'success' })
+        }}
+      />
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * The Bot's conversation is an ordinary workspace chat (the one its agent spawner created), found
+ * by its unique title. Rendered with the full ChatInterface, so approvals, streaming and slash
+ * commands behave exactly as elsewhere. Human messages typed here go straight into that chat.
+ */
+function BotTranscript({ overseer, bot, workspaceId }: { overseer: RpcStub<Overseer>; bot: Bot; workspaceId: string }) {
+  const [chatId, setChatId] = useState<number | null>(null)
+  const [looked, setLooked] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const find = async (attempt: number) => {
+      try {
+        const chats: AiChatMetadata[] = await overseer.listChats()
+        if (cancelled) return
+        const match = chats.filter((c) => c.title === bot.chatTitle).toSorted((a, b) => b.id - a.id)[0]
+        if (match) { setChatId(match.id); setLooked(true); return }
+      } catch { /* retry below */ }
+      if (cancelled) return
+      setLooked(true)
+      // The chat is created asynchronously when the Bot is; keep looking for a little while.
+      if (attempt < 10) timer = setTimeout(() => find(attempt + 1), 1000)
+    }
+    find(0)
+    return () => { cancelled = true; if (timer) clearTimeout(timer) }
+  }, [overseer, bot.chatTitle])
+
+  if (chatId === null) {
+    return (
+      <CenteredNote>
+        {looked && !bot.agentReady
+          ? 'This Bot has no agent yet — give it grants in Details, or bind AGENT_SPAWNER to the hub.'
+          : <Loader />}
+      </CenteredNote>
+    )
+  }
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ChatInterface
+        workspaceId={workspaceId}
+        overseer={overseer}
+        selectedChatId={chatId}
+        onNavigateToChat={() => {}}
+        hideChatHeader
+        constrainChatWidth
+        pendingConsoleLogCount={0}
+        consoleLogPreview=""
+        consoleLogSeverity="info"
+        onConsumeConsoleLogs={() => ''}
+        onDiscardConsoleLogs={() => {}}
+        onOpenGadget={() => {}}
+        outputOfWorkpiece={() => undefined}
+      />
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------------------------------------
+
+function NewBotDialog({ open, onClose, onCreate }: {
+  open: boolean
+  onClose: () => void
+  onCreate: (input: { name: string; role: string; instructions: string }) => Promise<void>
+}) {
+  const [name, setName] = useState('')
+  const [role, setRole] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => { if (open) { setName(''); setRole(''); setInstructions(''); setError('') } }, [open])
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <Dialog size="base" className="!w-[min(560px,calc(100vw-32px))] bg-kumo-base p-0">
+        <form
+          className="flex flex-col gap-3 p-5"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setBusy(true); setError('')
+            try { await onCreate({ name, role, instructions }) }
+            catch (err) { setError(err instanceof Error ? err.message : String(err)) }
+            finally { setBusy(false) }
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">New Bot</Dialog.Title>
+              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">A teammate with a name, a role and standing instructions.</Dialog.Description>
+            </div>
+            <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
+          </div>
+          <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Inbox Manager" autoFocus required />
+          <Input label="Role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Triages email and drafts replies" />
+          <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+            Instructions
+            <textarea
+              className="min-h-[120px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="What to do, how to decide, when to ask you."
+            />
+          </label>
+          {error && <div className="text-[12px] text-kumo-danger">{error}</div>}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button variant="primary" type="submit" loading={busy} disabled={!name.trim()}>Create Bot</Button>
+          </div>
+        </form>
+      </Dialog>
+    </Dialog.Root>
+  )
+}
+
+// -------------------------------------------------------------------------------------------------
+
+function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onClose, onDeleted }: {
+  bot: Bot
+  hub: HubStub
+  hubVersion: number
+  overseer: RpcStub<Overseer>
+  hubWorkpieceId: number
+  open: boolean
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const toasts = useKumoToastManager()
+  const [name, setName] = useState(bot.name)
+  const [role, setRole] = useState(bot.role)
+  const [instructions, setInstructions] = useState(bot.instructions)
+  const [memories, setMemories] = useState<BotMemory[]>([])
+  const [routines, setRoutines] = useState<BotRoutine[]>([])
+  const [events, setEvents] = useState<BotEvent[]>([])
+  const [saving, setSaving] = useState(false)
+  const [armDelete, setArmDelete] = useState(false)
+  const [grantsOpen, setGrantsOpen] = useState(false)
+  const actions = useActions(overseer)
+  const pendingCount = useMemo(() => {
+    let n = 0
+    for (const entry of actions.actionsById.values()) if ((entry as { state?: string }).state === 'pending') n++
+    return n
+  }, [actions.actionsById])
+
+  useEffect(() => { setName(bot.name); setRole(bot.role); setInstructions(bot.instructions) }, [bot.id, bot.name, bot.role, bot.instructions])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([hub.listMemories(bot.id, { limit: 100 }), hub.listRoutines(bot.id), hub.activity(bot.id, { limit: 60 })])
+      .then(([m, r, e]) => { if (!cancelled) { setMemories(m); setRoutines(r); setEvents(e) } })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [hub, bot.id, hubVersion])
+
+  const dirty = name !== bot.name || role !== bot.role || instructions !== bot.instructions
+
+  const body = (
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+      <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
+        <span className="text-[13px] font-medium text-kumo-default">Details</span>
+        <span className="text-[11px] text-kumo-subtle">{bot.id}</span>
+        <WorkshopIconButton onClick={onClose} className="!h-8 !w-8 lg:hidden" aria-label="Close details"><X size={14} /></WorkshopIconButton>
+      </div>
+
+      <Section title="Persona">
+        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input label="Role" value={role} onChange={(e) => setRole(e.target.value)} />
+        <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+          Instructions
+          <textarea className="min-h-[140px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+        </label>
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              if (!armDelete) { setArmDelete(true); setTimeout(() => setArmDelete(false), 4000); return }
+              try { await hub.deleteBot(bot.id); toasts.add({ title: `${bot.name} deleted`, variant: 'success' }); onDeleted() }
+              catch (err) { toasts.add({ title: 'Couldn’t delete', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
+            }}
+          >
+            {armDelete ? 'Confirm delete' : 'Delete'}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!dirty || saving}
+            loading={saving}
+            onClick={async () => {
+              setSaving(true)
+              try { await hub.updateBot(bot.id, { name, role, instructions }); toasts.add({ title: 'Saved', variant: 'success' }) }
+              catch (err) { toasts.add({ title: 'Couldn’t save', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
+              finally { setSaving(false) }
+            }}
+          >
+            Save
+          </Button>
+        </div>
+      </Section>
+
+      <Section title="Grants">
+        <p className="text-[12px] text-kumo-subtle">
+          What this Bot may use. Currently through <code className="text-kumo-default">{bot.spawnerBinding}</code>
+          {bot.agentGeneration > 1 ? ` (agent #${bot.agentGeneration})` : ''}.
+          {pendingCount > 0 && <> {pendingCount} action{pendingCount === 1 ? '' : 's'} awaiting approval in the conversation.</>}
+        </p>
+        <Button variant="secondary" onClick={() => setGrantsOpen(true)}>Change grants…</Button>
+      </Section>
+
+      <Section title={`Memory (${memories.length})`}>
+        {memories.length === 0 && <div className="text-[12px] text-kumo-subtle">Nothing remembered yet.</div>}
+        <ul className="flex flex-col gap-1.5">
+          {memories.map((m) => (
+            <li key={m.id} className="flex items-start justify-between gap-2 text-[12px]">
+              <span className="min-w-0">
+                <span className="block text-[11px] text-kumo-subtle">{m.kind} · {fmtTime(m.created)}</span>
+                <span className="block text-kumo-default">{m.text}</span>
+              </span>
+              <WorkshopIconButton onClick={() => hub.forget(m.id).catch(() => {})} className="!h-6 !w-6" aria-label="Forget"><X size={11} /></WorkshopIconButton>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title={`Routines (${routines.length})`}>
+        {routines.length === 0 && (
+          <div className="text-[12px] text-kumo-subtle">None. Ask the Bot (or the workspace agent) to schedule one; hooks are enabled in Connections.</div>
+        )}
+        <ul className="flex flex-col gap-2">
+          {routines.map((r) => (
+            <li key={r.id} className="text-[12px]">
+              <div className="font-medium text-kumo-default">{r.title}</div>
+              <div className="text-kumo-subtle">{r.schedule || 'no schedule text'} · {r.scheduleId ? 'scheduled' : 'not scheduled yet'} · runs: {r.runCount}</div>
+              <div className="mt-1 flex gap-1.5">
+                <Button variant="secondary" size="sm" onClick={() => hub.runRoutine(r.id).catch(() => {})}>Run now</Button>
+                <Button variant="secondary" size="sm" onClick={() => hub.removeRoutine(r.id).catch(() => {})}>Remove</Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Activity">
+        <ul className="flex flex-col gap-1.5">
+          {events.filter((e) => e.type !== 'delivered').slice(-30).toReversed().map((e) => (
+            <li key={e.id} className="text-[12px]">
+              <span className="text-[11px] uppercase tracking-wide text-kumo-subtle">{e.type} · {fmtTime(e.ts)}</span>
+              {e.text && <div className="whitespace-pre-wrap text-kumo-default">{e.text.slice(0, 400)}</div>}
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <GrantsDialog
+        open={grantsOpen}
+        onClose={() => setGrantsOpen(false)}
+        bot={bot}
+        hub={hub}
+        overseer={overseer}
+        hubWorkpieceId={hubWorkpieceId}
+      />
+    </div>
+  )
+
+  return (
+    <>
+      <aside className="hidden h-full w-80 flex-none border-l border-kumo-line bg-kumo-base lg:block">{body}</aside>
+      {open && (
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/30 lg:hidden" onClick={onClose}>
+          <div className="h-full w-[min(360px,100vw)] bg-kumo-base shadow-xl" onClick={(e) => e.stopPropagation()}>{body}</div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2 border-b border-kumo-line px-3 py-3">
+      <h2 className="text-[12px] font-medium uppercase tracking-wide text-kumo-subtle">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * Per-Bot grants: an agent spawner of its own whose env holds just HUB plus the chosen connections
+ * of the hub gadget. Creating it re-creates the Bot's agent (memory carries over; the conversation
+ * starts fresh under a new generation title).
+ */
+function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
+  open: boolean
+  onClose: () => void
+  bot: Bot
+  hub: HubStub
+  overseer: RpcStub<Overseer>
+  hubWorkpieceId: number
+}) {
+  const toasts = useKumoToastManager()
+  const [bindings, setBindings] = useState<GadgetBindingInfo[] | null>(null)
+  const [models, setModels] = useState<AiChatAuthorInfo[]>([])
+  const [modelId, setModelId] = useState<string | null>(null)
+  const [chosen, setChosen] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    let client: RpcStub<GadgetClient> | null = null
+    ;(async () => {
+      try {
+        client = overseer.getGadget(hubWorkpieceId)
+        const [list, modelList] = await Promise.all([client.listBindings(), overseer.listModels()])
+        if (cancelled) return
+        // Spawner bindings (the shared one and per-Bot ones) are not grantable resources.
+        const grantable = list.filter((b) => b.name !== 'AGENT_SPAWNER' && !b.name.startsWith('SPAWNER_'))
+        setBindings(grantable)
+        setModels(modelList)
+        setModelId(getStoredSelectedModel(modelList))
+        setChosen(new Set(grantable.map((b) => b.name)))
+      } catch (err) {
+        if (!cancelled) toasts.add({ title: 'Couldn’t load connections', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+      } finally {
+        client?.[Symbol.dispose]()
+      }
+    })()
+    return () => { cancelled = true }
+  }, [open, overseer, hubWorkpieceId, toasts])
+
+  const apply = useCallback(async () => {
+    if (!bindings) return
+    setBusy(true)
+    let client: RpcStub<GadgetClient> | null = null
+    let spawner: RpcStub<GatekeeperClient<any>> | null = null
+    try {
+      const env: Record<string, number> = { HUB: hubWorkpieceId }
+      for (const b of bindings) if (chosen.has(b.name)) env[b.name] = b.target
+      const created = await overseer.newAgentSpawnerGatekeeper({ displayName: `${bot.name} agent`, modelId, env })
+      spawner = created
+      const spawnerId = await created.getId()
+      const bindingName = spawnerBindingNameFor(bot.id)
+      client = overseer.getGadget(hubWorkpieceId)
+      const existing = (await client.listBindings()).find((b) => b.name === bindingName)
+      if (existing) await client.unbind(bindingName)
+      await client.bind(bindingName, spawnerId)
+      const result = await hub.respawnAgent(bot.id, bindingName)
+      toasts.add({ title: 'Grants updated', description: `${bot.name} now runs with its own spawner (agent #${result.generation}).`, variant: 'success' })
+      onClose()
+    } catch (err) {
+      toasts.add({ title: 'Couldn’t update grants', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+    } finally {
+      client?.[Symbol.dispose]()
+      spawner?.[Symbol.dispose]()
+      setBusy(false)
+    }
+  }, [bindings, chosen, modelId, overseer, hub, bot, hubWorkpieceId, toasts, onClose])
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <Dialog size="base" className="!w-[min(560px,calc(100vw-32px))] bg-kumo-base p-0">
+        <div className="flex flex-col gap-3 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">Grants for {bot.name}</Dialog.Title>
+              <Dialog.Description className="mt-1 text-[13px] text-kumo-subtle">
+                Pick which of the hub’s connections this Bot may use, and its model. Applying re-creates the Bot’s agent; its memory carries over.
+              </Dialog.Description>
+            </div>
+            <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
+          </div>
+          {bindings === null ? <Loader /> : (
+            <>
+              <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+                Model
+                <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 text-[13px] text-kumo-default" value={modelId ?? ''} onChange={(e) => setModelId(e.target.value || null)}>
+                  {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </label>
+              <div className="text-[12px] text-kumo-subtle">Connections (bind more to the hub under the workspace’s Connections)</div>
+              {bindings.length === 0 && <div className="text-[12px] text-kumo-subtle">The hub has no connections yet; the Bot gets HUB only.</div>}
+              <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto">
+                {bindings.map((b) => (
+                  <li key={b.name}>
+                    <label className="flex items-center gap-2 text-[13px] text-kumo-default">
+                      <input
+                        type="checkbox"
+                        checked={chosen.has(b.name)}
+                        onChange={(e) => setChosen((prev) => { const next = new Set(prev); if (e.target.checked) next.add(b.name); else next.delete(b.name); return next })}
+                      />
+                      <span className="font-mono text-[12px]">{b.name}</span>
+                      <span className="truncate text-kumo-subtle">{b.resourceTitle}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+                <Button variant="primary" onClick={apply} loading={busy} disabled={!modelId}>Apply grants</Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Dialog>
+    </Dialog.Root>
+  )
+}

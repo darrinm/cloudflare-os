@@ -430,6 +430,20 @@ export interface AuthenticatedApi extends RpcTarget {
   /** Set the user's preferred model. Pass null to indicate "No agent". */
   setPreferredModel(id: string | null): Promise<void>;
 
+  /**
+   * Web Push. `getPushConfig()` is null when the deployment has no VAPID keys; otherwise the
+   * browser subscribes with `publicKey` (applicationServerKey) and registers the resulting
+   * PushSubscription JSON here. Notifications go out when a Bot's turn ends or an action awaits
+   * approval while nobody is watching the workspace.
+   */
+  getPushConfig(): Promise<{ publicKey: string } | null>;
+  /** Registers a browser's PushSubscription (as returned by `PushSubscription.toJSON()`). */
+  subscribePush(subscription: unknown, userAgent?: string): Promise<void>;
+  /** Forgets a subscription by endpoint. */
+  unsubscribePush(endpoint: string): Promise<void>;
+  /** Lists this user's push subscriptions (endpoint, created, userAgent). */
+  listPushSubscriptions(): Promise<Array<{ endpoint: string; created: Date; userAgent?: string }>>;
+
   /** Returns true if the user has completed the onboarding wizard. */
   isOnboardingCompleted(): Promise<boolean>;
 

@@ -8,6 +8,7 @@ import { User, Pencil, Check, X, Lock, Camera, Copy, Eye, EyeSlash } from '@phos
 import { useAvatar, invalidateAvatarCache } from './useAvatar'
 import { compressAvatar, avatarBlobUrl } from './avatarUtils'
 import UsageSettings from './components/billing/UsageSettings'
+import NotificationSettings from './components/NotificationSettings'
 import { useDocumentTitle } from './useDocumentTitle'
 
 // Shared, on-language control classes (match the rest of the app: Workspaces/Blueprints headers,
@@ -379,6 +380,9 @@ export default function SettingsPage() {
 
         {/* Usage & billing — only when the Cloudflare limits flow is enabled server-side */}
         <UsageSettings />
+
+        {/* Notifications — only when the deployment has Web Push configured and the browser supports it */}
+        <NotificationSettings />
 
         {/* Security — only for password accounts (hidden under CF Access or gatekeeper sign-in) */}
         {!CF_ACCESS_MODE && hasPassword === true && (

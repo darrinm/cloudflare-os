@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as BlueprintsRouteImport } from './routes/blueprints'
+import { Route as BotsRouteImport } from './routes/bots'
 import { Route as ContextRouteImport } from './routes/context'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as GatekeepersRouteImport } from './routes/gatekeepers'
@@ -21,6 +22,7 @@ import { Route as ProvidersRouteImport } from './routes/providers'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as BlueprintIdRouteImport } from './routes/blueprint.$id'
+import { Route as BotsIdRouteImport } from './routes/bots_.$id'
 import { Route as GadgetIdRouteImport } from './routes/gadget.$id'
 import { Route as GatekeepersAppIdRouteImport } from './routes/gatekeepers_.$appId'
 import { Route as WorkspaceIdRouteImport } from './routes/workspace.$id'
@@ -38,6 +40,11 @@ const AdminRoute = AdminRouteImport.update({
 const BlueprintsRoute = BlueprintsRouteImport.update({
   id: '/blueprints',
   path: '/blueprints',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BotsRoute = BotsRouteImport.update({
+  id: '/bots',
+  path: '/bots',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContextRoute = ContextRouteImport.update({
@@ -85,6 +92,11 @@ const BlueprintIdRoute = BlueprintIdRouteImport.update({
   path: '/blueprint/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BotsIdRoute = BotsIdRouteImport.update({
+  id: '/bots_/$id',
+  path: '/bots/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GadgetIdRoute = GadgetIdRouteImport.update({
   id: '/gadget/$id',
   path: '/gadget/$id',
@@ -105,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/blueprints': typeof BlueprintsRoute
+  '/bots': typeof BotsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
   '/gatekeepers': typeof GatekeepersRoute
@@ -114,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/workspaces': typeof WorkspacesRoute
   '/blueprint/$id': typeof BlueprintIdRoute
+  '/bots/$id': typeof BotsIdRoute
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers/$appId': typeof GatekeepersAppIdRoute
   '/workspace/$id': typeof WorkspaceIdRoute
@@ -122,6 +136,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/blueprints': typeof BlueprintsRoute
+  '/bots': typeof BotsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
   '/gatekeepers': typeof GatekeepersRoute
@@ -131,6 +146,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/workspaces': typeof WorkspacesRoute
   '/blueprint/$id': typeof BlueprintIdRoute
+  '/bots/$id': typeof BotsIdRoute
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers/$appId': typeof GatekeepersAppIdRoute
   '/workspace/$id': typeof WorkspaceIdRoute
@@ -140,6 +156,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/blueprints': typeof BlueprintsRoute
+  '/bots': typeof BotsRoute
   '/context': typeof ContextRoute
   '/explore': typeof ExploreRoute
   '/gatekeepers': typeof GatekeepersRoute
@@ -149,6 +166,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/workspaces': typeof WorkspacesRoute
   '/blueprint/$id': typeof BlueprintIdRoute
+  '/bots_/$id': typeof BotsIdRoute
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers_/$appId': typeof GatekeepersAppIdRoute
   '/workspace/$id': typeof WorkspaceIdRoute
@@ -159,6 +177,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/blueprints'
+    | '/bots'
     | '/context'
     | '/explore'
     | '/gatekeepers'
@@ -168,6 +187,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/workspaces'
     | '/blueprint/$id'
+    | '/bots/$id'
     | '/gadget/$id'
     | '/gatekeepers/$appId'
     | '/workspace/$id'
@@ -176,6 +196,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/blueprints'
+    | '/bots'
     | '/context'
     | '/explore'
     | '/gatekeepers'
@@ -185,6 +206,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/workspaces'
     | '/blueprint/$id'
+    | '/bots/$id'
     | '/gadget/$id'
     | '/gatekeepers/$appId'
     | '/workspace/$id'
@@ -193,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/blueprints'
+    | '/bots'
     | '/context'
     | '/explore'
     | '/gatekeepers'
@@ -202,6 +225,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/workspaces'
     | '/blueprint/$id'
+    | '/bots_/$id'
     | '/gadget/$id'
     | '/gatekeepers_/$appId'
     | '/workspace/$id'
@@ -211,6 +235,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   BlueprintsRoute: typeof BlueprintsRoute
+  BotsRoute: typeof BotsRoute
   ContextRoute: typeof ContextRoute
   ExploreRoute: typeof ExploreRoute
   GatekeepersRoute: typeof GatekeepersRoute
@@ -220,6 +245,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   WorkspacesRoute: typeof WorkspacesRoute
   BlueprintIdRoute: typeof BlueprintIdRoute
+  BotsIdRoute: typeof BotsIdRoute
   GadgetIdRoute: typeof GadgetIdRoute
   GatekeepersAppIdRoute: typeof GatekeepersAppIdRoute
   WorkspaceIdRoute: typeof WorkspaceIdRoute
@@ -246,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/blueprints'
       fullPath: '/blueprints'
       preLoaderRoute: typeof BlueprintsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bots': {
+      id: '/bots'
+      path: '/bots'
+      fullPath: '/bots'
+      preLoaderRoute: typeof BotsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/context': {
@@ -311,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlueprintIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bots_/$id': {
+      id: '/bots_/$id'
+      path: '/bots/$id'
+      fullPath: '/bots/$id'
+      preLoaderRoute: typeof BotsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gadget/$id': {
       id: '/gadget/$id'
       path: '/gadget/$id'
@@ -339,6 +379,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   BlueprintsRoute: BlueprintsRoute,
+  BotsRoute: BotsRoute,
   ContextRoute: ContextRoute,
   ExploreRoute: ExploreRoute,
   GatekeepersRoute: GatekeepersRoute,
@@ -348,6 +389,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   WorkspacesRoute: WorkspacesRoute,
   BlueprintIdRoute: BlueprintIdRoute,
+  BotsIdRoute: BotsIdRoute,
   GadgetIdRoute: GadgetIdRoute,
   GatekeepersAppIdRoute: GatekeepersAppIdRoute,
   WorkspaceIdRoute: WorkspaceIdRoute,

@@ -4294,6 +4294,12 @@ interface ChatInterfaceProps {
   onHasAnyCodeChange?: (hasAnyCode: boolean) => void;
   onSelectedChatHasProposedChangesChange?: (hasProposedChanges: boolean) => void;
   constrainChatWidth?: boolean;
+  /**
+   * Hides the selected-chat sub-header (back, rename, delete). For hosts that embed exactly one
+   * chat and draw their own header -- the Bots page -- where "back to conversations" and "delete
+   * chat" would be wrong affordances.
+   */
+  hideChatHeader?: boolean;
   onOpenGadget: (gadgetId: WorkpieceId) => void;
 
   // The output format a workpiece was built as, so a created-app card can name and draw it as the
@@ -4479,6 +4485,7 @@ function ChatInterface({
   onHasAnyCodeChange,
   onSelectedChatHasProposedChangesChange,
   constrainChatWidth,
+  hideChatHeader = false,
   onOpenGadget,
   outputOfWorkpiece,
 }: ChatInterfaceProps) {
@@ -7010,8 +7017,9 @@ function ChatInterface({
           {/* Chat content — hidden when connections tab is active in sidebar mode */}
           {(!sidebarMode || sidebarActiveTab === "chat") && (
             <>
-              {/* Chat sub-header — hidden in sidebar mode (list is always visible) */}
-              {!sidebarMode && (
+              {/* Chat sub-header — hidden in sidebar mode (list is always visible) and for
+                  single-chat hosts that draw their own header. */}
+              {!sidebarMode && !hideChatHeader && (
                 <div className="flex h-12 flex-shrink-0 items-center justify-between gap-2 border-b border-kumo-line px-4">
                   <WorkshopIconButton
                     onClick={() => onNavigateToChat(null)}
