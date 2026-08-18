@@ -25,6 +25,14 @@ export function isPerBotBinding(name: string): boolean {
   return name === 'AGENT_SPAWNER' || /^(SPAWNER|BROWSER|SANDBOX)_/.test(name)
 }
 
+/**
+ * The shared "household" browser profile: one set of cookies and signed-in sessions that several
+ * Bots can be granted, so a human signs into a site once rather than per Bot. The isolated per-Bot
+ * profile stays the default -- sharing trades blast radius for convenience, and that should be a
+ * deliberate choice.
+ */
+export const HOUSEHOLD_PROFILE = 'household'
+
 /** A profile / sandbox name derived from the Bot: stable, URL-safe, human-readable. */
 export function computerNameFor(bot: { id: string; name: string }): string {
   const base = bot.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'bot'
