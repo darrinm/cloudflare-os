@@ -4114,6 +4114,41 @@ function isUserMessageEntry(entry: ChatDisplayEntry): boolean {
   );
 }
 
+/**
+ * The teammate view of a spawner chat (see ChatInterfaceProps.conversationView): drops the persona
+ * (the first message, authored by the spawner) and, unless `showWork`, every pure work row and the
+ * tool-call groups attached to agent messages, so what remains is what people said, what the Bot
+ * said, approvals and errors. Agent messages left with no text disappear with their work.
+ */
+export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boolean): ChatDisplayEntry[] {
+  const out: ChatDisplayEntry[] = [];
+  let first = true;
+  for (const entry of entries) {
+    if (first && entry.type === "message" && entry.message.type === "message" &&
+        entry.message.author.type === "user") {
+      first = false;
+      continue;
+    }
+    first = false;
+    if (showWork) { out.push(entry); continue; }
+    if (entry.type === "workRun") continue;
+    if (entry.type === "message") {
+      const m = entry.message;
+      if (m.type === "useGadget" || m.type === "agentCallback" || m.type === "merge" || m.type === "revert") continue;
+      if (m.type === "action" && m.actionLog?.type === "observation") continue;
+      if (m.type === "message" && m.author.type !== "user") {
+        if (!m.message.trim()) continue;
+        if (entry.toolCallGroups?.length || entry.toolCalls?.length) {
+          out.push({ ...entry, toolCallGroups: undefined, toolCalls: undefined });
+          continue;
+        }
+      }
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
 // How close to the top of the transcript pulls in the previous page. Roughly a screenful of slack,
 // so the messages are there by the time the user scrolls to them.
 const EARLIER_PAGE_PREFETCH_PX = 600;
@@ -4300,6 +4335,15 @@ interface ChatInterfaceProps {
    * chat" would be wrong affordances.
    */
   hideChatHeader?: boolean;
+  /**
+   * Presents the thread as a conversation with a teammate rather than an agent transcript: the
+   * spawner prompt (the Bot's persona, the chat's first message) is not shown, and the machinery
+   * -- code runs, callback payloads, gadget calls, observation rows -- is folded away unless
+   * `showWork` is set. Approvals, errors and what the Bot actually says stay. The Bots page uses it.
+   */
+  conversationView?: boolean;
+  /** With `conversationView`: also show the tool activity ("Ran code", callbacks, gadget use). */
+  showWork?: boolean;
   onOpenGadget: (gadgetId: WorkpieceId) => void;
 
   // The output format a workpiece was built as, so a created-app card can name and draw it as the
@@ -4486,6 +4530,8 @@ function ChatInterface({
   onSelectedChatHasProposedChangesChange,
   constrainChatWidth,
   hideChatHeader = false,
+  conversationView = false,
+  showWork = false,
   onOpenGadget,
   outputOfWorkpiece,
 }: ChatInterfaceProps) {
@@ -4854,13 +4900,15 @@ function ChatInterface({
   );
 
   const displayEntries = useMemo(
-    () =>
+    () => {
       // Hide agent checkpoints; surface them as turn-level discard actions. User-saved
       // checkpoints get their own compact row so the discard action is attached to the
       // edit that actually created it.
-      buildChatDisplayEntries(
-          currentMessages, messageStates.changeStatus, currentCompactions, resolveToolOutput),
-    [currentMessages, messageStates, currentCompactions, resolveToolOutput],
+      const entries = buildChatDisplayEntries(
+          currentMessages, messageStates.changeStatus, currentCompactions, resolveToolOutput);
+      return conversationView ? toConversationEntries(entries, showWork) : entries;
+    },
+    [currentMessages, messageStates, currentCompactions, resolveToolOutput, conversationView, showWork],
   );
 
   const entryTopClasses = useMemo(() => {
