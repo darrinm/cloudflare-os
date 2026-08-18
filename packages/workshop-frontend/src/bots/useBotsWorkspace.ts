@@ -31,12 +31,17 @@ function writeCache(ref: BotsWorkspaceRef | null) {
   } catch { /* ignore */ }
 }
 
-/** Picks the user's Bots hub among their outputs: the one they own, oldest first. */
+/**
+ * Picks the user's Bots hub among their outputs: the one they own, oldest first; failing that, a
+ * hub someone shared with them (a teammate's roster, or one seeded by an operator), oldest first.
+ */
 export function pickBotsOutput(outputs: OutputSummary[]): OutputSummary | null {
-  const mine = outputs
-    .filter((o) => o.output?.id === BOTS_OUTPUT_ID && !o.owner)
-    .toSorted((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())
-  return mine[0] ?? null
+  const byAge = (a: OutputSummary, b: OutputSummary) => new Date(a.created).getTime() - new Date(b.created).getTime()
+  const hubs = outputs.filter((o) => o.output?.id === BOTS_OUTPUT_ID)
+  const mine = hubs.filter((o) => !o.owner).toSorted(byAge)
+  if (mine[0]) return mine[0]
+  const shared = hubs.filter((o) => !!o.owner).toSorted(byAge)
+  return shared[0] ?? null
 }
 
 /**
