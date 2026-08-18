@@ -1755,6 +1755,7 @@ export interface Overseer extends RpcTarget {
    */
   updateCode(update: Uint8Array, chatId?: number): Promise<void>;
 
+
   /** Get an existing gatekeeper by workpiece ID. Throws if the ID doesn't exist. */
   getGatekeeperById(id: WorkpieceId): Promise<GatekeeperClient<any>>;
 
@@ -3425,6 +3426,12 @@ export interface GadgetClient extends WorkpieceClient {
   //
   // @ts-ignore - TODO: Fix type instantiation issue
   connectToGadget(chatId?: number): Promise<RpcStub<any>>;
+  /**
+   * Re-apply a blueprint's files to this gadget, in place: how a gadget created from an earlier
+   * version of a blueprint takes a later one. Storage, bindings and the workpiece id are kept, and
+   * files the blueprint no longer has are left alone. Returns which files changed.
+   */
+  updateFromBlueprint(blueprintId: string): Promise<{updated: string[], unchanged: string[]}>;
 
   /**
    * Renders the Gadget's UI as a PDF. If `chatId` is specified, the PDF includes changes currently

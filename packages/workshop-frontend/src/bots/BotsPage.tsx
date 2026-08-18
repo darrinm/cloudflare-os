@@ -25,6 +25,7 @@ import type { Bot, BotCosts, BotEvent, BotMemory, BotRoutine } from './types'
 import { GroupDialog, GroupView } from './GroupView'
 import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
 import { seedExampleBots } from './examples'
+import { BOTS_BLUEPRINT_ID } from './types'
 import {
   COMPUTER_VENDORS, browserResourceUrl, computerBindingNameFor, computerNameFor, isPerBotBinding, parseSites,
   provisionComputer, sandboxResourceUrl, type ComputerKind,
@@ -171,6 +172,29 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // errors); the code runs / callbacks / gadget calls are one tap away, remembered per browser.
   const [showWork, setShowWork] = useState<boolean>(() => { try { return localStorage.getItem('bots:showWork') === '1' } catch { return false } })
   const toggleShowWork = useCallback(() => setShowWork((v) => { try { localStorage.setItem('bots:showWork', v ? '0' : '1') } catch { /* ignore */ } return !v }), [])
+
+  // A hub is a gadget created by copying the "Bots" blueprint, so a deployment that ships a newer
+  // hub never reaches hubs that already exist. This takes the update in place: storage (Bots,
+  // memory, routines, groups, costs), bindings and the workpiece id are kept.
+  const updateHub = useCallback(async () => {
+    if (!overseer) return
+    setSeeding('Updating the hub…')
+    const client = overseer.stub.getGadget(workpieceId)
+    try {
+      const { updated } = await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)
+      toasts.add({
+        title: updated.length ? 'Hub updated' : 'Hub already up to date',
+        description: updated.length ? `${updated.join(', ')} refreshed; your Bots and their memory are untouched.` : undefined,
+        variant: 'success',
+      })
+      await hubState.refreshBots()
+    } catch (err) {
+      toasts.add({ title: 'Couldn’t update the hub', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+    } finally {
+      client[Symbol.dispose]()
+      setSeeding(null)
+    }
+  }, [overseer, workpieceId, hubState, toasts])
 
   const addExamples = useCallback(async () => {
     const hub = hubState.hub
@@ -359,7 +383,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           navigate({ to: '/bots/group/$groupId', params: { groupId: g.id } })
         }}
       />
-      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding} />}
+      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding} onUpdateHub={updateHub} />}
     </div>
   )
 }

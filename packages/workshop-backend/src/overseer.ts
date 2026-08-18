@@ -2002,6 +2002,53 @@ class OverseerImpl implements AgentHooks {
   // binding map), and its running facet. Gatekeepers it bound survive, possibly orphaned. The
   // gadget's Y.Doc root can't be deleted (Yjs roots are permanent), so its files are cleared;
   // any content later resurrected into the root by an old client or merged branch is inert
+  /**
+   * Re-apply a blueprint's code to an existing gadget, in place. A gadget is created by copying a
+   * blueprint's files, so a redeployed blueprint (a new version of a bundled format, say) never
+   * reaches gadgets that already exist -- this is how a user takes the update without losing the
+   * gadget's Durable Object storage, bindings or workpiece id.
+   *
+   * Files the blueprint no longer contains are left alone: a gadget may carry local additions, and
+   * silently deleting them would be worse than leaving a stale file behind. Returns what changed.
+   */
+  async updateGadgetFromBlueprint(id: WorkpieceId, blueprintId: string)
+      : Promise<{updated: string[], unchanged: string[]}> {
+    this.getGadgetRecord(id);  // validate it exists
+    let {files} = await this.fetchBlueprint(blueprintId);
+
+    let {ydoc} = this.buildYDoc("current");
+    let root = ydoc.getMap<Y.Text>(this.gadgetRootName(id));
+    let updated: string[] = [];
+    let unchanged: string[] = [];
+    let updates: Uint8Array[] = [];
+    ydoc.on("updateV2", update => updates.push(update));
+    ydoc.transact(() => {
+      for (let [file, content] of Object.entries(files)) {
+        let existing = root.get(file);
+        if (existing === undefined) {
+          let text = new Y.Text();
+          text.insert(0, content);
+          root.set(file, text);
+          updated.push(file);
+        } else if (existing.toString() === content) {
+          unchanged.push(file);
+        } else {
+          existing.delete(0, existing.length);
+          existing.insert(0, content);
+          updated.push(file);
+        }
+      }
+    });
+    if (updates.length > 0) {
+      this.updateCode(Y.mergeUpdatesV2(updates));
+    }
+    this.logger.info("updated gadget from blueprint", {
+      event: "gadget.blueprint.update", gadgetId: String(id), blueprintId,
+      size: updated.length,
+    });
+    return {updated, unchanged};
+  }
+
   // because the registry entry -- the enumeration source of truth -- is gone.
   async removeGadget(id: WorkpieceId): Promise<void> {
     this.getGadgetRecord(id);  // validate it exists
@@ -9407,6 +9454,15 @@ class GadgetClientImpl extends RpcTarget implements GadgetClient {
     }
   }
 
+  /**
+   * Bring this gadget up to the current version of the blueprint it was made from (see
+   * OverseerImpl.updateGadgetFromBlueprint). Its storage, bindings and id are untouched; the
+   * gadget restarts with the new code.
+   */
+  async updateFromBlueprint(blueprintId: string): Promise<{updated: string[], unchanged: string[]}> {
+    return this.impl.updateGadgetFromBlueprint(this.id, blueprintId);
+  }
+
   async connectToGadget(chatId?: number): Promise<RpcStub<any>> {
     this.impl.recordGadgetAnalytics({
       event_name: "gadget_interaction",
@@ -9686,6 +9742,9 @@ class UseGadgetClientInterface extends RpcTarget implements GadgetClient {
 
   // --- Denied methods (build-only) ---
 
+  async updateFromBlueprint(_blueprintId: string): Promise<{updated: string[], unchanged: string[]}> {
+    this.#deny();
+  }
   async setTitle(_title: string): Promise<void> { this.#deny(); }
   async remove(): Promise<void> { this.#deny(); }
   async listBindings(): Promise<GadgetBindingInfo[]> { this.#deny(); }
