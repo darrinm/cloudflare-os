@@ -95,89 +95,92 @@ type SeedDeps = {
   onProgress?: (line: string) => void
 }
 
+type GadgetClient = ReturnType<RpcStub<Overseer>['getGadget']>
+
 /** Creates one per-Bot resource gatekeeper and binds it into the hub (skips if the binding exists). */
-async function ensureResource(deps: SeedDeps, bindingName: string, vendorId: string, resourceUrl: string): Promise<number | null> {
-  const client = deps.overseer.getGadget(deps.hubWorkpieceId)
+async function ensureResource(deps: SeedDeps, client: GadgetClient, bindingName: string, vendorId: string, resourceUrl: string): Promise<number | null> {
+  const existing = (await client.listBindings()).find((b) => b.name === bindingName)
+  if (existing) return existing.target
+  const accountId = await findOrProvisionAccount(deps.api, vendorId)
+  if (accountId === null) { deps.onProgress?.(`(no ${vendorId} gatekeeper on this deployment — skipped)`); return null }
+  const gk = await deps.overseer.newGatekeeper(accountId, resourceUrl)
+  if (!gk) return null
   try {
-    const existing = (await client.listBindings()).find((b) => b.name === bindingName)
-    if (existing) return existing.target
-    const accountId = await findOrProvisionAccount(deps.api, vendorId)
-    if (accountId === null) { deps.onProgress?.(`(no ${vendorId} gatekeeper on this deployment — skipped)`); return null }
-    const gk = await deps.overseer.newGatekeeper(accountId, resourceUrl)
-    if (!gk) return null
-    try {
-      const id = await gk.getId()
-      await client.bind(bindingName, id)
-      return id
-    } finally { gk[Symbol.dispose]() }
-  } finally { client[Symbol.dispose]() }
+    const id = await gk.getId()
+    await client.bind(bindingName, id)
+    return id
+  } finally { gk[Symbol.dispose]() }
 }
 
 /**
  * Seeds the example roster into the hub. Idempotent by Bot name / skill name / group name; safe to
- * run on a hub that already has some of it. Returns the Bots it created or found.
+ * run again after a partial failure. Returns the Bots it created or found.
+ *
+ * One gadget client lives for the whole run: hub stubs come from it (connectToGadget) and binding
+ * anything to the hub restarts the gadget and breaks whatever stub was connected, so a fresh hub
+ * stub is taken after each bind. Stubs obtained through a client die with it, hence the single
+ * long-lived client rather than one per step.
  */
 export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
   const { overseer, hubWorkpieceId, modelId, onProgress } = deps
-  let hub = deps.hub
-  // Binding into the hub restarts its gadget and breaks connected stubs; take a fresh one when needed.
+  const client = overseer.getGadget(hubWorkpieceId)
+  let hub: HubStub = deps.hub
+  let ownHub: HubStub | null = null
   const freshHub = async (): Promise<HubStub> => {
-    const client = overseer.getGadget(hubWorkpieceId)
-    try { return (await client.connectToGadget()) as unknown as HubStub } finally { client[Symbol.dispose]() }
+    try { ownHub?.[Symbol.dispose]() } catch { /* already gone */ }
+    ownHub = (await client.connectToGadget()) as unknown as HubStub
+    return ownHub
   }
+  try {
+    const existing = await hub.listBots()
+    const bots: Record<string, Bot> = {}
+    for (const def of EXAMPLE_BOTS) {
+      let bot = existing.find((b) => b.name === def.name)
+      if (bot) { onProgress?.(`${def.name}: already here`) }
+      else { bot = await hub.createBot({ name: def.name, role: def.role, instructions: def.instructions }); onProgress?.(`${def.name}: created`) }
+      bots[def.key] = bot
+    }
 
-  const existing = await hub.listBots()
-  const bots: Record<string, Bot> = {}
-  for (const def of EXAMPLE_BOTS) {
-    let bot = existing.find((b) => b.name === def.name)
-    if (bot) { onProgress?.(`${def.name}: already here`) }
-    else { bot = await hub.createBot({ name: def.name, role: def.role, instructions: def.instructions }); onProgress?.(`${def.name}: created`) }
-    bots[def.key] = bot
-  }
+    for (const def of EXAMPLE_BOTS) {
+      const bot = bots[def.key]
+      const spawnerName = exampleBindingName('SPAWNER', bot.id)
+      if ((await client.listBindings()).some((b) => b.name === spawnerName)) continue
+      const env: Record<string, number> = { HUB: hubWorkpieceId }
+      const name = computerNameFor(bot)
+      if (def.browser) {
+        const id = await ensureResource(deps, client, exampleBindingName('BROWSER', bot.id), 'browser', browserResourceUrl({ name, ...def.browser }))
+        if (id !== null) env.BROWSER = id
+      }
+      if (def.sandbox) {
+        const id = await ensureResource(deps, client, exampleBindingName('SANDBOX', bot.id), 'sandbox', sandboxResourceUrl({ name, mode: def.sandbox.mode }))
+        if (id !== null) env.SANDBOX = id
+      }
+      if (def.sender) {
+        const id = await ensureResource(deps, client, exampleBindingName('EMAIL_SEND', bot.id), 'email_send', senderResourceUrl(def.sender))
+        if (id !== null) env.EMAIL_SEND = id
+      }
+      const spawner = await overseer.newAgentSpawnerGatekeeper({ displayName: `${bot.name} agent`, modelId, env })
+      try { await client.bind(spawnerName, await spawner.getId()) } finally { spawner[Symbol.dispose]() }
+      hub = await freshHub()
+      await hub.respawnAgent(bot.id, spawnerName)
+      onProgress?.(`${bot.name}: grants ${Object.keys(env).join(', ')}`)
+    }
 
-  for (const def of EXAMPLE_BOTS) {
-    const bot = bots[def.key]
-    const spawnerName = exampleBindingName('SPAWNER', bot.id)
-    const client = overseer.getGadget(hubWorkpieceId)
-    let hasSpawner = false
-    try { hasSpawner = (await client.listBindings()).some((b) => b.name === spawnerName) } finally { client[Symbol.dispose]() }
-    if (hasSpawner) continue
-    const env: Record<string, number> = { HUB: hubWorkpieceId }
-    const name = computerNameFor(bot)
-    if (def.browser) {
-      const id = await ensureResource(deps, exampleBindingName('BROWSER', bot.id), 'browser', browserResourceUrl({ name, ...def.browser }))
-      if (id !== null) env.BROWSER = id
-    }
-    if (def.sandbox) {
-      const id = await ensureResource(deps, exampleBindingName('SANDBOX', bot.id), 'sandbox', sandboxResourceUrl({ name, mode: def.sandbox.mode }))
-      if (id !== null) env.SANDBOX = id
-    }
-    if (def.sender) {
-      const id = await ensureResource(deps, exampleBindingName('EMAIL_SEND', bot.id), 'email_send', senderResourceUrl(def.sender))
-      if (id !== null) env.EMAIL_SEND = id
-    }
-    const spawner = await overseer.newAgentSpawnerGatekeeper({ displayName: `${bot.name} agent`, modelId, env })
-    try {
-      const spawnerId = await spawner.getId()
-      const c2 = overseer.getGadget(hubWorkpieceId)
-      try { await c2.bind(spawnerName, spawnerId) } finally { c2[Symbol.dispose]() }
-    } finally { spawner[Symbol.dispose]() }
     hub = await freshHub()
-    await hub.respawnAgent(bot.id, spawnerName)
-    onProgress?.(`${bot.name}: grants ${Object.keys(env).join(', ')}`)
+    for (const s of EXAMPLE_SKILLS) await hub.defineSkill(s)
+    const groups = await hub.listGroups()
+    if (!groups.some((g) => g.name === EXAMPLE_GROUP.name)) {
+      await hub.createGroup({ ...EXAMPLE_GROUP, members: EXAMPLE_BOTS.map((d) => bots[d.key].id) })
+    }
+    const routineBot = bots[EXAMPLE_ROUTINE.botKey]
+    const routines = await hub.listRoutines(routineBot.id)
+    if (!routines.some((r) => r.title === EXAMPLE_ROUTINE.title)) {
+      await hub.newRoutine(routineBot.id, { title: EXAMPLE_ROUTINE.title, instructions: EXAMPLE_ROUTINE.instructions, schedule: EXAMPLE_ROUTINE.schedule })
+    }
+    onProgress?.('skills, group and routine ready')
+    return EXAMPLE_BOTS.map((d) => bots[d.key])
+  } finally {
+    try { ownHub?.[Symbol.dispose]() } catch { /* ignore */ }
+    client[Symbol.dispose]()
   }
-
-  hub = await freshHub()
-  for (const s of EXAMPLE_SKILLS) await hub.defineSkill(s)
-  const groups = await hub.listGroups()
-  if (!groups.some((g) => g.name === EXAMPLE_GROUP.name)) {
-    await hub.createGroup({ ...EXAMPLE_GROUP, members: EXAMPLE_BOTS.map((d) => bots[d.key].id) })
-  }
-  const routineBot = bots[EXAMPLE_ROUTINE.botKey]
-  const routines = await hub.listRoutines(routineBot.id)
-  if (!routines.some((r) => r.title === EXAMPLE_ROUTINE.title)) {
-    await hub.newRoutine(routineBot.id, { title: EXAMPLE_ROUTINE.title, instructions: EXAMPLE_ROUTINE.instructions, schedule: EXAMPLE_ROUTINE.schedule })
-  }
-  onProgress?.('skills, group and routine ready')
-  return EXAMPLE_BOTS.map((d) => bots[d.key])
 }
