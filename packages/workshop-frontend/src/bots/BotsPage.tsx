@@ -22,6 +22,10 @@ import { getStoredSelectedModel } from '../modelSelection'
 import { useBotsHub, type HubStub } from './useBotsHub'
 import { useBotsWorkspace } from './useBotsWorkspace'
 import type { Bot, BotEvent, BotMemory, BotRoutine } from './types'
+import {
+  COMPUTER_VENDORS, browserResourceUrl, computerBindingNameFor, computerNameFor, isPerBotBinding, parseSites,
+  provisionComputer, sandboxResourceUrl, type ComputerKind,
+} from './computer'
 
 const AVATAR_COLORS = ['#5b4bc4', '#1f7a5c', '#b23a48', '#9a6300', '#2f6fb0', '#7a3fa0', '#0f766e']
 
@@ -396,6 +400,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
   const [saving, setSaving] = useState(false)
   const [armDelete, setArmDelete] = useState(false)
   const [grantsOpen, setGrantsOpen] = useState(false)
+  const [computer, setComputer] = useState<Partial<Record<ComputerKind, GadgetBindingInfo>>>({})
   const actions = useActions(overseer)
   const pendingCount = useMemo(() => {
     let n = 0
@@ -412,6 +417,27 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
       .catch(() => {})
     return () => { cancelled = true }
   }, [hub, bot.id, hubVersion])
+
+  // The Bot's computer (browser profile / sandbox) lives in hub bindings named after the Bot.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const client = overseer.getGadget(hubWorkpieceId)
+      try {
+        const list = await client.listBindings()
+        if (cancelled) return
+        const next: Partial<Record<ComputerKind, GadgetBindingInfo>> = {}
+        for (const kind of ['browser', 'sandbox'] as const) {
+          const b = list.find((x) => x.name === computerBindingNameFor(bot.id, kind))
+          if (b) next[kind] = b
+        }
+        setComputer(next)
+      } finally {
+        client[Symbol.dispose]()
+      }
+    })().catch(() => {})
+    return () => { cancelled = true }
+  }, [overseer, hubWorkpieceId, bot.id, bot.agentGeneration, grantsOpen])
 
   const dirty = name !== bot.name || role !== bot.role || instructions !== bot.instructions
 
@@ -464,6 +490,21 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
           {pendingCount > 0 && <> {pendingCount} action{pendingCount === 1 ? '' : 's'} awaiting approval in the conversation.</>}
         </p>
         <Button variant="secondary" onClick={() => setGrantsOpen(true)}>Change grants…</Button>
+      </Section>
+
+      <Section title="Computer">
+        {(['browser', 'sandbox'] as const).map((kind) => {
+          const b = computer[kind]
+          return (
+            <div key={kind} className="flex items-start justify-between gap-2 text-[12px]">
+              <span className="min-w-0">
+                <span className="block text-kumo-default">{COMPUTER_VENDORS[kind].title}</span>
+                <span className="block truncate text-kumo-subtle" title={b?.resourceTitle}>{b ? b.resourceTitle : 'none — give one in Grants'}</span>
+              </span>
+              {b && <a className="flex-none text-kumo-brand underline-offset-2 hover:underline" href={COMPUTER_VENDORS[kind].appPath} target="_blank" rel="noreferrer">Open</a>}
+            </div>
+          )
+        })}
       </Section>
 
       <Section title={`Memory (${memories.length})`}>
@@ -563,6 +604,16 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
   const [modelId, setModelId] = useState<string | null>(null)
   const [chosen, setChosen] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  // Computer: existing per-Bot browser/sandbox bindings, whether to grant them, and (when new or
+  // replaced) the policy to create them with.
+  const [existingComputer, setExistingComputer] = useState<Partial<Record<ComputerKind, GadgetBindingInfo>>>({})
+  const [wantBrowser, setWantBrowser] = useState(false)
+  const [wantSandbox, setWantSandbox] = useState(false)
+  const [replaceComputer, setReplaceComputer] = useState<Set<ComputerKind>>(new Set())
+  const [sites, setSites] = useState('')
+  const [browseAnywhere, setBrowseAnywhere] = useState(true)
+  const [sandboxMode, setSandboxMode] = useState<'read-only' | 'approve' | 'write'>('approve')
+  const { authenticatedApi } = useAuthenticatedApi()
 
   useEffect(() => {
     if (!open) return
@@ -573,12 +624,21 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
         client = overseer.getGadget(hubWorkpieceId)
         const [list, modelList] = await Promise.all([client.listBindings(), overseer.listModels()])
         if (cancelled) return
-        // Spawner bindings (the shared one and per-Bot ones) are not grantable resources.
-        const grantable = list.filter((b) => b.name !== 'AGENT_SPAWNER' && !b.name.startsWith('SPAWNER_'))
+        // Spawner / browser / sandbox bindings belong to individual Bots and are not general grants.
+        const grantable = list.filter((b) => !isPerBotBinding(b.name))
         setBindings(grantable)
         setModels(modelList)
         setModelId(getStoredSelectedModel(modelList))
         setChosen(new Set(grantable.map((b) => b.name)))
+        const mine: Partial<Record<ComputerKind, GadgetBindingInfo>> = {}
+        for (const kind of ['browser', 'sandbox'] as const) {
+          const b = list.find((x) => x.name === computerBindingNameFor(bot.id, kind))
+          if (b) mine[kind] = b
+        }
+        setExistingComputer(mine)
+        setWantBrowser(!!mine.browser)
+        setWantSandbox(!!mine.sandbox)
+        setReplaceComputer(new Set())
       } catch (err) {
         if (!cancelled) toasts.add({ title: 'Couldn’t load connections', description: String(err instanceof Error ? err.message : err), variant: 'error' })
       } finally {
@@ -586,7 +646,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       }
     })()
     return () => { cancelled = true }
-  }, [open, overseer, hubWorkpieceId, toasts])
+  }, [open, overseer, hubWorkpieceId, toasts, bot.id])
 
   const apply = useCallback(async () => {
     if (!bindings) return
@@ -596,6 +656,18 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
     try {
       const env: Record<string, number> = { HUB: hubWorkpieceId }
       for (const b of bindings) if (chosen.has(b.name)) env[b.name] = b.target
+      // The Bot's computer: reuse the existing profile/sandbox unless replaced; create when new.
+      const wants: Record<ComputerKind, boolean> = { browser: wantBrowser, sandbox: wantSandbox }
+      for (const kind of ['browser', 'sandbox'] as const) {
+        if (!wants[kind]) continue
+        const existing = existingComputer[kind]
+        if (existing && !replaceComputer.has(kind)) { env[COMPUTER_VENDORS[kind].envName] = existing.target; continue }
+        const name = computerNameFor(bot)
+        const resourceUrl = kind === 'browser'
+          ? browserResourceUrl({ name, allowedSites: parseSites(sites), browseAnywhere })
+          : sandboxResourceUrl({ name, mode: sandboxMode })
+        env[COMPUTER_VENDORS[kind].envName] = await provisionComputer(authenticatedApi, overseer, hubWorkpieceId, bot.id, kind, resourceUrl)
+      }
       const created = await overseer.newAgentSpawnerGatekeeper({ displayName: `${bot.name} agent`, modelId, env })
       spawner = created
       const spawnerId = await created.getId()
@@ -614,7 +686,28 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       spawner?.[Symbol.dispose]()
       setBusy(false)
     }
-  }, [bindings, chosen, modelId, overseer, hub, bot, hubWorkpieceId, toasts, onClose])
+  }, [bindings, chosen, modelId, overseer, hub, bot, hubWorkpieceId, toasts, onClose, wantBrowser, wantSandbox, existingComputer, replaceComputer, sites, browseAnywhere, sandboxMode, authenticatedApi])
+
+  const computerRow = (kind: ComputerKind, want: boolean, setWant: (v: boolean) => void, config: React.ReactNode) => {
+    const existing = existingComputer[kind]
+    const replacing = replaceComputer.has(kind)
+    return (
+      <li className="flex flex-col gap-1.5 rounded-md border border-kumo-line p-2">
+        <label className="flex items-center gap-2 text-[13px] text-kumo-default">
+          <input type="checkbox" checked={want} onChange={(e) => setWant(e.target.checked)} />
+          <span className="font-mono text-[12px]">{COMPUTER_VENDORS[kind].envName}</span>
+          <span className="truncate text-kumo-subtle">{COMPUTER_VENDORS[kind].title}</span>
+        </label>
+        {want && existing && !replacing && (
+          <div className="flex items-center justify-between gap-2 pl-6 text-[12px] text-kumo-subtle">
+            <span className="truncate" title={existing.resourceTitle}>{existing.resourceTitle}</span>
+            <button type="button" className="flex-none text-kumo-brand hover:underline" onClick={() => setReplaceComputer((prev) => new Set(prev).add(kind))}>Replace…</button>
+          </div>
+        )}
+        {want && (!existing || replacing) && <div className="flex flex-col gap-1.5 pl-6">{config}</div>}
+      </li>
+    )
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
@@ -652,6 +745,31 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
                       <span className="truncate text-kumo-subtle">{b.resourceTitle}</span>
                     </label>
                   </li>
+                ))}
+              </ul>
+              <div className="text-[12px] text-kumo-subtle">Computer (a private browser profile and a Linux sandbox of its own)</div>
+              <ul className="flex flex-col gap-1.5">
+                {computerRow('browser', wantBrowser, setWantBrowser, (
+                  <>
+                    <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+                      Sites it may act on (comma-separated; interactions elsewhere ask you first)
+                      <input className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[13px] text-kumo-default" placeholder="github.com, docs.google.com" value={sites} onChange={(e) => setSites(e.target.value)} />
+                    </label>
+                    <label className="flex items-center gap-2 text-[12px] text-kumo-default">
+                      <input type="checkbox" checked={browseAnywhere} onChange={(e) => setBrowseAnywhere(e.target.checked)} />
+                      May read pages on any site
+                    </label>
+                  </>
+                ))}
+                {computerRow('sandbox', wantSandbox, setWantSandbox, (
+                  <label className="flex flex-col gap-1 text-[12px] text-kumo-subtle">
+                    What it may do
+                    <select className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[13px] text-kumo-default" value={sandboxMode} onChange={(e) => setSandboxMode(e.target.value as typeof sandboxMode)}>
+                      <option value="read-only">Read only</option>
+                      <option value="approve">Ask before running commands or writing files</option>
+                      <option value="write">Act freely</option>
+                    </select>
+                  </label>
                 ))}
               </ul>
               <div className="flex justify-end gap-2">

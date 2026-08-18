@@ -93,7 +93,11 @@ describe("BotsPageContent", () => {
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
       catchingUp: false,
     });
-    testState.workspaceOpen.overseer = { stub: {} };
+    // The details panel asks the hub gadget for its bindings to find the Bot's computer.
+    const listBindings = vi.fn(async () => [
+      { name: "BROWSER_ABC12345", target: 7, resourceTitle: "Browser profile: inbox-manager-abc12345" },
+    ]);
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings, [Symbol.dispose]() {} }) } };
     const bot = {
       id: "abc12345", name: "Inbox Manager", role: "Triage", instructions: "", avatar: "", color: "",
       chatTitle: "Bot: Inbox Manager [abc12345]", created: 1, updated: 1, lastActivity: null,
@@ -110,5 +114,10 @@ describe("BotsPageContent", () => {
     expect(container!.textContent).toContain("Grants");
     expect(container!.textContent).toContain("AGENT_SPAWNER");
     expect(localStorage.getItem("bots:workspace")).toContain("ws1");
+    // The Computer section lists the Bot's browser profile (from the hub's BROWSER_<BOT> binding)
+    // and reports no sandbox.
+    await vi.waitFor(() => expect(container!.textContent).toContain("Browser profile: inbox-manager-abc12345"));
+    expect(listBindings).toHaveBeenCalled();
+    expect(container!.textContent).toContain("none — give one in Grants");
   });
 });
