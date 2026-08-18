@@ -219,7 +219,19 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       )}
       <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Bots">
         {hubState.error && <div className="p-3 text-[12px] text-kumo-danger">{hubState.error}</div>}
-        {hubState.bots.length === 0 && !hubState.error && (
+        {!hubState.hub && !hubState.error && (
+          // Connecting to the hub: a quiet placeholder, not the empty state (which would flash on
+          // every load before the roster arrives).
+          <div className="flex flex-col gap-2 p-3" aria-busy="true" aria-label="Loading Bots">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-2.5 py-1.5">
+                <span className="h-8 w-8 flex-none animate-pulse rounded-full bg-kumo-tint" />
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5"><span className="h-3 w-24 animate-pulse rounded bg-kumo-tint" /><span className="h-2.5 w-40 animate-pulse rounded bg-kumo-tint" /></span>
+              </div>
+            ))}
+          </div>
+        )}
+        {hubState.hub && hubState.bots.length === 0 && !hubState.error && (
           <div className="flex flex-col gap-2 p-4 text-[12px] text-kumo-subtle">
             <div>No Bots yet. Create one with +, or start with a ready-made team.</div>
             <Button variant="secondary" size="sm" onClick={addExamples} loading={seeding !== null} disabled={!hubState.hub}>Add example Bots</Button>
@@ -317,7 +329,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         />
       ) : (
         <section className="hidden min-w-0 flex-1 items-center justify-center p-8 text-center text-[13px] text-kumo-subtle md:flex">
-          {hubState.bots.length ? 'Pick a Bot to open its conversation.' : 'Create your first Bot with the + button.'}
+          {!hubState.hub ? '' : hubState.bots.length ? 'Pick a Bot to open its conversation.' : 'Create your first Bot with the + button.'}
         </section>
       )}
       <NewBotDialog
