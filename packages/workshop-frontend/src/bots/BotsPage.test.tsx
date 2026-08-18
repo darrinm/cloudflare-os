@@ -104,7 +104,7 @@ describe("BotsPageContent", () => {
       chatTitle: "Bot: Inbox Manager [abc12345]", created: 1, updated: 1, lastActivity: null,
       agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
     };
-    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [] };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 1.234, totalTokens: 5000, turns: 3, chats: 1, todayUsd: 0.5, dailyCapUsd: null }) };
     testState.hub.bots = [bot];
     testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
 
@@ -122,6 +122,9 @@ describe("BotsPageContent", () => {
     expect(container!.textContent).toContain("none — give one in Grants");
     // Grants offer running a hub skill; the roster header offers the Skills manager.
     expect(container!.textContent).toContain("Run a skill…");
+    await vi.waitFor(() => expect(container!.textContent).toContain("$0.50"));
+    expect(container!.textContent).toContain("$1.23 lifetime over 3 turns");
+    expect(container!.textContent).toContain("Export CSV");
     expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
   });
   it("renders a group's shared transcript with a composer", async () => {

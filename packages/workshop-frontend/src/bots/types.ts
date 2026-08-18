@@ -15,6 +15,18 @@ export type Bot = {
   agentReady: boolean
   spawnerBinding: string
   agentGeneration: number
+  /** Daily spending cap in dollars; null = no cap. */
+  dailyCapUsd?: number | null
+}
+
+export type BotCosts = {
+  botId: string
+  totalUsd: number
+  totalTokens: number
+  turns: number
+  chats: number
+  todayUsd: number
+  dailyCapUsd: number | null
 }
 
 export type BotMemory = {
@@ -95,6 +107,7 @@ export type HubUpdate =
   | { type: 'groups' }
   | { type: 'groupPost'; groupId: string; post: GroupPost }
   | { type: 'skills' }
+  | { type: 'costs'; botId: string }
 
 export type HubSubscriberApi = { update(u: HubUpdate): void }
 
@@ -107,7 +120,9 @@ export interface HubApi {
   listBots(): Promise<Bot[]>
   getBot(id: string): Promise<Bot | null>
   createBot(input: { name: string; role?: string; instructions?: string; avatar?: string; color?: string }): Promise<Bot>
-  updateBot(id: string, patch: Partial<Pick<Bot, 'name' | 'role' | 'instructions' | 'avatar' | 'color'>>): Promise<Bot>
+  updateBot(id: string, patch: Partial<Pick<Bot, 'name' | 'role' | 'instructions' | 'avatar' | 'color' | 'dailyCapUsd'>>): Promise<Bot>
+  costs(botId: string): Promise<BotCosts>
+  allCosts(): Promise<BotCosts[]>
   deleteBot(id: string): Promise<boolean>
   respawnAgent(id: string, spawnerBinding: string): Promise<{ chatTitle: string; spawnerBinding: string; generation: number }>
   send(botId: string, message: string | { skill?: string; skillId?: string; args?: string }, from: { type: string; name?: string; botId?: string }): Promise<{ eventId: number; delivered: boolean }>

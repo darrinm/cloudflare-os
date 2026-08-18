@@ -21,7 +21,7 @@ import { useActions } from '../useActions'
 import { getStoredSelectedModel } from '../modelSelection'
 import { useBotsHub, type HubStub } from './useBotsHub'
 import { useBotsWorkspace } from './useBotsWorkspace'
-import type { Bot, BotEvent, BotMemory, BotRoutine } from './types'
+import type { Bot, BotCosts, BotEvent, BotMemory, BotRoutine } from './types'
 import { GroupDialog, GroupView } from './GroupView'
 import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
 import {
@@ -460,6 +460,8 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
   const [armDelete, setArmDelete] = useState(false)
   const [grantsOpen, setGrantsOpen] = useState(false)
   const [runSkillOpen, setRunSkillOpen] = useState(false)
+  const [costs, setCosts] = useState<BotCosts | null>(null)
+  const [capDraft, setCapDraft] = useState('')
   const [computer, setComputer] = useState<Partial<Record<ComputerKind, GadgetBindingInfo>>>({})
   const actions = useActions(overseer)
   const pendingCount = useMemo(() => {
@@ -469,6 +471,12 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
   }, [actions.actionsById])
 
   useEffect(() => { setName(bot.name); setRole(bot.role); setInstructions(bot.instructions) }, [bot.id, bot.name, bot.role, bot.instructions])
+  useEffect(() => { setCapDraft(bot.dailyCapUsd === null || bot.dailyCapUsd === undefined ? '' : String(bot.dailyCapUsd)) }, [bot.id, bot.dailyCapUsd])
+  useEffect(() => {
+    let cancelled = false
+    hub.costs(bot.id).then((c) => { if (!cancelled) setCosts(c) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [hub, bot.id, hubVersion])
 
   useEffect(() => {
     let cancelled = false
@@ -555,6 +563,33 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
         </div>
       </Section>
 
+      <Section title="Cost">
+        {costs ? (
+          <p className="text-[12px] text-kumo-subtle">
+            <span className="text-kumo-default">${costs.todayUsd.toFixed(2)}</span> in the last 24 h · ${costs.totalUsd.toFixed(2)} lifetime over {costs.turns} turn{costs.turns === 1 ? '' : 's'}
+            {costs.totalTokens ? ` · ${Intl.NumberFormat().format(costs.totalTokens)} tokens` : ''}
+            {costs.dailyCapUsd !== null && costs.todayUsd >= costs.dailyCapUsd && <span className="text-kumo-danger"> · at cap: new work is held</span>}
+          </p>
+        ) : <p className="text-[12px] text-kumo-subtle">Cost is recorded after each turn.</p>}
+        <form
+          className="flex items-end gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            try {
+              const cap = capDraft.trim() === '' ? null : Number(capDraft)
+              await hub.updateBot(bot.id, { dailyCapUsd: cap })
+              toasts.add({ title: cap === null ? 'Daily cap removed' : `Daily cap set to $${cap.toFixed(2)}`, variant: 'success' })
+            } catch (err) { toasts.add({ title: 'Couldn’t set the cap', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
+          }}
+        >
+          <label className="flex flex-1 flex-col gap-1 text-[12px] text-kumo-subtle">
+            Daily cap (USD, blank = none)
+            <input className="rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[13px] text-kumo-default" inputMode="decimal" value={capDraft} onChange={(e) => setCapDraft(e.target.value)} placeholder="e.g. 5" />
+          </label>
+          <Button variant="secondary" size="sm" type="submit">Set</Button>
+        </form>
+      </Section>
+
       <Section title="Computer">
         {(['browser', 'sandbox'] as const).map((kind) => {
           const b = computer[kind]
@@ -604,6 +639,10 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
       </Section>
 
       <Section title="Activity">
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => exportActivity(hub, bot, 'json')}>Export JSON</Button>
+          <Button variant="secondary" size="sm" onClick={() => exportActivity(hub, bot, 'csv')}>Export CSV</Button>
+        </div>
         <ul className="flex flex-col gap-1.5">
           {events.filter((e) => e.type !== 'delivered').slice(-30).toReversed().map((e) => (
             <li key={e.id} className="text-[12px]">
@@ -636,6 +675,28 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
       )}
     </>
   )
+}
+
+/** Audit export: the Bot's full hub activity (messages, deliveries, outcomes, memory, approvals) as a file. */
+async function exportActivity(hub: HubStub, bot: Bot, format: 'json' | 'csv') {
+  const events = await hub.activity(bot.id, { limit: 500 })
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+  let blob: Blob
+  if (format === 'json') {
+    blob = new Blob([JSON.stringify({ bot: { id: bot.id, name: bot.name, role: bot.role }, exported: new Date().toISOString(), events }, null, 2)], { type: 'application/json' })
+  } else {
+    const esc = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`
+    const rows = [['id', 'time', 'type', 'text', 'data'].join(','), ...events.map((e) => [e.id, new Date(e.ts).toISOString(), e.type, e.text, JSON.stringify(e.data)].map(esc).join(','))]
+    blob = new Blob([rows.join('\n')], { type: 'text/csv' })
+  }
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `bot-${bot.id}-activity-${stamp}.${format}`
+  document.body.append(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

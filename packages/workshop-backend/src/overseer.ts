@@ -1218,6 +1218,34 @@ class OverseerImpl implements AgentHooks {
     }));
   }
 
+  // A Bot (agent-spawner chat) finished a turn: tell the hub gadget the chat's running totals so
+  // it can account cost per Bot and enforce caps. The hub is whatever the spawner's env calls HUB;
+  // it opts in by exposing `recordTurn(...)` -- other gadgets simply reject the call. Best-effort:
+  // the chat metadata stays the durable record of cost.
+  #reportBotTurn(meta: AiChatMetadata) {
+    if (!meta.spawnerName) return;
+    let context = this.storage.chatContext.get(meta.id);
+    let hubId = context?.bindings?.HUB;
+    if (hubId === undefined || !this.storage.gadgets.get(hubId)) return;
+    this.ctx.waitUntil((async () => {
+      try {
+        let hub = await this.getGadgetFacet(hubId, meta.id) as
+            RpcStub<{recordTurn(report: Record<string, unknown>): Promise<unknown>}>;
+        try {
+          await hub.recordTurn({
+            chatId: meta.id, chatTitle: meta.title,
+            totalCost: meta.totalCost ?? null, totalTokens: meta.totalTokens ?? null,
+            spawnerName: meta.spawnerName, at: Date.now(),
+          });
+        } finally {
+          hub[Symbol.dispose]?.();
+        }
+      } catch (err) {
+        this.logger.debug("bot turn report skipped", { event: "bots.turn.report.skipped", error: err });
+      }
+    })());
+  }
+
   // Mark a session as present. Returns a function that removes it.
   joinPresence(profileId: string, user: AiChatAuthorInfo, role: CollaboratorRole): () => void {
     let token = {};
@@ -4218,6 +4246,7 @@ class OverseerImpl implements AgentHooks {
         meta.lastActive = this.getChatTimestamp();
         this.storage.chatMeta.put(meta);
         this.#notifyBotTurnEnded(meta);
+        this.#reportBotTurn(meta);
       }
 
       // Tear down the registry entry, persistent `activeAgents` record, and keep-alive alarm in the
