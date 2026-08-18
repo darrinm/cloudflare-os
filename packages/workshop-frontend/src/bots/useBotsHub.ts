@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { RpcStub, RpcTarget } from 'capnweb'
 import type { GadgetClient, Overseer } from '@gadgets/workshop-shared/api'
-import type { Bot, HubApi, HubInfo, HubUpdate } from './types'
+import type { Bot, BotGroup, HubApi, HubInfo, HubUpdate } from './types'
 
 /** RPC to the Bots Hub gadget's Durable Object (see packages/bots-hub in the deployment). */
 export type HubStub = RpcStub<HubApi>
@@ -9,6 +9,7 @@ export type HubStub = RpcStub<HubApi>
 export type BotsHubState = {
   hub: HubStub | null
   bots: Bot[]
+  groups: BotGroup[]
   info: HubInfo | null
   error: string | null
   /** Bumped on every hub update; consumers re-fetch details they show. */
@@ -30,15 +31,15 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
   refreshBots: () => Promise<void>
 } {
   const [state, setState] = useState<BotsHubState>({
-    hub: null, bots: [], info: null, error: null, version: 0, lastUpdate: null,
+    hub: null, bots: [], groups: [], info: null, error: null, version: 0, lastUpdate: null,
   })
   const hubRef = useRef<HubStub | null>(null)
 
   const refreshBots = useCallback(async () => {
     const hub = hubRef.current
     if (!hub) return
-    const [bots, info] = await Promise.all([hub.listBots(), hub.getInfo()])
-    setState((s) => ({ ...s, bots, info, version: s.version + 1 }))
+    const [bots, info, groups] = await Promise.all([hub.listBots(), hub.getInfo(), hub.listGroups().catch(() => [] as BotGroup[])])
+    setState((s) => ({ ...s, bots, info, groups, version: s.version + 1 }))
   }, [])
 
   useEffect(() => {
@@ -57,14 +58,14 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
         hubRef.current = connected
         subscriber = new HubSubscriber((u) => {
           if (cancelled) return
-          if (u.type === 'bots') {
+          if (u.type === 'bots' || u.type === 'groups') {
             refreshBots().catch(() => {})
           }
           setState((s) => ({ ...s, version: s.version + 1, lastUpdate: u }))
         })
         const snapshot = await connected.subscribe(subscriber)
         if (cancelled) return
-        setState((s) => ({ ...s, hub: connected, bots: snapshot.bots, info: snapshot.info, error: null, version: s.version + 1 }))
+        setState((s) => ({ ...s, hub: connected, bots: snapshot.bots, groups: snapshot.groups ?? [], info: snapshot.info, error: null, version: s.version + 1 }))
       } catch (err) {
         if (cancelled) return
         setState((s) => ({ ...s, error: err instanceof Error ? err.message : String(err) }))
@@ -75,7 +76,7 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
       hubRef.current = null
       try { hub?.[Symbol.dispose]() } catch { /* ignore */ }
       try { gadgetClient?.[Symbol.dispose]() } catch { /* ignore */ }
-      setState({ hub: null, bots: [], info: null, error: null, version: 0, lastUpdate: null })
+      setState({ hub: null, bots: [], groups: [], info: null, error: null, version: 0, lastUpdate: null })
     }
   }, [overseer, workpieceId, refreshBots])
 

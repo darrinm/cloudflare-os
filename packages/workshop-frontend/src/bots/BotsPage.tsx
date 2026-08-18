@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
-import { CaretLeft, Info, Plus, Robot, X } from '@phosphor-icons/react'
+import { CaretLeft, Info, Lightning, Plus, Robot, UsersThree, X } from '@phosphor-icons/react'
 import type {
   AiChatAuthorInfo,
   AiChatMetadata,
@@ -22,6 +22,8 @@ import { getStoredSelectedModel } from '../modelSelection'
 import { useBotsHub, type HubStub } from './useBotsHub'
 import { useBotsWorkspace } from './useBotsWorkspace'
 import type { Bot, BotEvent, BotMemory, BotRoutine } from './types'
+import { GroupDialog, GroupView } from './GroupView'
+import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
 import {
   COMPUTER_VENDORS, browserResourceUrl, computerBindingNameFor, computerNameFor, isPerBotBinding, parseSites,
   provisionComputer, sandboxResourceUrl, type ComputerKind,
@@ -62,7 +64,7 @@ export function BotAvatar({ bot, size = 32 }: { bot: Bot; size?: number }) {
 // -------------------------------------------------------------------------------------------------
 
 /** Page body for /bots and /bots/$id. Exported separately from the route so tests can render it. */
-export function BotsPageContent({ botId }: { botId: string | null }) {
+export function BotsPageContent({ botId, groupId = null }: { botId: string | null; groupId?: string | null }) {
   const { authenticatedApi } = useAuthenticatedApi()
   const { state, create } = useBotsWorkspace(authenticatedApi)
   useDocumentTitle('Bots')
@@ -76,7 +78,7 @@ export function BotsPageContent({ botId }: { botId: string | null }) {
   if (state.status === 'missing') {
     return <CreateHubPanel authenticatedApi={authenticatedApi} onCreate={create} />
   }
-  return <BotsWorkspace workspaceId={state.ref.workspaceId} workpieceId={state.ref.workpieceId} botId={botId} />
+  return <BotsWorkspace workspaceId={state.ref.workspaceId} workpieceId={state.ref.workpieceId} botId={botId} groupId={groupId} />
 }
 
 function CenteredNote({ children }: { children: React.ReactNode }) {
@@ -147,8 +149,8 @@ function CreateHubPanel({
 
 // -------------------------------------------------------------------------------------------------
 
-function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: string; workpieceId: number; botId: string | null }) {
-  const { authenticatedApi } = useAuthenticatedApi()
+function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspaceId: string; workpieceId: number; botId: string | null; groupId: string | null }) {
+  const { authenticatedApi, currentUser } = useAuthenticatedApi()
   const navigate = useNavigate()
   const toasts = useKumoToastManager()
   const { overseer, error, retry } = useWorkspaceOpen({
@@ -160,9 +162,13 @@ function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: strin
   })
   const hubState = useBotsHub(overseer?.stub ?? null, workpieceId)
   const [showNew, setShowNew] = useState(false)
+  const [showNewGroup, setShowNewGroup] = useState(false)
+  const [showSkills, setShowSkills] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
   const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
+  const selectedGroup = useMemo(() => hubState.groups.find((g) => g.id === groupId) ?? null, [hubState.groups, groupId])
+  const anySelected = selected !== null || selectedGroup !== null
 
   if (error) {
     return error.kind === 'open'
@@ -172,12 +178,17 @@ function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: strin
   if (!overseer) return <CenteredNote><Loader /></CenteredNote>
 
   const roster = (
-    <aside className={`${selected ? 'hidden md:flex' : 'flex'} h-full w-full flex-col border-r border-kumo-line bg-kumo-base md:w-64 md:flex-none`}>
+    <aside className={`${anySelected ? 'hidden md:flex' : 'flex'} h-full w-full flex-col border-r border-kumo-line bg-kumo-base md:w-64 md:flex-none`}>
       <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
         <h1 className="text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
-        <WorkshopIconButton onClick={() => setShowNew(true)} title="New Bot" aria-label="New Bot" className="!h-8 !w-8">
-          <Plus size={14} />
-        </WorkshopIconButton>
+        <div className="flex items-center gap-1">
+          <WorkshopIconButton onClick={() => setShowSkills(true)} title="Skills" aria-label="Skills" className="!h-8 !w-8" disabled={!hubState.hub}>
+            <Lightning size={14} />
+          </WorkshopIconButton>
+          <WorkshopIconButton onClick={() => setShowNew(true)} title="New Bot" aria-label="New Bot" className="!h-8 !w-8">
+            <Plus size={14} />
+          </WorkshopIconButton>
+        </div>
       </div>
       {hubState.info && !hubState.info.hasSpawner && (
         <div className="m-2 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[12px] text-kumo-default">
@@ -201,6 +212,27 @@ function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: strin
             <span className="min-w-0">
               <span className="block truncate text-[13px] font-medium text-kumo-default">{bot.name}</span>
               <span className="block truncate text-[12px] text-kumo-subtle">{bot.role || 'Bot'}</span>
+            </span>
+          </button>
+        ))}
+        {(hubState.groups.length > 0 || hubState.bots.length > 1) && (
+          <div className="flex items-center justify-between border-b border-kumo-line px-3 py-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-kumo-subtle">Groups</span>
+            <WorkshopIconButton onClick={() => setShowNewGroup(true)} title="New group" aria-label="New group" className="!h-6 !w-6"><Plus size={12} /></WorkshopIconButton>
+          </div>
+        )}
+        {hubState.groups.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => navigate({ to: '/bots/group/$groupId', params: { groupId: g.id } })}
+            className={`flex w-full items-center gap-2.5 border-b border-kumo-line px-3 py-2.5 text-left hover:bg-kumo-tint ${g.id === groupId ? 'bg-kumo-brand/10' : ''}`}
+            aria-current={g.id === groupId ? 'page' : undefined}
+          >
+            <span className="inline-grid h-8 w-8 flex-none place-items-center rounded-full bg-kumo-tint text-kumo-default" aria-hidden><UsersThree size={16} /></span>
+            <span className="min-w-0">
+              <span className="block truncate text-[13px] font-medium text-kumo-default">{g.name}</span>
+              <span className="block truncate text-[12px] text-kumo-subtle">{g.members.length ? g.members.map((m) => m.name).join(', ') : 'No members'}</span>
             </span>
           </button>
         ))}
@@ -241,6 +273,18 @@ function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: strin
             onDeleted={() => navigate({ to: '/bots' })}
           />
         </>
+      ) : selectedGroup && hubState.hub ? (
+        <GroupView
+          key={selectedGroup.id}
+          group={selectedGroup}
+          bots={hubState.bots}
+          hub={hubState.hub}
+          userName={currentUser?.name || 'you'}
+          lastUpdate={hubState.lastUpdate}
+          onBack={() => navigate({ to: '/bots' })}
+          onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })}
+          onDeleted={() => navigate({ to: '/bots' })}
+        />
       ) : (
         <section className="hidden min-w-0 flex-1 items-center justify-center p-8 text-center text-[13px] text-kumo-subtle md:flex">
           {hubState.bots.length ? 'Pick a Bot to open its conversation.' : 'Create your first Bot with the + button.'}
@@ -259,6 +303,21 @@ function BotsWorkspace({ workspaceId, workpieceId, botId }: { workspaceId: strin
           toasts.add({ title: `${bot.name} is ready`, variant: 'success' })
         }}
       />
+      <GroupDialog
+        open={showNewGroup}
+        onClose={() => setShowNewGroup(false)}
+        bots={hubState.bots}
+        group={null}
+        onSave={async (input) => {
+          const hub = hubState.hub
+          if (!hub) throw new Error('Not connected to the Bots hub yet.')
+          const g = await hub.createGroup(input)
+          await hubState.refreshBots()
+          setShowNewGroup(false)
+          navigate({ to: '/bots/group/$groupId', params: { groupId: g.id } })
+        }}
+      />
+      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} />}
     </div>
   )
 }
@@ -400,6 +459,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
   const [saving, setSaving] = useState(false)
   const [armDelete, setArmDelete] = useState(false)
   const [grantsOpen, setGrantsOpen] = useState(false)
+  const [runSkillOpen, setRunSkillOpen] = useState(false)
   const [computer, setComputer] = useState<Partial<Record<ComputerKind, GadgetBindingInfo>>>({})
   const actions = useActions(overseer)
   const pendingCount = useMemo(() => {
@@ -489,7 +549,10 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
           {bot.agentGeneration > 1 ? ` (agent #${bot.agentGeneration})` : ''}.
           {pendingCount > 0 && <> {pendingCount} action{pendingCount === 1 ? '' : 's'} awaiting approval in the conversation.</>}
         </p>
-        <Button variant="secondary" onClick={() => setGrantsOpen(true)}>Change grants…</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setGrantsOpen(true)}>Change grants…</Button>
+          <Button variant="secondary" onClick={() => setRunSkillOpen(true)}>Run a skill…</Button>
+        </div>
       </Section>
 
       <Section title="Computer">
@@ -551,6 +614,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
         </ul>
       </Section>
 
+      <RunSkillDialog open={runSkillOpen} onClose={() => setRunSkillOpen(false)} hub={hub} botId={bot.id} botName={bot.name} />
       <GrantsDialog
         open={grantsOpen}
         onClose={() => setGrantsOpen(false)}

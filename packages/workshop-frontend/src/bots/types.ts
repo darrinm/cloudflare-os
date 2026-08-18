@@ -52,7 +52,39 @@ export type HubInfo = {
   version: number
   hasSpawner: boolean
   botCount: number
+  groupCount?: number
+  skillCount?: number
   hubBindingName: string
+}
+
+export type BotGroup = {
+  id: string
+  name: string
+  purpose: string
+  created: number
+  updated: number
+  members: Array<{ id: string; name: string }>
+  postCount: number
+  lastPost: number | null
+}
+
+export type GroupPost = {
+  id: number
+  groupId: string
+  ts: number
+  from: { type: string; name: string; botId: string | null }
+  hops: number
+  text: string
+  deliveredTo: string[]
+  held?: string | null
+}
+
+export type HubSkill = {
+  name: string
+  description: string
+  body?: string
+  created: number
+  updated: number
 }
 
 /** Live-update messages the hub sends to `subscribe()` callbacks. */
@@ -60,6 +92,9 @@ export type HubUpdate =
   | { type: 'bots' }
   | { type: 'event'; event: BotEvent }
   | { type: 'routines'; botId: string }
+  | { type: 'groups' }
+  | { type: 'groupPost'; groupId: string; post: GroupPost }
+  | { type: 'skills' }
 
 export type HubSubscriberApi = { update(u: HubUpdate): void }
 
@@ -75,14 +110,25 @@ export interface HubApi {
   updateBot(id: string, patch: Partial<Pick<Bot, 'name' | 'role' | 'instructions' | 'avatar' | 'color'>>): Promise<Bot>
   deleteBot(id: string): Promise<boolean>
   respawnAgent(id: string, spawnerBinding: string): Promise<{ chatTitle: string; spawnerBinding: string; generation: number }>
-  send(botId: string, text: string, from: { type: string; name?: string; botId?: string }): Promise<{ eventId: number; delivered: boolean }>
+  send(botId: string, message: string | { skill?: string; skillId?: string; args?: string }, from: { type: string; name?: string; botId?: string }): Promise<{ eventId: number; delivered: boolean }>
+  defineSkill(input: { name: string; description?: string; body: string }): Promise<HubSkill>
+  listSkills(): Promise<HubSkill[]>
+  getSkill(name: string): Promise<HubSkill | null>
+  removeSkill(name: string): Promise<boolean>
+  createGroup(input: { name: string; purpose?: string; members?: string[] }): Promise<BotGroup>
+  updateGroup(id: string, patch: { name?: string; purpose?: string; members?: string[] }): Promise<BotGroup>
+  deleteGroup(id: string): Promise<boolean>
+  listGroups(): Promise<BotGroup[]>
+  getGroup(id: string): Promise<BotGroup | null>
+  groupTranscript(groupId: string, options?: { limit?: number; sinceId?: number }): Promise<GroupPost[]>
+  groupPost(groupId: string, text: string, from: { type: string; name?: string; botId?: string; hops?: number }): Promise<{ postId: number; deliveredTo: string[]; held: string | null }>
   listMemories(botId: string, options?: { limit?: number }): Promise<BotMemory[]>
   forget(memoryId: string): Promise<boolean>
   listRoutines(botId?: string): Promise<BotRoutine[]>
   runRoutine(routineId: string): Promise<{ eventId?: number; delivered?: boolean; runId: string; skipped?: boolean }>
   removeRoutine(routineId: string): Promise<boolean>
   activity(botId: string | null, options?: { sinceId?: number; limit?: number }): Promise<BotEvent[]>
-  subscribe(callback: HubSubscriberApi): Promise<{ bots: Bot[]; info: HubInfo }>
+  subscribe(callback: HubSubscriberApi): Promise<{ bots: Bot[]; info: HubInfo; groups?: BotGroup[] }>
 }
 
 /** The output id the Bots blueprint declares; how the hub workspace is found among outputs. */

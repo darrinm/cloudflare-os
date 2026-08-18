@@ -19,6 +19,7 @@ const testState = vi.hoisted(() => {
     hub: {
       hub: null as unknown,
       bots: [] as unknown[],
+      groups: [] as unknown[],
       info: null as unknown,
       error: null as string | null,
       version: 0,
@@ -57,11 +58,11 @@ afterEach(async () => {
   localStorage.clear();
   vi.clearAllMocks();
 });
-async function render(botId: string | null) {
+async function render(botId: string | null, groupId: string | null = null) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
-  await act(async () => root!.render(<BotsPageContent botId={botId} />));
+  await act(async () => root!.render(<BotsPageContent botId={botId} groupId={groupId} />));
   // Let the async workspace lookup settle.
   await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 }
@@ -119,5 +120,31 @@ describe("BotsPageContent", () => {
     await vi.waitFor(() => expect(container!.textContent).toContain("Browser profile: inbox-manager-abc12345"));
     expect(listBindings).toHaveBeenCalled();
     expect(container!.textContent).toContain("none — give one in Grants");
+    // Grants offer running a hub skill; the roster header offers the Skills manager.
+    expect(container!.textContent).toContain("Run a skill…");
+    expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
+  });
+  it("renders a group's shared transcript with a composer", async () => {
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: {} };
+    const groupTranscript = vi.fn(async () => [
+      { id: 1, groupId: "g1", ts: 1, from: { type: "user", name: "Darrin", botId: null }, hops: 0, text: "Status please", deliveredTo: ["abc12345"] },
+      { id: 2, groupId: "g1", ts: 2, from: { type: "bot", name: "Inbox Manager", botId: "abc12345" }, hops: 1, text: "All green", deliveredTo: [] },
+    ]);
+    testState.hub.hub = { groupTranscript };
+    testState.hub.bots = [{ id: "abc12345", name: "Inbox Manager", role: "Triage", instructions: "", avatar: "", color: "", chatTitle: "t", created: 1, updated: 1, lastActivity: null, agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1 }];
+    testState.hub.groups = [{ id: "g1", name: "Launch", purpose: "Ship v2", created: 1, updated: 1, members: [{ id: "abc12345", name: "Inbox Manager" }], postCount: 2, lastPost: 2 }];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
+
+    await render(null, "g1");
+    expect(container!.querySelector('[aria-current="page"]')?.textContent).toContain("Launch");
+    await vi.waitFor(() => expect(container!.textContent).toContain("All green"));
+    expect(container!.textContent).toContain("Status please");
+    expect(groupTranscript).toHaveBeenCalledWith("g1", { limit: 200 });
+    expect(container!.querySelector('textarea[placeholder="Message Launch…"]')).not.toBeNull();
   });
 });
+
