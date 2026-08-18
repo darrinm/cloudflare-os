@@ -94,7 +94,7 @@ describe("BotsPageContent", () => {
       catchingUp: false,
     });
     // The details panel asks the hub gadget for its bindings to find the Bot's computer.
-    const listBindings = vi.fn(async () => [
+    const listBindings = vi.fn<() => Promise<Array<{ name: string; target: number; resourceTitle: string }>>>(async () => [
       { name: "BROWSER_ABC12345", target: 7, resourceTitle: "Browser profile: inbox-manager-abc12345" },
     ]);
     testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings, [Symbol.dispose]() {} }) } };
