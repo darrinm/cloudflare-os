@@ -3715,6 +3715,13 @@ type ChatDisplayEntry =
       type: "savedChanges";
       key: string;
       message: ChangeChatMessage;
+    }
+  | {
+      // Conversation view only: one muted line standing in for the work folded away between two
+      // things the Bot said ("Ran 3 commands · read a page"). See toConversationEntries.
+      type: "botWork";
+      key: string;
+      counts: { code: number; callbacks: number; gadget: number; observations: number };
     };
 
 function isObservationActionMessage(msg: AiChatMessage): msg is ObservationChatMessage {
@@ -4123,6 +4130,18 @@ function isUserMessageEntry(entry: ChatDisplayEntry): boolean {
 export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boolean): ChatDisplayEntry[] {
   const out: ChatDisplayEntry[] = [];
   let first = true;
+  let folded = { code: 0, callbacks: 0, gadget: 0, observations: 0 };
+  let foldedKey = "";
+  const flush = () => {
+    const total = folded.code + folded.callbacks + folded.gadget + folded.observations;
+    if (total > 0) out.push({ type: "botWork", key: `work-${foldedKey}`, counts: folded });
+    folded = { code: 0, callbacks: 0, gadget: 0, observations: 0 };
+    foldedKey = "";
+  };
+  const fold = (key: string, kind: keyof typeof folded, n = 1) => {
+    folded[kind] += n;
+    foldedKey ||= key;
+  };
   for (const entry of entries) {
     if (first && entry.type === "message" && entry.message.type === "message" &&
         entry.message.author.type === "user") {
@@ -4131,22 +4150,37 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
     }
     first = false;
     if (showWork) { out.push(entry); continue; }
-    if (entry.type === "workRun") continue;
+    if (entry.type === "workRun") { fold(entry.key, "code", entry.toolCalls.length); continue; }
     if (entry.type === "message") {
       const m = entry.message;
-      if (m.type === "useGadget" || m.type === "agentCallback" || m.type === "merge" || m.type === "revert") continue;
-      if (m.type === "action" && m.actionLog?.type === "observation") continue;
+      if (m.type === "useGadget") { fold(entry.key, "gadget"); continue; }
+      if (m.type === "agentCallback") { fold(entry.key, "callbacks"); continue; }
+      if (m.type === "merge" || m.type === "revert") continue;
+      if (m.type === "action" && m.actionLog?.type === "observation") { fold(entry.key, "observations"); continue; }
       if (m.type === "message" && m.author.type !== "user") {
-        if (!m.message.trim()) continue;
-        if (entry.toolCallGroups?.length || entry.toolCalls?.length) {
-          out.push({ ...entry, toolCallGroups: undefined, toolCalls: undefined });
-          continue;
-        }
+        const work = entry.toolCalls?.length ?? 0;
+        if (!m.message.trim()) { if (work) fold(entry.key, "code", work); continue; }
+        if (work) fold(entry.key, "code", work);
+        flush();
+        out.push({ ...entry, toolCallGroups: undefined, toolCalls: undefined });
+        continue;
       }
     }
+    flush();
     out.push(entry);
   }
+  flush();
   return out;
+}
+
+/** "Ran 3 commands · read 2 things · 1 hand-off" for a folded stretch of work. */
+export function describeBotWork(counts: { code: number; callbacks: number; gadget: number; observations: number }): string {
+  const parts: string[] = [];
+  if (counts.code) parts.push(counts.code === 1 ? "ran 1 step" : `ran ${counts.code} steps`);
+  if (counts.observations) parts.push(counts.observations === 1 ? "read 1 thing" : `read ${counts.observations} things`);
+  if (counts.callbacks) parts.push(counts.callbacks === 1 ? "1 hand-off" : `${counts.callbacks} hand-offs`);
+  if (counts.gadget) parts.push("used the hub");
+  return parts.join(" · ");
 }
 
 // How close to the top of the transcript pulls in the previous page. Roughly a screenful of slack,
@@ -4154,7 +4188,7 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
 const EARLIER_PAGE_PREFETCH_PX = 600;
 
 function isPureWorkRowEntry(entry: ChatDisplayEntry): boolean {
-  if (entry.type === "workRun") return true;
+  if (entry.type === "workRun" || entry.type === "botWork") return true;
   if (entry.type === "modelChange" || entry.type === "compactionBoundary" ||
       entry.type === "compactionCut") return false;
   const m = entry.message;
@@ -7312,6 +7346,17 @@ function ChatInterface({
                                   </span>
                                 </Tooltip>
                               </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (entry.type === "botWork") {
+                        return (
+                          <div key={entry.key} className={entryTopClass}>
+                            <div className="flex items-center gap-1.5 py-0.5 text-[12px] md:text-[11px] text-kumo-subtle">
+                              <span className="h-px w-4 bg-kumo-line" aria-hidden />
+                              <span>{describeBotWork(entry.counts)}</span>
                             </div>
                           </div>
                         );

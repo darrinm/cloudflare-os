@@ -1222,6 +1222,64 @@ class OverseerImpl implements AgentHooks {
   // it can account cost per Bot and enforce caps. The hub is whatever the spawner's env calls HUB;
   // it opts in by exposing `recordTurn(...)` -- other gadgets simply reject the call. Best-effort:
   // the chat metadata stays the durable record of cost.
+  // The gadget a spawner chat calls HUB, when there is one: a Bots hub that opted into the
+  // reports below. Anything else (a plain chat, a spawner without a HUB binding) gets nothing.
+  #hubOfSpawnerChat(chatId: number): WorkpieceId | null {
+    let meta = this.storage.chatMeta.get(chatId);
+    if (!meta?.spawnerName) return null;
+    let hubId = this.storage.chatContext.get(chatId)?.bindings?.HUB;
+    if (hubId === undefined || !this.storage.gadgets.get(hubId)) return null;
+    return hubId;
+  }
+
+  // Tell a Bot's hub that one of its queued actions was decided, so the hub can hand the Bot the
+  // rest of the job instead of leaving it waiting for a human to prod it. Best-effort and opt-in:
+  // a gadget without `actionDecided` simply rejects the call.
+  #reportActionDecision(record: ActionRecord & {type: "action"}, state: "approved" | "rejected") {
+    if (record.caller.from !== "agent") return;
+    let chatId = record.caller.chatId;
+    let hubId = this.#hubOfSpawnerChat(chatId);
+    if (hubId === null) return;
+    let meta = this.storage.chatMeta.get(chatId);
+    this.ctx.waitUntil((async () => {
+      try {
+        let hub = await this.getGadgetFacet(hubId, chatId) as
+            RpcStub<{actionDecided(report: Record<string, unknown>): Promise<unknown>}>;
+        try {
+          await hub.actionDecided({
+            chatId, chatTitle: meta?.title ?? "", state,
+            actionId: record.id, gatekeeperActionId: record.action,
+            title: record.description.title, resourceTitle: record.resourceTitle ?? "",
+            autoApproved: !!record.autoApproved, at: Date.now(),
+          });
+        } finally {
+          hub[Symbol.dispose]?.();
+        }
+      } catch (err) {
+        this.logger.debug("bot action report skipped", { event: "bots.action.report.skipped", error: err });
+      }
+    })());
+  }
+
+  // A Bot's action is waiting for a human. If nobody has the workspace open, push it: an approval
+  // nobody sees is a Bot stuck until someone happens to look.
+  #notifyApprovalNeeded(chatId: number, description: ActionDescription) {
+    if (this.#presence.size > 0 || !this.ownerId) return;
+    if (!pushConfigured(this.env)) return;
+    let meta = this.storage.chatMeta.get(chatId);
+    if (!meta?.spawnerName) return;
+    let ownerStub = this.users.get(this.users.idFromString(this.ownerId));
+    let notification: PushNotification = {
+      title: `${meta.title || meta.spawnerName} needs your approval`,
+      body: description.title.slice(0, 140),
+      url: "/bots",
+      tag: `approval-${keyString(meta.id)}`,
+    };
+    this.ctx.waitUntil(ownerStub.notifyPush(notification).catch((err: unknown) => {
+      this.logger.warn("push notify failed", { event: "push.notify.failed", error: err });
+    }));
+  }
+
   #reportBotTurn(meta: AiChatMetadata) {
     if (!meta.spawnerName) return;
     let context = this.storage.chatContext.get(meta.id);
@@ -2651,6 +2709,7 @@ class OverseerImpl implements AgentHooks {
     record.resolvedBy = resolvedBy;
     record.autoApproved = autoApproved;
     this.storage.actions.put(record);
+    this.#reportActionDecision(record, "approved");
   }
 
   // Apply all currently-eligible pending actions of the given gatekeeper, in ascending id order.
@@ -2662,6 +2721,11 @@ class OverseerImpl implements AgentHooks {
   // gatekeeper double-applying an action (the DO's input gate is open across the apply await).
   drainAutoApprovals(gatekeeperId: number): Promise<void> {
     return this.#autoApprovalDrainer.drain(gatekeeperId);
+  }
+
+  /** See #reportActionDecision; the Overseer facet reports rejections through here. */
+  reportActionDecision(record: ActionRecord & {type: "action"}, state: "approved" | "rejected"): void {
+    this.#reportActionDecision(record, state);
   }
 
   // Blocks other messages and agent turns for this chat until the returned object is disposed.
@@ -3059,6 +3123,10 @@ class OverseerImpl implements AgentHooks {
     // Auto-approved actions keep the seamless behavior the user opted into.
     if (caller.from === "agent" && description.awaitDecision && !willAutoApprove) {
       this.#getOrCreateCapturedActions(caller.chatId).awaitDecision = true;
+    }
+
+    if (caller.from === "agent" && !willAutoApprove) {
+      this.#notifyApprovalNeeded(caller.chatId, description);
     }
 
     if (willAutoApprove) {
@@ -7981,6 +8049,7 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
     action.appliedAt = new Date();
     action.resolvedBy = profile;
     this.impl.storage.actions.put(action);
+    this.impl.reportActionDecision(action, "rejected");
 
     // Deny leaves the turn ended, like denyConnectionRequest. The rejected record also prevents a
     // sibling approval from resuming this turn.
