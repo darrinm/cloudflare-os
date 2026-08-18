@@ -26,6 +26,7 @@ import { Route as BotsIdRouteImport } from './routes/bots_.$id'
 import { Route as GadgetIdRouteImport } from './routes/gadget.$id'
 import { Route as GatekeepersAppIdRouteImport } from './routes/gatekeepers_.$appId'
 import { Route as WorkspaceIdRouteImport } from './routes/workspace.$id'
+import { Route as BotsGroupGroupIdRouteImport } from './routes/bots_.group.$groupId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -112,6 +113,11 @@ const WorkspaceIdRoute = WorkspaceIdRouteImport.update({
   path: '/workspace/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BotsGroupGroupIdRoute = BotsGroupGroupIdRouteImport.update({
+  id: '/bots_/group/$groupId',
+  path: '/bots/group/$groupId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers/$appId': typeof GatekeepersAppIdRoute
   '/workspace/$id': typeof WorkspaceIdRoute
+  '/bots/group/$groupId': typeof BotsGroupGroupIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,6 +157,7 @@ export interface FileRoutesByTo {
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers/$appId': typeof GatekeepersAppIdRoute
   '/workspace/$id': typeof WorkspaceIdRoute
+  '/bots/group/$groupId': typeof BotsGroupGroupIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/gadget/$id': typeof GadgetIdRoute
   '/gatekeepers_/$appId': typeof GatekeepersAppIdRoute
   '/workspace/$id': typeof WorkspaceIdRoute
+  '/bots_/group/$groupId': typeof BotsGroupGroupIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/gadget/$id'
     | '/gatekeepers/$appId'
     | '/workspace/$id'
+    | '/bots/group/$groupId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/gadget/$id'
     | '/gatekeepers/$appId'
     | '/workspace/$id'
+    | '/bots/group/$groupId'
   id:
     | '__root__'
     | '/'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/gadget/$id'
     | '/gatekeepers_/$appId'
     | '/workspace/$id'
+    | '/bots_/group/$groupId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   GadgetIdRoute: typeof GadgetIdRoute
   GatekeepersAppIdRoute: typeof GatekeepersAppIdRoute
   WorkspaceIdRoute: typeof WorkspaceIdRoute
+  BotsGroupGroupIdRoute: typeof BotsGroupGroupIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -372,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bots_/group/$groupId': {
+      id: '/bots_/group/$groupId'
+      path: '/bots/group/$groupId'
+      fullPath: '/bots/group/$groupId'
+      preLoaderRoute: typeof BotsGroupGroupIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -393,6 +413,7 @@ const rootRouteChildren: RootRouteChildren = {
   GadgetIdRoute: GadgetIdRoute,
   GatekeepersAppIdRoute: GatekeepersAppIdRoute,
   WorkspaceIdRoute: WorkspaceIdRoute,
+  BotsGroupGroupIdRoute: BotsGroupGroupIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
