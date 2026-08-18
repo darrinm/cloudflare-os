@@ -4,7 +4,37 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 export type CfAccessEnv = Readonly<{
   CF_ACCESS_AUD?: string;
   CF_ACCESS_ISS?: string;
+  /**
+   * Optional automation identity. An Access *service token* (Service Auth policy) produces an
+   * assertion whose `common_name` is the token's client id and which carries no `email`. When both
+   * settings are present and `common_name` matches, the request is authenticated as this email so
+   * headless clients (smoke tests, agents) can use the API without a human sign-in. Anything else
+   * without an email is still rejected.
+   */
+  CF_ACCESS_AUTOMATION_CLIENT_ID?: string;
+  CF_ACCESS_AUTOMATION_EMAIL?: string;
 }>;
+
+/** Who a verified Access assertion authenticates, and whether it came from the automation token. */
+export type AccessIdentity = Readonly<{ email: string; automation: boolean }>;
+
+/**
+ * Resolves the identity behind verified Access claims: the user's email for an identity-provider
+ * login, or the configured automation email for the deployment's service token. Returns null when
+ * the claims identify nobody the deployment recognizes.
+ */
+export function resolveAccessIdentity(payload: JWTPayload, env: CfAccessEnv): AccessIdentity | null {
+  if (typeof payload.email === "string" && payload.email.length > 0) {
+    return { email: payload.email, automation: false };
+  }
+  const clientId = env.CF_ACCESS_AUTOMATION_CLIENT_ID;
+  const email = env.CF_ACCESS_AUTOMATION_EMAIL;
+  if (clientId && email && typeof payload.common_name === "string" &&
+      payload.common_name === clientId) {
+    return { email, automation: true };
+  }
+  return null;
+}
 
 type AccessTokenVerifier = (token: string, env: CfAccessEnv) => Promise<JWTPayload>;
 
