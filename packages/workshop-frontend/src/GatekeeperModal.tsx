@@ -795,7 +795,7 @@ export default function GatekeeperModal({
             <Dialog.Title className="text-[17px] leading-6 font-medium tracking-[-0.35px] text-kumo-default">
               {selectedConnection ? selectedConnection.title : 'Create New Connection'}
             </Dialog.Title>
-            <Dialog.Description className="mt-1 text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
+            <Dialog.Description className="mt-1 text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
               {selectedConnection
                 ? selectedConnection.description
                 : 'Choose what this gadget should be able to use.'}
@@ -816,7 +816,7 @@ export default function GatekeeperModal({
               <button
                 type="button"
                 onClick={() => setSelectedConnectionId(null)}
-                className="mb-4 inline-flex cursor-pointer items-center gap-1.5 text-[12px] leading-4 font-medium tracking-[-0.2px] text-kumo-subtle transition-colors hover:text-kumo-default"
+                className="mb-4 inline-flex cursor-pointer items-center gap-1.5 text-[13px] md:text-[12px] leading-4 font-medium tracking-[-0.2px] text-kumo-subtle transition-colors hover:text-kumo-default"
               >
                 <CaretLeft size={13} />
                 All connection types
@@ -895,7 +895,7 @@ export default function GatekeeperModal({
                   onChange={(event) => setSearchText(event.target.value)}
                   placeholder="Search services, apps, data sources..."
                   autoFocus
-                  className="h-10 w-full rounded-xl border border-kumo-line bg-kumo-base pl-9 pr-3 text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive shadow-none outline-none transition-[border-color,box-shadow] focus:border-kumo-ring focus:ring-2 focus:ring-kumo-ring/10"
+                  className="h-10 w-full rounded-xl border border-kumo-line bg-kumo-base pl-9 pr-3 text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive shadow-none outline-none transition-[border-color,box-shadow] focus:border-kumo-ring focus:ring-2 focus:ring-kumo-ring/10"
                 />
               </div>
             </div>
@@ -904,7 +904,7 @@ export default function GatekeeperModal({
               <div className="overflow-hidden rounded-xl border border-kumo-line bg-kumo-base">
                 {isSearching ? (
                   filteredConnections.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
+                    <div className="px-4 py-8 text-center text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
                       No matching connection types.
                     </div>
                   ) : filteredConnections.map((connection, index) => (
@@ -917,7 +917,7 @@ export default function GatekeeperModal({
                   ))
                 ) : (
                   groupedConnections.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
+                    <div className="px-4 py-8 text-center text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
                       No connection types available.
                     </div>
                   ) : groupedConnections.map((group, index) => (
@@ -996,10 +996,10 @@ function ConnectionTypeRow({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+        <p className="truncate text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
           {connection.title}
         </p>
-        <p className="mt-0.5 line-clamp-1 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+        <p className="mt-0.5 line-clamp-1 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
           {connection.vendor} · {connection.description}
         </p>
       </div>
@@ -1075,10 +1075,10 @@ function ConnectionGroupRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+          <p className="truncate text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
             {label}
           </p>
-          <p className="mt-0.5 line-clamp-1 text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+          <p className="mt-0.5 line-clamp-1 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
             {subtitle}
           </p>
         </div>
@@ -1110,7 +1110,7 @@ function ConnectionGroupRow({
                 <p className="truncate text-[12.5px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
                   {item.title}
                 </p>
-                <p className="mt-0.5 line-clamp-1 text-[11.5px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
+                <p className="mt-0.5 line-clamp-1 text-[12.5px] md:text-[11.5px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
                   {item.description}
                 </p>
               </div>

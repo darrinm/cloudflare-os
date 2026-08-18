@@ -81,7 +81,7 @@ function AppRow({
       }}
     >
       {/* Neutral monogram */}
-      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-kumo-fill text-[12px] font-medium text-kumo-subtle">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-kumo-fill text-[13px] md:text-[12px] font-medium text-kumo-subtle">
         {initials(gadget.title)}
       </div>
 
@@ -357,7 +357,7 @@ export default function GadgetList({ showHeader = true }: { showHeader?: boolean
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search workspaces…"
-              className="h-9 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[13px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] duration-150 ease-out focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
+              className="h-9 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[14px] md:text-[13px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] duration-150 ease-out focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
             />
           </div>
         </div>
@@ -508,10 +508,10 @@ function HomeFeaturedBlueprintCard({
             <Hexagon size={13} className="text-white/75" weight="bold" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="m-0 truncate text-[13px] leading-[18px] font-semibold tracking-[-0.25px] text-kumo-default">
+            <p className="m-0 truncate text-[14px] md:text-[13px] leading-[18px] font-semibold tracking-[-0.25px] text-kumo-default">
               {blueprint.metadata.title}
             </p>
-            <p className={`mt-0.5 line-clamp-2 min-h-8 text-[12px] leading-4 tracking-[-0.2px] ${blueprint.metadata.description ? 'text-kumo-subtle' : 'text-kumo-inactive italic'}`}>
+            <p className={`mt-0.5 line-clamp-2 min-h-8 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] ${blueprint.metadata.description ? 'text-kumo-subtle' : 'text-kumo-inactive italic'}`}>
               {blueprint.metadata.description || 'No description'}
             </p>
             {badges.length > 0 && (
@@ -571,7 +571,7 @@ function FeaturedBlueprintsGallery() {
   return (
     <div className="py-4 pr-4 sm:pr-6">
       <div className="mb-5">
-        <h3 className="text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+        <h3 className="text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
           Start from a featured blueprint.
         </h3>
       </div>

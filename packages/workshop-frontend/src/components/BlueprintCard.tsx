@@ -90,14 +90,14 @@ export function BindingBadge({
     icon = <Lightning size={11} />;
   } else {
     icon = (
-      <span className="text-[10px] font-semibold leading-none">
+      <span className="text-[11px] md:text-[10px] font-semibold leading-none">
         {badge.label[0]}
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-kumo-fill px-2 py-[3px] text-[11px] font-medium leading-none tracking-[-0.1px] text-kumo-subtle">
+    <span className="inline-flex items-center gap-1 rounded-full bg-kumo-fill px-2 py-[3px] text-[12px] md:text-[11px] font-medium leading-none tracking-[-0.1px] text-kumo-subtle">
       <span className="flex items-center text-kumo-inactive">{icon}</span>
       {vendorDescription?.displayName ?? badge.label}
     </span>
@@ -143,7 +143,7 @@ export function BlueprintCard({
             <p className="m-0 line-clamp-2 text-[15px] leading-5 font-medium tracking-[-0.25px] text-kumo-default">
               {metadata.title}
             </p>
-            <p className={`mt-1.5 line-clamp-2 min-h-8 text-[12px] leading-4 font-normal tracking-[-0.2px] ${metadata.description ? "text-kumo-subtle" : "text-kumo-inactive italic"}`}>
+            <p className={`mt-1.5 line-clamp-2 min-h-8 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] ${metadata.description ? "text-kumo-subtle" : "text-kumo-inactive italic"}`}>
               {metadata.description || "No description"}
             </p>
           </div>

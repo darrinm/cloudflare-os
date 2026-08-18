@@ -832,7 +832,7 @@ export default function AdminPage() {
                       <h3 className={`flex-1 text-sm font-semibold ${mode === 'disabled' ? 'text-kumo-subtle' : 'text-kumo-default'}`}>
                         {vendor.displayName}
                       </h3>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-kumo-tint text-kumo-subtle border border-kumo-line">
+                      <span className="text-[11px] md:text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-kumo-tint text-kumo-subtle border border-kumo-line">
                         auto-provisioned
                       </span>
                     </div>
@@ -885,7 +885,7 @@ export default function AdminPage() {
                   <h3 className={`flex-1 text-sm font-semibold ${vendor.enabled ? 'text-kumo-default' : 'text-kumo-subtle'}`}>
                     {vendor.displayName}
                     {!vendor.enabled && (
-                      <span className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-kumo-tint text-kumo-subtle border border-kumo-line">
+                      <span className="ml-2 text-[11px] md:text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-kumo-tint text-kumo-subtle border border-kumo-line">
                         disabled
                       </span>
                     )}

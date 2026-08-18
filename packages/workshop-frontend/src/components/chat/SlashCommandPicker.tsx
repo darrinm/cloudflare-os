@@ -257,7 +257,7 @@ export function useSlashCommandPicker({
                 choice.description,
                 [choice.providerLabel, choice.resourceLabel].filter(Boolean).join(" · "),
               ].join("\n")}
-              className={`${PICKER_ROW} w-full text-left text-[13px] leading-[18px] tracking-[-0.25px] disabled:cursor-wait disabled:opacity-60 ${optionIndex === index ? `${PICKER_ROW_ACTIVE} text-kumo-strong` : "text-kumo-default"}`}
+              className={`${PICKER_ROW} w-full text-left text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] disabled:cursor-wait disabled:opacity-60 ${optionIndex === index ? `${PICKER_ROW_ACTIVE} text-kumo-strong` : "text-kumo-default"}`}
               onMouseMove={() => setIndex(optionIndex)}
               onClick={() => select(choice)}
             >
@@ -265,7 +265,7 @@ export function useSlashCommandPicker({
                 <span className="text-kumo-inactive">/</span>{choice.name}
               </span>
               <span className="min-w-0 flex-1 truncate text-kumo-subtle">{choice.description}</span>
-              <span className="max-w-[30%] shrink-0 truncate text-[11.5px] leading-4 text-kumo-inactive">
+              <span className="max-w-[30%] shrink-0 truncate text-[12.5px] md:text-[11.5px] leading-4 text-kumo-inactive">
                 {choice.providerLabel}
               </span>
               {optionIndex === index && selectable && <TabHint />}

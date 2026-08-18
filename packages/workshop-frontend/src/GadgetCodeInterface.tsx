@@ -879,7 +879,7 @@ export default function GadgetCodeInterface({ overseer, filesRoot, height = '100
         <div className="flex flex-col bg-kumo-base" style={{ flex: 1, minWidth: 0 }}>
           {activeFile && (
             <div className="flex h-9 shrink-0 items-center justify-between gap-3 border-b border-kumo-line bg-kumo-base px-3">
-              <div className="min-w-0 text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
+              <div className="min-w-0 text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
                 {activeFileModeLabel} <span className="font-mono font-medium text-kumo-default">{activeFile}</span>
               </div>
               <WorkshopIconButton
@@ -900,7 +900,7 @@ export default function GadgetCodeInterface({ overseer, filesRoot, height = '100
                   <p className="m-0 text-[15px] leading-[22px] font-semibold tracking-[-0.3px] text-kumo-default">
                     No files yet
                   </p>
-                  <p className="mt-1.5 mb-0 text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
+                  <p className="mt-1.5 mb-0 text-[14px] md:text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
                     Keep building with the agent in chat and files will appear here as it works, or create one yourself.
                   </p>
                   <div className="mt-4 flex justify-center">

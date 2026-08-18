@@ -18,10 +18,10 @@ export const MENU_CONTENT =
 export const MENU_POSITIONER_STYLE = { zIndex: 1100 } as const
 
 export const MENU_ITEM =
-  '!h-auto rounded-md !px-2.5 !py-1.5 text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-default data-highlighted:bg-kumo-tint'
+  '!h-auto rounded-md !px-2.5 !py-1.5 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-default data-highlighted:bg-kumo-tint'
 
 export const MENU_ITEM_DANGER =
-  '!h-auto rounded-md !px-2.5 !py-1.5 text-[13px] leading-[18px] tracking-[-0.25px] data-highlighted:bg-kumo-danger-tint'
+  '!h-auto rounded-md !px-2.5 !py-1.5 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] data-highlighted:bg-kumo-danger-tint'
 
 /**
  * The composer's menu variant: rounder and softer than the kebab menus above, matching the
@@ -32,4 +32,4 @@ export const COMPOSER_MENU_CONTENT =
   'themed-floating-shadow-lg !z-[1100] rounded-2xl border border-kumo-line/70 bg-kumo-base p-1'
 
 export const COMPOSER_MENU_ITEM =
-  '!h-auto rounded-xl !px-2 !py-1.5 text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default'
+  '!h-auto rounded-xl !px-2 !py-1.5 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.15px] text-kumo-subtle transition-colors data-highlighted:bg-kumo-tint/70 data-highlighted:text-kumo-default'

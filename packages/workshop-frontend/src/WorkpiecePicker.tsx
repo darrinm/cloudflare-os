@@ -68,7 +68,7 @@ export default function WorkpiecePicker({
         }`}
       >
         {expanded && (
-          <span className="text-[11px] font-medium uppercase tracking-[0.06em]">Outputs</span>
+          <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em]">Outputs</span>
         )}
         {expanded ? <CaretRight size={14} /> : <CaretLeft size={14} />}
       </button>
@@ -92,7 +92,7 @@ export default function WorkpiecePicker({
                     if (e.key === 'Escape') setEditing(null)
                   }}
                   autoFocus
-                  className="!h-7 min-w-0 flex-1 bg-kumo-tint text-[13px]"
+                  className="!h-7 min-w-0 flex-1 bg-kumo-tint text-[14px] md:text-[13px]"
                 />
                 <WorkshopIconButton
                   onClick={commitRename}
@@ -116,7 +116,7 @@ export default function WorkpiecePicker({
           return (
             <div
               key={gadget.id}
-              className={`group/workpiece flex items-center rounded-lg text-[13px] leading-[18px] tracking-[-0.25px] transition-colors ${
+              className={`group/workpiece flex items-center rounded-lg text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] transition-colors ${
                 expanded ? 'h-8 gap-1 pl-2 pr-1' : 'h-9 w-9 justify-center self-center'
               } ${
                 isSelected
@@ -149,7 +149,7 @@ export default function WorkpiecePicker({
                   )}
                   {isPending && (
                     expanded ? (
-                      <span className="flex-shrink-0 rounded-full bg-kumo-base px-1.5 py-0.5 text-[10px] leading-none font-medium text-kumo-subtle">
+                      <span className="flex-shrink-0 rounded-full bg-kumo-base px-1.5 py-0.5 text-[11px] md:text-[10px] leading-none font-medium text-kumo-subtle">
                         Draft
                       </span>
                     ) : (
@@ -187,7 +187,7 @@ export default function WorkpiecePicker({
           <button
             type="button"
             onClick={onOpenActivity}
-            className={`relative mt-3 flex cursor-pointer items-center rounded-lg text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default ${
+            className={`relative mt-3 flex cursor-pointer items-center rounded-lg text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle transition-colors hover:bg-kumo-tint hover:text-kumo-default ${
               expanded ? 'h-8 gap-2 px-2 text-left' : 'h-9 w-9 justify-center self-center'
             }`}
           >

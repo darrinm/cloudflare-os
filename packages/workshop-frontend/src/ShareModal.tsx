@@ -86,7 +86,7 @@ function RoleMenu({
         render={
           <button
             type="button"
-            className="group inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[12px] leading-4 font-medium text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default disabled:cursor-not-allowed disabled:opacity-40"
+            className="group inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[13px] md:text-[12px] leading-4 font-medium text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-tint hover:text-kumo-default focus-visible:bg-kumo-tint focus-visible:text-kumo-default focus-visible:outline-none active:scale-[0.97] data-[popup-open]:bg-kumo-tint data-[popup-open]:text-kumo-default disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={ariaLabel}
           >
             {roleLabel(value)}
@@ -107,8 +107,8 @@ function RoleMenu({
             className="!h-auto cursor-pointer rounded-xl !px-2.5 !py-2 text-kumo-default transition-colors data-highlighted:bg-kumo-tint/70"
           >
             <span className="min-w-0 flex-1">
-              <span className="block text-[12px] leading-4 font-medium">{roleLabel(role)}</span>
-              <span className="mt-0.5 block text-[11px] leading-4 font-normal text-kumo-subtle">
+              <span className="block text-[13px] md:text-[12px] leading-4 font-medium">{roleLabel(role)}</span>
+              <span className="mt-0.5 block text-[12px] md:text-[11px] leading-4 font-normal text-kumo-subtle">
                 {ROLE_DESCRIPTIONS[role]}
               </span>
             </span>
@@ -126,7 +126,7 @@ function RoleBadge({ role }: { role: CollaboratorRole | undefined }) {
   const isBuild = (role ?? 'build') === 'build'
   return (
     <span
-      className={`shrink-0 rounded-full border px-2.5 py-[3px] text-[11px] leading-4 font-medium tracking-[-0.1px] ${
+      className={`shrink-0 rounded-full border px-2.5 py-[3px] text-[12px] md:text-[11px] leading-4 font-medium tracking-[-0.1px] ${
         isBuild
           ? 'border-kumo-line bg-kumo-tint/70 text-kumo-default'
           : 'border-kumo-line/70 bg-kumo-base text-kumo-subtle'
@@ -158,7 +158,7 @@ function InlineConfirm({
         type="button"
         onClick={onConfirm}
         disabled={busy}
-        className={`inline-flex h-7 cursor-pointer items-center rounded-lg px-2.5 text-[12px] leading-4 font-medium tracking-[-0.1px] transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-60 ${
+        className={`inline-flex h-7 cursor-pointer items-center rounded-lg px-2.5 text-[13px] md:text-[12px] leading-4 font-medium tracking-[-0.1px] transition-[background-color,transform] duration-150 ease-out active:scale-[0.97] disabled:opacity-60 ${
           tone === 'danger'
             ? 'text-kumo-danger hover:bg-kumo-danger-tint'
             : 'text-kumo-brand hover:bg-kumo-tint'
@@ -202,8 +202,8 @@ function DependentKeepList({
           <Checkbox
             label={(
               <span className="flex min-w-0 items-baseline gap-1.5">
-                <span className="truncate text-[12px] font-medium text-kumo-default">{dep.profile.name}</span>
-                <span className="truncate text-[11px] text-kumo-subtle">{dep.profile.id}</span>
+                <span className="truncate text-[13px] md:text-[12px] font-medium text-kumo-default">{dep.profile.name}</span>
+                <span className="truncate text-[12px] md:text-[11px] text-kumo-subtle">{dep.profile.id}</span>
               </span>
             )}
             checked={keepSet.has(dep.profile.id)}
@@ -239,7 +239,7 @@ function RecipientVerification({
   let body: ReactNode
   if (failed) {
     body = (
-      <p className="px-1 text-[12px] leading-[16px] tracking-[-0.15px] text-kumo-subtle">
+      <p className="px-1 text-[13px] md:text-[12px] leading-[16px] tracking-[-0.15px] text-kumo-subtle">
         Couldn’t check which connections recipients will be asked to verify.
       </p>
     )
@@ -249,7 +249,7 @@ function RecipientVerification({
   } else {
     body = (
       <div className="rounded-2xl border border-kumo-line/80 bg-kumo-base px-3 py-2.5">
-        <p className="text-[12px] leading-[16px] tracking-[-0.15px] text-kumo-subtle">
+        <p className="text-[13px] md:text-[12px] leading-[16px] tracking-[-0.15px] text-kumo-subtle">
           {role ? (
             <>People with <span className="font-medium text-kumo-default">{roleLabel(role)}</span> access must</>
           ) : 'Recipients must'} prove their own account can reach:
@@ -257,11 +257,11 @@ function RecipientVerification({
         <ul className="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
           {requirements.map(requirement => (
             <li key={requirement.gatekeeperId} className="min-w-0">
-              <p className="truncate text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-default">
+              <p className="truncate text-[13px] md:text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-default">
                 {requirement.resourceTitle}
               </p>
               {requirement.resourceUrl && (
-                <p className="truncate font-mono text-[11px] leading-4 text-kumo-inactive">
+                <p className="truncate font-mono text-[12px] md:text-[11px] leading-4 text-kumo-inactive">
                   {requirement.resourceUrl}
                 </p>
               )}
@@ -276,7 +276,7 @@ function RecipientVerification({
     <section aria-labelledby={headingId} className="mt-4">
       <div className="mb-2 flex items-center gap-1.5 px-1">
         <ShieldCheck size={13} className="text-kumo-inactive" />
-        <h3 id={headingId} className="text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-subtle">
+        <h3 id={headingId} className="text-[13px] md:text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-subtle">
           {heading}
         </h3>
       </div>
@@ -757,7 +757,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
             <Dialog.Title className="truncate text-[18px] leading-6 font-medium tracking-[-0.4px] text-kumo-default">
               Share “{metadata.title}”
             </Dialog.Title>
-            <Dialog.Description className="mt-1 text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
+            <Dialog.Description className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
               Invite people or share a link.
             </Dialog.Description>
           </div>
@@ -779,13 +779,13 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-kumo-warning-tint text-kumo-warning">
                 <ShieldWarning size={22} weight="duotone" />
               </div>
-              <p className="mt-3 text-[14px] leading-5 font-medium tracking-[-0.3px] text-kumo-default">
+              <p className="mt-3 text-[15px] md:text-[14px] leading-5 font-medium tracking-[-0.3px] text-kumo-default">
                 This workspace can’t be shared
               </p>
-              <p className="mt-1.5 max-w-[320px] text-balance text-[12px] leading-[18px] tracking-[-0.1px] text-kumo-subtle">
+              <p className="mt-1.5 max-w-[320px] text-balance text-[13px] md:text-[12px] leading-[18px] tracking-[-0.1px] text-kumo-subtle">
                 It has observed sensitive data that can only be accessed by you, the owner.
               </p>
-              <p className="mt-2 max-w-[320px] text-balance text-[12px] leading-[18px] tracking-[-0.1px] text-kumo-subtle">
+              <p className="mt-2 max-w-[320px] text-balance text-[13px] md:text-[12px] leading-[18px] tracking-[-0.1px] text-kumo-subtle">
                 To share something similar, create a blueprint from a gadget in this workspace, then use it to create a new workspace.
               </p>
             </div>
@@ -819,7 +819,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
               data-lpignore="true"
               data-bwignore="true"
               data-form-type="other"
-              className="h-9 min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[14px] leading-5 tracking-[-0.25px] text-kumo-default outline-none placeholder:text-kumo-inactive disabled:cursor-not-allowed [&::-webkit-search-cancel-button]:hidden"
+              className="h-9 min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-default outline-none placeholder:text-kumo-inactive disabled:cursor-not-allowed [&::-webkit-search-cancel-button]:hidden"
               disabled={sharingProhibited}
             />
             <RoleMenu
@@ -846,14 +846,14 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
               </div>
               <div className="min-w-[160px] flex-1">
                 <div className="flex items-baseline gap-1.5">
-                  <p className="text-[13px] leading-[18px] font-medium text-kumo-default">
+                  <p className="text-[14px] md:text-[13px] leading-[18px] font-medium text-kumo-default">
                     Added {invitedName}
                   </p>
-                  <span className="text-[11px] leading-4 text-kumo-inactive">
+                  <span className="text-[12px] md:text-[11px] leading-4 text-kumo-inactive">
                     {invitedLinkCopied ? 'Link copied to your clipboard' : 'Send them this link to open it'}
                   </span>
                 </div>
-                <p className="truncate font-mono text-[11px] leading-4 text-kumo-subtle">{workspaceUrl}</p>
+                <p className="truncate font-mono text-[12px] md:text-[11px] leading-4 text-kumo-subtle">{workspaceUrl}</p>
               </div>
               <WorkshopButton tone="primary" onClick={copyWorkspaceUrl} className="gap-1.5 !rounded-xl">
                 {invitedLinkCopied ? <Check size={13} weight="bold" /> : <Copy size={13} />}
@@ -877,14 +877,14 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                     </div>
                     <div className="min-w-[160px] flex-1">
                       <div className="flex items-baseline gap-1.5">
-                        <p className="text-[13px] leading-[18px] font-medium text-kumo-default">
+                        <p className="text-[14px] md:text-[13px] leading-[18px] font-medium text-kumo-default">
                           {newShareLinkCopied ? 'Link copied' : 'Link ready'}
                         </p>
-                        <span className="text-[11px] leading-4 text-kumo-inactive">
+                        <span className="text-[12px] md:text-[11px] leading-4 text-kumo-inactive">
                           You can copy it again anytime from Share links
                         </span>
                       </div>
-                      <p className="truncate font-mono text-[11px] leading-4 text-kumo-subtle">{newShareLink}</p>
+                      <p className="truncate font-mono text-[12px] md:text-[11px] leading-4 text-kumo-subtle">{newShareLink}</p>
                     </div>
                     <WorkshopButton tone="primary" onClick={copyNewLink} className="w-[78px] gap-1.5 !rounded-xl">
                       {newShareLinkCopied ? <Check size={13} weight="bold" /> : <Copy size={13} />}
@@ -909,7 +909,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                       onKeyDown={(e) => { if (e.key === 'Enter') handleCreateShareLink() }}
                       placeholder="Name this link (optional)…"
                       aria-label="Share link name (optional)"
-                      className="h-9 min-w-0 flex-1 border-0 bg-transparent p-0 text-[14px] leading-5 tracking-[-0.25px] text-kumo-default outline-none placeholder:text-kumo-inactive"
+                      className="h-9 min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-default outline-none placeholder:text-kumo-inactive"
                       disabled={creatingLink || sharingProhibited}
                     />
                     <RoleMenu
@@ -932,7 +932,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                 type="button"
                 onClick={() => setShowLinkComposer(true)}
                 disabled={sharingProhibited}
-                className="themed-compact-shadow flex h-12 w-full cursor-pointer items-center justify-center gap-1.5 rounded-2xl border border-kumo-line/80 bg-kumo-base px-3 text-[13px] font-medium text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-elevated/60 hover:text-kumo-default active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+                className="themed-compact-shadow flex h-12 w-full cursor-pointer items-center justify-center gap-1.5 rounded-2xl border border-kumo-line/80 bg-kumo-base px-3 text-[14px] md:text-[13px] font-medium text-kumo-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-kumo-elevated/60 hover:text-kumo-default active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Link size={14} /> Create a share link
               </button>
@@ -944,7 +944,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
 
           <section aria-labelledby="people-heading" className="mt-4">
             <div className="mb-2 px-1">
-              <h3 id="people-heading" className="text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-subtle">
+              <h3 id="people-heading" className="text-[13px] md:text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-subtle">
                 People with access
               </h3>
             </div>
@@ -961,15 +961,15 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                     <div className="flex items-center gap-3">
                       <PersonAvatar api={authenticatedApi} userId={profile.id} name={profile.name} size={32} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] leading-[17px] font-medium tracking-[-0.25px] text-kumo-default">
+                        <p className="truncate text-[14px] md:text-[13px] leading-[17px] font-medium tracking-[-0.25px] text-kumo-default">
                           {profile.name}{profile.id === currentUser?.id ? ' (you)' : ''}
                         </p>
-                        <p className="truncate text-[12px] leading-[15px] tracking-[-0.15px] text-kumo-subtle">
+                        <p className="truncate text-[13px] md:text-[12px] leading-[15px] tracking-[-0.15px] text-kumo-subtle">
                           {row.kind === 'owner' ? profile.id : describeAccess(row.info)}
                         </p>
                       </div>
                       {row.kind === 'owner' ? (
-                        <span className="px-2 text-[12px] text-kumo-subtle">Owner</span>
+                        <span className="px-2 text-[13px] md:text-[12px] text-kumo-subtle">Owner</span>
                       ) : isRemoving ? (
                         <InlineConfirm
                           label="Remove"
@@ -995,7 +995,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                     </div>
                     {isRemoving && downstreamDependents.length > 0 && (
                       <div className="mt-2.5 share-expand-in">
-                        <p className="mb-1.5 text-[12px] leading-4 text-kumo-subtle">
+                        <p className="mb-1.5 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
                           {downstreamDependents.length} other {downstreamDependents.length === 1 ? 'person loses' : 'people lose'} access through {profile.name}. Keep anyone?
                         </p>
                         <DependentKeepList
@@ -1018,7 +1018,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
           {shareLinks.length > 0 && (
           <section aria-labelledby="links-heading" className="mt-4">
             <div className="mb-2 px-1">
-              <h3 id="links-heading" className="text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-subtle">
+              <h3 id="links-heading" className="text-[13px] md:text-[12px] leading-4 font-medium tracking-[-0.15px] text-kumo-subtle">
                 Share links
               </h3>
             </div>
@@ -1045,13 +1045,13 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                               }}
                               placeholder="Name this link…"
                               aria-label="Share link name"
-                              className="block w-full border-0 bg-transparent p-0 text-[13px] leading-[17px] font-medium tracking-[-0.25px] text-kumo-default outline-none shadow-[inset_0_-1px_0_0_var(--color-kumo-line)] transition-shadow placeholder:font-normal placeholder:text-kumo-inactive focus:shadow-[inset_0_-1px_0_0_var(--color-kumo-fill)]"
+                              className="block w-full border-0 bg-transparent p-0 text-[14px] md:text-[13px] leading-[17px] font-medium tracking-[-0.25px] text-kumo-default outline-none shadow-[inset_0_-1px_0_0_var(--color-kumo-line)] transition-shadow placeholder:font-normal placeholder:text-kumo-inactive focus:shadow-[inset_0_-1px_0_0_var(--color-kumo-fill)]"
                               disabled={savingShareLinkNote}
                             />
                           ) : (
-                            <p className="truncate text-[13px] leading-[17px] font-medium tracking-[-0.25px] text-kumo-default">{sk.note || 'Untitled link'}</p>
+                            <p className="truncate text-[14px] md:text-[13px] leading-[17px] font-medium tracking-[-0.25px] text-kumo-default">{sk.note || 'Untitled link'}</p>
                           )}
-                          <p className="truncate text-[12px] leading-[15px] tracking-[-0.15px] text-kumo-subtle">Created by {sk.createdBy.name} · {formatRelativeTime(sk.created)}</p>
+                          <p className="truncate text-[13px] md:text-[12px] leading-[15px] tracking-[-0.15px] text-kumo-subtle">Created by {sk.createdBy.name} · {formatRelativeTime(sk.created)}</p>
                         </div>
                         {isRenaming ? (
                           <InlineConfirm
@@ -1102,7 +1102,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                       </div>
                       {isRevoking && revokeTarget.dependents.length > 0 && (
                         <div className="mt-2.5 share-expand-in">
-                          <p className="mb-1.5 text-[12px] leading-4 text-kumo-subtle">
+                          <p className="mb-1.5 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
                             {revokeTarget.dependents.length} {revokeTarget.dependents.length === 1 ? 'person loses' : 'people lose'} access through this link. Keep anyone?
                           </p>
                           <DependentKeepList

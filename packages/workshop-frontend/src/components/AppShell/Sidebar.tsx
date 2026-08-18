@@ -71,7 +71,7 @@ export default function Sidebar({
             <Hexagon size={20} weight="bold" className="text-kumo-brand shrink-0" />
           </SiteLogo>
           {!collapsed && (
-            <span className="truncate text-[14px] leading-5 font-semibold tracking-[-0.25px] text-kumo-default">
+            <span className="truncate text-[15px] md:text-[14px] leading-5 font-semibold tracking-[-0.25px] text-kumo-default">
               {siteName}
             </span>
           )}

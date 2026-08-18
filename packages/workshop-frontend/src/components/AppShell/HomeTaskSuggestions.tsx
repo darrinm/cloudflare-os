@@ -87,10 +87,10 @@ function SuggestionRow({
           {icon}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
+          <span className="block truncate text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-default">
             {label}
           </span>
-          <span className="block truncate text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
+          <span className="block truncate text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
             {description}
           </span>
         </span>
@@ -123,7 +123,7 @@ export default function HomeTaskSuggestions({
 
   return (
     <section aria-label="Example tasks" className="flex flex-col gap-1">
-      <h3 className="px-1 pb-1 text-[12px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
+      <h3 className="px-1 pb-1 text-[13px] md:text-[12px] font-medium uppercase tracking-[0.06em] text-kumo-inactive">
         Get started
       </h3>
       <ul className="flex flex-col gap-0.5">

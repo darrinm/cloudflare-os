@@ -30,7 +30,7 @@ export default function ComingSoonPreview({
           </div>
           <div>
             <p className="text-[15px] font-semibold tracking-[-0.25px] text-kumo-default">{title}</p>
-            <p className="mx-auto mt-1 max-w-xs text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
+            <p className="mx-auto mt-1 max-w-xs text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
               {description}
             </p>
           </div>
