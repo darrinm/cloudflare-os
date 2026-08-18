@@ -180,20 +180,40 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     if (!overseer) return
     setSeeding('Updating the hub…')
     const client = overseer.stub.getGadget(workpieceId)
+    let changed: string[] | null = null
     try {
-      const { updated } = await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)
-      toasts.add({
-        title: updated.length ? 'Hub updated' : 'Hub already up to date',
-        description: updated.length ? `${updated.join(', ')} refreshed; your Bots and their memory are untouched.` : undefined,
-        variant: 'success',
-      })
-      await hubState.refreshBots()
+      changed = (await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)).updated
     } catch (err) {
-      toasts.add({ title: 'Couldn’t update the hub', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+      // Writing the code restarts the gadget, which kills this very call: that is the update
+      // succeeding, not failing. Anything else is a real error.
+      const msg = String(err instanceof Error ? err.message : err)
+      if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
+        toasts.add({ title: 'Couldn’t update the hub', description: msg, variant: 'error' })
+        client[Symbol.dispose]()
+        setSeeding(null)
+        return
+      }
     } finally {
       client[Symbol.dispose]()
-      setSeeding(null)
     }
+    // Read the revision back from the restarted hub, so the toast states what actually happened.
+    setSeeding('Reconnecting…')
+    let revision: number | undefined
+    try {
+      const fresh = overseer.stub.getGadget(workpieceId)
+      try {
+        await new Promise((r) => setTimeout(r, 1500))
+        const hub = (await fresh.connectToGadget()) as unknown as HubStub
+        try { revision = (await hub.getInfo()).revision } finally { hub[Symbol.dispose]() }
+      } finally { fresh[Symbol.dispose]() }
+    } catch { /* the toast just omits the revision */ }
+    toasts.add({
+      title: changed?.length === 0 ? 'Hub already up to date' : 'Hub updated',
+      description: `${revision ? `Now running revision ${revision}. ` : ''}Your Bots, memory, routines and costs are untouched.`,
+      variant: 'success',
+    })
+    await hubState.refreshBots()
+    setSeeding(null)
   }, [overseer, workpieceId, hubState, toasts])
 
   const addExamples = useCallback(async () => {
@@ -383,7 +403,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           navigate({ to: '/bots/group/$groupId', params: { groupId: g.id } })
         }}
       />
-      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding} onUpdateHub={updateHub} />}
+      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding} onUpdateHub={updateHub} hubRevision={hubState.info?.revision} />}
     </div>
   )
 }

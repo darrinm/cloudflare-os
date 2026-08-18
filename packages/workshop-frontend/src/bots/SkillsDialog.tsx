@@ -10,7 +10,7 @@ import type { HubSkill } from './types'
  * with `$ARGUMENT` where the invocation's args go. Agent Skills from the Context Library work too
  * (through the conversation's `/` menu); these are the hub-local kind that needs no collection.
  */
-export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples, onUpdateHub }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null; onUpdateHub?: () => void }) {
+export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples, onUpdateHub, hubRevision }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null; onUpdateHub?: () => void; hubRevision?: number }) {
   const toasts = useKumoToastManager()
   const [skills, setSkills] = useState<HubSkill[] | null>(null)
   const [editing, setEditing] = useState<{ name: string; description: string; body: string } | null>(null)
@@ -80,7 +80,9 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
                     <Button variant="secondary" size="sm" onClick={onAddExamples} loading={!!addingExamples}>Add example Bots</Button>
                   )}
                   {onUpdateHub && (
-                    <Button variant="secondary" size="sm" onClick={onUpdateHub} loading={!!addingExamples} title="Bring this hub up to the deployment's current version; your Bots, memory and routines are kept">Update hub</Button>
+                    <Button variant="secondary" size="sm" onClick={onUpdateHub} loading={!!addingExamples} title="Bring this hub up to the deployment's current version; your Bots, memory and routines are kept">
+                      {hubRevision ? `Update hub (rev ${hubRevision})` : 'Update hub'}
+                    </Button>
                   )}
                   {addingExamples && <span className="ml-2">{addingExamples}</span>}
                 </div>

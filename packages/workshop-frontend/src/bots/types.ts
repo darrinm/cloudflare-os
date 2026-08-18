@@ -62,6 +62,8 @@ export type BotEvent = {
 
 export type HubInfo = {
   version: number
+  /** Blueprint revision this hub's code came from; absent on hubs older than the revision report. */
+  revision?: number
   hasSpawner: boolean
   botCount: number
   groupCount?: number
