@@ -25,7 +25,7 @@ import { ExternalMessageGateway } from "./external-message-gateway";
 import { RpcStub as NativeRpcStub } from "cloudflare:workers";
 import { recordAnalytics } from "./analytics";
 import { handleClientErrorRequest } from "./client-errors.js";
-import { verifyCfAccessJwt } from "./access.js";
+import { verifyCfAccessJwt, resolveAccessIdentity } from "./access.js";
 import { resolveUiFeatureFlags } from "./feature-flags";
 import { serveSiteLogo, SITE_LOGO_PATH } from "./site-logo.js";
 import { createWorkshopLogger } from "./observability";
@@ -67,6 +67,9 @@ type Env = Cloudflare.Env & {
   // Set these if using Cloudflare Access for authentication, otherwise username/password is used.
   CF_ACCESS_AUD?: string,  // audience
   CF_ACCESS_ISS?: string,  // team URL, i.e. https://<team>.cloudflareaccess.com
+  // Optional Access service-token identity for headless clients; see access.ts.
+  CF_ACCESS_AUTOMATION_CLIENT_ID?: string,
+  CF_ACCESS_AUTOMATION_EMAIL?: string,
   DEV?: boolean;
   FLAGS?: Flagship;
 }
@@ -702,7 +705,10 @@ class PublicApiImpl extends RpcTarget implements PublicApi {
 
     let email = this.accessPayload.email as string;
     let userId = this.users.idFromName(email);
-    let signupsEnabled = (await readAdminConfig(this.env)).signupsEnabled;
+    // The automation identity is named by deployment config, so its account may be created even
+    // when self-service signups are off; humans still go through the signups gate.
+    let automation = this.accessPayload.automation === true;
+    let signupsEnabled = (await readAdminConfig(this.env)).signupsEnabled || automation;
     let accountCreated =
         await this.users.get(userId).authenticateFromCfAccess(email, signupsEnabled);
     if (accountCreated) {
@@ -849,11 +855,14 @@ export default {
         const payload = await verifyCfAccessJwt(req, env);
         if (!payload) return new Response("Invalid CF access JWT.", { status: 403 });
 
-        if (!payload.email) {
+        // Identity-provider logins carry an email; the deployment's automation service token
+        // (if configured) maps to a fixed email. Everything else is rejected.
+        const identity = resolveAccessIdentity(payload, env);
+        if (!identity) {
           return new Response("Access JWT didn't specify email address.", { status: 403 });
         }
 
-        accessPayload = payload;
+        accessPayload = { ...payload, email: identity.email, automation: identity.automation };
       }
 
       // HACK: Implement `abortSession` callback by closing the websocket.

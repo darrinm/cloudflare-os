@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { accessRateLimitKey, verifyCfAccessJwt } from "../src/access.js";
+import { accessRateLimitKey, resolveAccessIdentity, verifyCfAccessJwt } from "../src/access.js";
 
 const joseMocks = vi.hoisted(() => ({
   createRemoteJWKSet: vi.fn(() => vi.fn()),
@@ -72,5 +72,37 @@ describe("accessRateLimitKey", () => {
     const emailKey = await accessRateLimitKey({ email: "person@example.com" });
     expect(emailKey).toMatch(/^access-email:[0-9a-f]{64}$/);
     expect(emailKey).not.toContain("person@example.com");
+  });
+});
+
+describe("resolveAccessIdentity", () => {
+  const automationEnv = {
+    ...accessEnv,
+    CF_ACCESS_AUTOMATION_CLIENT_ID: "abc123.access",
+    CF_ACCESS_AUTOMATION_EMAIL: "automation@workshop.example",
+  };
+
+  it("uses the identity provider's email when present", () => {
+    expect(resolveAccessIdentity({ email: "person@example.com" }, automationEnv))
+      .toEqual({ email: "person@example.com", automation: false });
+    // A human login is never reinterpreted as automation, even with a matching common_name.
+    expect(resolveAccessIdentity(
+      { email: "person@example.com", common_name: "abc123.access" }, automationEnv,
+    )).toEqual({ email: "person@example.com", automation: false });
+  });
+
+  it("maps the configured service token to the automation email", () => {
+    expect(resolveAccessIdentity({ common_name: "abc123.access", sub: "" }, automationEnv))
+      .toEqual({ email: "automation@workshop.example", automation: true });
+  });
+
+  it("rejects service tokens that are unknown or unconfigured", () => {
+    expect(resolveAccessIdentity({ common_name: "other.access" }, automationEnv)).toBeNull();
+    expect(resolveAccessIdentity({ common_name: "abc123.access" }, accessEnv)).toBeNull();
+    expect(resolveAccessIdentity({ common_name: "abc123.access" }, {
+      ...accessEnv, CF_ACCESS_AUTOMATION_CLIENT_ID: "abc123.access",
+    })).toBeNull();
+    expect(resolveAccessIdentity({}, automationEnv)).toBeNull();
+    expect(resolveAccessIdentity({ email: "" }, automationEnv)).toBeNull();
   });
 });

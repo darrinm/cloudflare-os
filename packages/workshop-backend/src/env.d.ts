@@ -64,6 +64,13 @@ declare global {
       CF_ACCESS_AUD?: string;   // audience
       CF_ACCESS_ISS?: string;   // team URL, e.g. https://<team>.cloudflareaccess.com
 
+      // Optional automation identity for Cloudflare Access deployments: an Access service token
+      // (Service Auth policy) whose client id matches CF_ACCESS_AUTOMATION_CLIENT_ID authenticates
+      // as CF_ACCESS_AUTOMATION_EMAIL, letting smoke tests and agents use the API headlessly. The
+      // client secret never reaches the Worker; Access verifies it and issues the assertion.
+      CF_ACCESS_AUTOMATION_CLIENT_ID?: string;
+      CF_ACCESS_AUTOMATION_EMAIL?: string;
+
       // Comma-separated allowlist of gatekeeper vendor ids permitted to drive sign-in (e.g.
       // "google,github,cloudflare"). A listed gatekeeper must also advertise providesAuth. Empty =
       // no gatekeeper sign-in (password / CF Access only).
