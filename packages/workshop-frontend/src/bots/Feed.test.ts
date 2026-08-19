@@ -43,8 +43,11 @@ describe("summarise", () => {
   });
 
   it("names who was actually asking", () => {
+    // A direct Bot-to-Bot send is a hand-off: the delegation itself, shown as news, tersely.
     const fromBot: BotEvent = { id: 10, botId: "b1", ts: 1, type: "message", text: "check the logs", data: { from: { type: "bot", name: "Concierge" } } };
-    expect(summarise(fromBot, "Fixer")?.line).toBe("Concierge asked Fixer: check the logs");
+    const handoff = summarise(fromBot, "Fixer");
+    expect(handoff?.line).toBe("Concierge → Fixer: check the logs");
+    expect(handoff?.tone).toBe("done");
     const fromPerson: BotEvent = { id: 11, botId: "b1", ts: 1, type: "message", text: "hi", data: { from: { type: "user" } } };
     expect(summarise(fromPerson, "Fixer")?.line).toBe("You asked Fixer: hi");
     // No `from` at all (older events) still reads as the reader, which is what it was.

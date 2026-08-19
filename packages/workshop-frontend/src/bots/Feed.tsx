@@ -74,7 +74,9 @@ export function summarise(event: BotEvent, botName: string | null, byId?: Map<nu
       // instructions on how to reply -- to every member. That is plumbing; the post itself is the
       // news, and it appears once as a group event.
       if (from.groupId || data.extra?.group) return null
-      if (from.type === 'bot') return say('quiet', `${from.name || 'Another Bot'} asked ${who}: ${text}`)
+      // A Bot handing work to another Bot is the delegation actually happening -- the thing the
+      // team exists for -- not background context. Named like a hand-off, weighted like news.
+      if (from.type === 'bot') return say('done', `${from.name || 'A Bot'} → ${who}: ${text}`)
       if (from.type === 'email') return say('quiet', `Email to ${who}${from.name ? ` from ${from.name}` : ''}: ${text}`)
       return say('quiet', `You asked ${who}: ${text}`)
     }

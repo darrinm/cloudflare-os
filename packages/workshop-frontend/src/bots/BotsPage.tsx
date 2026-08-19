@@ -13,6 +13,7 @@ import type {
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
 import Feed, { useFeed } from './Feed'
+import LiveGlance from './LiveGlance'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
 import { useDocumentTitle } from '../useDocumentTitle'
@@ -547,6 +548,7 @@ function BotTranscript({ overseer, bot, workspaceId, showWork }: { overseer: Rpc
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <LiveGlance bot={bot} />
       <ChatInterface
         workspaceId={workspaceId}
         overseer={overseer}
