@@ -32,16 +32,26 @@ const trim = (text: string, max = 240) => {
  * One hub event as a sentence, or null when it is bookkeeping rather than news. Pure, so the
  * wording can be tested without a browser.
  */
-export function summarise(event: BotEvent, botName: string | null): FeedLine | null {
+export function summarise(event: BotEvent, botName: string | null, byId?: Map<number, BotEvent>): FeedLine | null {
   const who = botName ?? 'A Bot'
   const text = trim(event.text)
   const say = (tone: FeedLine['tone'], line: string): FeedLine => ({ id: event.id, botId: event.botId, ts: event.ts, tone, line })
-  const data = (event.data ?? {}) as { state?: string; from?: { type?: string; name?: string } }
+  const data = (event.data ?? {}) as { state?: string; eventId?: number; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
+  // The message this event answers, when it is a reply to a delivery.
+  const trigger = data.eventId !== undefined ? byId?.get(data.eventId) : undefined
+  const triggerData = (trigger?.data ?? {}) as { extra?: { group?: { name?: string } }; from?: { groupId?: string } }
+  const inGroup = triggerData.extra?.group ?? (triggerData.from?.groupId ? { name: undefined } : undefined)
   switch (event.type) {
     case 'needsUser':
       return say('needs', text ? `${who} needs you: ${text}` : `${who} needs you.`)
-    case 'completed':
+    case 'completed': {
+      // A member's reply to a group fan-out. The hub tells each member to answer only when it has
+      // something to add and otherwise resolve with a one-line note -- so a short reply here is a
+      // Bot correctly staying quiet, and is not news. Real contributions go through groupPost and
+      // show up as group events; only a long completion (an answer, not a note) is kept.
+      if (inGroup && text.length < 160) return null
       return say('done', text ? `${who}: ${text}` : `${who} finished.`)
+    }
     case 'failed':
       return say('failed', `${who} couldn’t finish: ${text || 'no reason given'}`)
     case 'capped':
@@ -60,12 +70,25 @@ export function summarise(event: BotEvent, botName: string | null): FeedLine | n
       // line already says what the reader did, so the nudge is dropped.
       const from = data.from ?? {}
       if (from.type === 'system') return null
+      // A group fan-out delivers the hub's own envelope -- group name, purpose, transcript, and
+      // instructions on how to reply -- to every member. That is plumbing; the post itself is the
+      // news, and it appears once as a group event.
+      if (from.groupId || data.extra?.group) return null
       if (from.type === 'bot') return say('quiet', `${from.name || 'Another Bot'} asked ${who}: ${text}`)
       if (from.type === 'email') return say('quiet', `Email to ${who}${from.name ? ` from ${from.name}` : ''}: ${text}`)
       return say('quiet', `You asked ${who}: ${text}`)
     }
+    case 'groupPost': {
+      // A post to a group, by a person or a Bot: the one line the fan-out machinery exists to carry.
+      const d = data as { fromType?: string; fromName?: string; groupName?: string }
+      const poster = d.fromType === 'user' ? 'You' : (d.fromName || who)
+      const body = text.replace(/^[^:]{1,60}: /, '')
+      return say(d.fromType === 'user' ? 'quiet' : 'done', `${poster} in ${d.groupName || 'the group'}: ${body}`)
+    }
     case 'group':
-      return say('quiet', text)
+      // Group bookkeeping (created, updated, deleted) is housekeeping like a Bot being created; a
+      // post that was held back is the one thing here worth a glance.
+      return /not delivered/i.test(text) ? say('failed', text) : null
     default:
       // created / updated / deleted / agent / skill / delivered: true, but not news.
       return null
@@ -128,12 +151,13 @@ export function Feed({ bots, events, error, onOpenBot }: {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
 
   const lines = useMemo(() => {
+    const byId = new Map((events ?? []).map((e) => [e.id, e]))
     const all = (events ?? [])
       // A Bot that no longer exists cannot need anything, and its line would otherwise sit pinned
       // at the top as "A Bot needs you" with a tap that opens nothing -- the audit log keeps the
       // event, but the feed is for what is live.
       .filter((e) => !e.botId || names.has(e.botId) || e.type !== 'needsUser')
-      .map((e) => summarise(e, e.botId ? names.get(e.botId) ?? null : null))
+      .map((e) => summarise(e, e.botId ? names.get(e.botId) ?? null : null, byId))
       .filter((l): l is FeedLine => l !== null)
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
     return all.sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
