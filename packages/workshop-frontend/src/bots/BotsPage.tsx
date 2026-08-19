@@ -119,9 +119,8 @@ function CreateHubPanel({
       <Robot size={40} weight="duotone" className="text-kumo-brand" />
       <h1 className="text-[20px] font-medium tracking-[-0.4px] text-kumo-default">Bots</h1>
       <p className="text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
-        Bots are persistent AI teammates: give each one a name, a role and standing instructions, then
-        message it, put it on a schedule, or let it hand work to other Bots. Your Bots live in one
-        project created from the “Bots” template.
+        Bots are AI teammates that keep working between conversations — reading the web, running code,
+        sending email — and ask you when they need you.
       </p>
       {models === null ? <Loader /> : (
         <label className="flex w-full flex-col gap-1 text-left text-[13px] md:text-[12px] text-kumo-subtle">
@@ -374,10 +373,9 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         )}
         {hubState.hub && hubState.bots.length === 0 && !hubState.error && (
           <div className="flex flex-col gap-2 p-4 text-[13px] md:text-[12px] text-kumo-subtle">
-            <div>No Bots yet. Create one with +, or start with a ready-made team.</div>
+            <div>No Bots yet.</div>
             <Button variant="secondary" size="sm" onClick={addExamples} loading={seeding !== null} disabled={!hubState.hub}>Add example Bots</Button>
             {seeding && <div className="text-[12px] md:text-[11px]">{seeding}</div>}
-            <div className="text-[12px] md:text-[11px]">Scout (browser), Fixer (sandbox, asks first), Ledger (sandbox + email), Concierge (coordinates) — plus two skills, a routine and a group.</div>
           </div>
         )}
         {hubState.bots.map((bot) => (
