@@ -179,7 +179,7 @@ export function Feed({ bots, events, error, onOpenBot }: {
   if (!lines.length) {
     return (
       <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
-        Nothing yet. When your Bots do something, it shows up here.
+        Nothing yet.
       </div>
     )
   }
