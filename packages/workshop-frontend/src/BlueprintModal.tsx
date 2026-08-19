@@ -406,7 +406,7 @@ export default function BlueprintModal({ open, onClose, overseer, gadget, metada
                         Connections
                       </h3>
                       <p className="m-0 mb-3 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
-                        Name each connection and add guidance for people using this blueprint.
+                        Name each connection and add guidance for people using this template.
                       </p>
                       <div className="space-y-2">
                         {bindings.map((b) => (
@@ -474,7 +474,7 @@ export default function BlueprintModal({ open, onClose, overseer, gadget, metada
                     Create template
                   </span>
                   <span className="mt-0.5 block text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-                    Publish this gadget as a reusable template.
+                    Publish this app as a reusable template.
                   </span>
                 </span>
                 <Plus size={16} className="text-kumo-subtle" />
@@ -595,7 +595,7 @@ function BlueprintRow({
               Delete "{bp.title}"?
             </p>
             <p className="m-0 mt-0.5 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
-              People who started a gadget from this blueprint won't be affected, but the link will stop working.
+              People who started an app from this template won't be affected, but the link will stop working.
             </p>
           </div>
           <button

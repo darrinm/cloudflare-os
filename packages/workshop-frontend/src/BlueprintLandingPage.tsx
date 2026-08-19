@@ -984,7 +984,7 @@ export default function BlueprintLandingPage({ rpcStub }: Props) {
                 No connections required
               </p>
               <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-                This template can create a App without configuring external resources.
+                This template can create an App without configuring external resources.
               </p>
             </section>
           )}
@@ -1659,7 +1659,7 @@ function BlueprintGatekeeperBindingField({
         <div className="space-y-2.5">
           {binding.resourceUrl && (
             <p className="m-0 pl-[2px] text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
-              Blueprint recommends: <span className="break-all text-kumo-default">{formatSuggestedResource(binding.resourceUrl)}</span>
+              Template recommends: <span className="break-all text-kumo-default">{formatSuggestedResource(binding.resourceUrl)}</span>
             </p>
           )}
 

@@ -803,7 +803,7 @@ export default function AdminPage() {
 
           {resourceVendors.length === 0 && (
             <p className="text-sm text-kumo-subtle">
-              No configurable gatekeepers are installed on this deployment.
+              No configurable tools are installed on this deployment.
             </p>
           )}
 
