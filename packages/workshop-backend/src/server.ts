@@ -31,6 +31,7 @@ import { serveSiteLogo, SITE_LOGO_PATH } from "./site-logo.js";
 
 /** Web app manifest path (see the fetch handler). */
 const MANIFEST_PATH = "/api/manifest.webmanifest";
+const TOUCH_ICON_PATH = "/api/apple-touch-icon.png";
 import { createWorkshopLogger } from "./observability";
 import { wrapDoStubForTelemetry } from "./do-telemetry";
 
@@ -826,6 +827,14 @@ export default {
     // Web app manifest, built from admin branding so the installed PWA carries the deployment's
     // name, logo and accent. Served from /api so the Router forwards it without a route change;
     // index.html links to it and the service worker at /sw.js is a static frontend asset.
+    // The home-screen icon: the configured site logo when there is one (a PNG, by validation),
+    // else the bundled default. One URL so index.html can link it without knowing which.
+    if (url.pathname === TOUCH_ICON_PATH) {
+      let config = await readAdminConfig(env);
+      if (config.siteLogoConfigured) return serveSiteLogo(req, env.BLUEPRINT_CONTENT);
+      return Response.redirect(new URL("/apple-touch-icon.png", url).toString(), 302);
+    }
+
     if (url.pathname === MANIFEST_PATH) {
       let config = await readAdminConfig(env);
       let manifest = {
@@ -836,8 +845,11 @@ export default {
         display: "standalone",
         background_color: "#ffffff",
         theme_color: config.accentColor || "#000000",
+        // The site logo is a PNG when configured (validateSiteLogo insists on it); the bundled
+        // defaults are PNG too. Declaring an SVG type against a PNG made some installers skip it.
         icons: [
-          { src: config.siteLogoConfigured ? SITE_LOGO_PATH : "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+          { src: TOUCH_ICON_PATH, sizes: "180x180", type: "image/png", purpose: "any" },
+          { src: config.siteLogoConfigured ? SITE_LOGO_PATH : "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
         ],
       };
       return new Response(JSON.stringify(manifest), {
