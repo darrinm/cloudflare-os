@@ -105,7 +105,7 @@ describe("BotsPageContent", () => {
     });
     testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
     const setMeta = vi.fn<(k: string, v: string) => Promise<string>>(async (_k, v) => v);
-    const send = vi.fn<() => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 1, delivered: true }));
+    const send = vi.fn<(botId: string, text: string) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 1, delivered: true }));
     testState.hub.hub = { getMeta: async () => null, setMeta, send, activity: async () => [] };
     testState.hub.bots = [];
 

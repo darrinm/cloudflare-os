@@ -186,7 +186,7 @@ export default function CommandPalette({
       ])
         .then(([gadgetList, own, library, formatList]) => {
           const data: PaletteData = {
-            apps: gadgetList,
+            gadgets: gadgetList,
             blueprints: mergeBlueprints(own, library),
             formats: formatList,
           }

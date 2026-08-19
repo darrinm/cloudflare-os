@@ -51,7 +51,7 @@ function outputKey(output: OutputSummary): string {
   return `${output.workspaceId}:${output.workpieceId}`
 }
 
-// Whether the user may rename or remove this app. Follows the project roles, not ownership: a
+// Whether the user may rename or remove this output. Follows the workspace roles, not ownership: a
 // "build" collaborator holds the same capability over a workpiece as the owner (see
 // GadgetClientImpl). The user's own workspaces carry no role; a shared one must say so, since a
 // role missing there predates role caching and may well be "use".
@@ -146,7 +146,7 @@ type OutputActions = {
 }
 
 function OutputCard({
-  app, onOpen, onOpenWorkspace, onRename, onRemove,
+  output, onOpen, onOpenWorkspace, onRename, onRemove,
 }: { output: OutputSummary } & OutputActions) {
   return (
     <div
@@ -177,7 +177,7 @@ function OutputCard({
 }
 
 function OutputRow({
-  app, onOpen, onOpenWorkspace, onRename, onRemove,
+  output, onOpen, onOpenWorkspace, onRename, onRemove,
 }: { output: OutputSummary } & OutputActions) {
   return (
     <div
@@ -241,7 +241,7 @@ function FilterChip({
 
 // ─── scope ───────────────────────────────────────────────────────────────────
 
-// Whose apps to show. Not a chip: type is the axis people browse by, so the chips are its
+// Whose outputs to show. Not a chip: type is the axis people browse by, so the chips are its
 // alone. Ownership is a scope you set once, so it collapses into one control stating the current
 // answer.
 type OwnerFilter = 'all' | 'mine' | 'shared'
@@ -425,7 +425,7 @@ function OutputsPage() {
     // visit.
     if (!loadedOnce.current) setLoading(true)
     setLoadError(false)
-    // Projects predating the apps index are swept in a bounded batch per call, so keep asking
+    // Workspaces predating the outputs index are swept in a bounded batch per call, so keep asking
     // until the server says it is done. Each round shows what has arrived so far, which is what
     // makes a large account fill in visibly while the page is open rather than over several
     // visits.
@@ -578,7 +578,7 @@ function OutputsPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Apps</h1>
           <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
-            Everything your projects have produced, in one place.
+            Everything your workspaces have produced, in one place.
           </p>
         </div>
         <ViewToggle view={view} onChange={setView} />

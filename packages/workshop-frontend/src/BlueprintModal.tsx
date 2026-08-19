@@ -474,7 +474,7 @@ export default function BlueprintModal({ open, onClose, overseer, gadget, metada
                     Create template
                   </span>
                   <span className="mt-0.5 block text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-                    Publish this app as a reusable template.
+                    Publish this gadget as a reusable template.
                   </span>
                 </span>
                 <Plus size={16} className="text-kumo-subtle" />

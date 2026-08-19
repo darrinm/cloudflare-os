@@ -4,7 +4,7 @@
 // listed first for the agent. Promoting changes four surfaces the admin can't see from here, so
 // the panel previews the buttons users will get and the literal line the model will read.
 //
-// Presentation is never authored from scratch: a promoted template arrives with its own noun,
+// Presentation is never authored from scratch: a promoted blueprint arrives with its own noun,
 // plural and icon, and clearing an override falls back to it.
 
 import { useEffect, useMemo, useState } from 'react'
@@ -190,7 +190,7 @@ function PreviewStrip({ formats }: { formats: AdminFormat[] }) {
         </div>
       )}
       <p className="mt-2.5 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
-        In the composer’s + menu, the command palette, and on an empty Apps page, in this order.
+        In the composer’s + menu, the command palette, and on an empty Outputs page, in this order.
       </p>
     </div>
   )
@@ -201,7 +201,7 @@ function EmptyState() {
     <div className="mb-5 rounded-lg border border-kumo-line bg-kumo-base px-4 py-5 text-center">
       <p className="text-sm font-medium text-kumo-default">No standard formats yet</p>
       <p className="mx-auto mt-1 max-w-md text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
-        Promote a template to offer it by name wherever people start something, and to have the
+        Promote a blueprint to offer it by name wherever people start something, and to have the
         agent prefer it over building the same thing from scratch.
       </p>
     </div>
@@ -302,7 +302,7 @@ function FormatRow({
         <div className="flex flex-col gap-4 border-t border-kumo-line px-3 py-4">
           {format.missing ? (
             <p className="text-[14px] md:text-[13px] text-kumo-subtle">
-              The template behind this format was deleted, so nobody is offered it. Remove the
+              The blueprint behind this format was deleted, so nobody is offered it. Remove the
               entry.
             </p>
           ) : (
@@ -459,7 +459,7 @@ function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone
   )
 }
 
-// A field that either overrides the template or defers to it. Committing an empty value, or one
+// A field that either overrides the blueprint or defers to it. Committing an empty value, or one
 // equal to the blueprint's, sends null to clear the override rather than freezing today's
 // template text into the config.
 function OverrideField({

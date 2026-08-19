@@ -61,7 +61,7 @@ try {
 
 // Forward Escape key presses to the parent frame. The sandboxed iframe captures keydown events
 // when it has focus, so the parent never sees them. The workshop UI uses Escape to exit fullscreen
-// app mode, so forward it explicitly.
+// gadget mode, so forward it explicitly.
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     window.parent.postMessage({ type: 'escape' }, '*');
@@ -479,7 +479,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
               No app UI yet
             </h2>
             <p className="text-[15px] leading-5 font-normal tracking-[-0.3px] text-kumo-subtle">
-              When the app builds one, it will appear here.
+              When the gadget builds one, it will appear here.
             </p>
           </div>
         </div>

@@ -15,11 +15,11 @@ const entries = [
   { type: 'message', key: 'approval', message: { type: 'action', actionLog: { type: 'action' } } },
   { type: 'message', key: 'gadget', message: { type: 'useGadget' } },
   { type: 'message', key: 'err', message: { type: 'error', error: 'boom' } },
-] as never
+]
 
 describe('Bot conversation view', () => {
   it('keeps what was said and approvals; folds the work into one receipt line', () => {
-    const out = toConversationEntries(entries, false)
+    const out = toConversationEntries(entries as never, false)
     // The persona is gone; each stretch of machinery collapses into one "botWork" receipt row.
     expect(out.filter((e) => e.type !== 'botWork').map((e) => e.key)).toEqual(['u1', 'a1', 'approval', 'err'])
     expect(out[1].type).toBe('botWork')
@@ -34,7 +34,7 @@ describe('Bot conversation view', () => {
     expect(describeBotWork({ code: 1, callbacks: 0, gadget: 0, observations: 0 })).toBe('ran 1 step')
   })
   it('with showWork keeps everything except the persona', () => {
-    const keys = toConversationEntries(entries, true).map((e) => e.key)
+    const keys = toConversationEntries(entries as never, true).map((e) => e.key)
     expect(keys[0]).toBe('u1')
     expect(keys).toContain('cb')
     expect(keys).toContain('w1')

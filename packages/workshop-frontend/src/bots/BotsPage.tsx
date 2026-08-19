@@ -12,7 +12,7 @@ import type {
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
-import Feed from './Feed'
+import Feed, { useFeed } from './Feed'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
 import { useDocumentTitle } from '../useDocumentTitle'
@@ -67,6 +67,9 @@ export function BotAvatar({ bot, size = 32 }: { bot: Bot; size?: number }) {
 // -------------------------------------------------------------------------------------------------
 
 /** Page body for /bots and /bots/$id. Exported separately from the route so tests can render it. */
+// What Scout does the moment a new hub is set up: something real that needs no approval.
+const FIRST_TASK = "Introduce yourself in one line, then do this now: read https://news.ycombinator.com and tell me the single most interesting story right now -- title, link, and one line on why it matters."
+
 export function BotsPageContent({ botId, groupId = null }: { botId: string | null; groupId?: string | null }) {
   const { authenticatedApi } = useAuthenticatedApi()
   const { state, create } = useBotsWorkspace(authenticatedApi)
@@ -172,6 +175,12 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // What you see with nothing selected. The feed answers "what happened?", which is the daily
   // question; the roster answers "who have I got?", which you ask far less often.
   const [view, setView] = useState<'feed' | 'roster'>('feed')
+  // One subscription to the feed's data, shared by the phone tab and the desktop pane: mounting
+  // the component twice used to fetch twice, on every event.
+  const feedData = useFeed(hubState.hub, hubState.lastUpdate)
+  const feed = hubState.hub
+    ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
+    : null
   // "Show work": the conversation is a teammate view by default (what the Bot says, approvals,
   // errors); the code runs / callbacks / gadget calls are one tap away, remembered per browser.
   const [showWork, setShowWork] = useState<boolean>(() => { try { return localStorage.getItem('bots:showWork') === '1' } catch { return false } })
@@ -188,7 +197,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     try {
       changed = (await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)).updated
     } catch (err) {
-      // Writing the code restarts the app, which kills this very call: that is the update
+      // Writing the code restarts the gadget, which kills this very call: that is the update
       // succeeding, not failing. Anything else is a real error.
       const msg = String(err instanceof Error ? err.message : err)
       if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
@@ -220,21 +229,30 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     setSeeding(null)
   }, [overseer, workpieceId, hubState, toasts])
 
-  const addExamples = useCallback(async () => {
+  // The seeding core: pick the model, create and grant the example Bots, refresh the roster. Both
+  // the "Add example Bots" button and the first run go through here, so how examples are made is
+  // decided once.
+  const seedExamples = useCallback(async (): Promise<Bot[]> => {
     const hub = hubState.hub
-    if (!hub || !overseer) return
+    if (!hub || !overseer) return []
+    const models = await overseer.stub.listModels()
+    const modelId = getStoredSelectedModel(models)
+    const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding })
+    await hubState.refreshBots()
+    return bots
+  }, [hubState, overseer, authenticatedApi, workpieceId])
+
+  const addExamples = useCallback(async () => {
+    if (!hubState.hub) return
     setSeeding('Starting…')
     try {
-      const models = await overseer.stub.listModels()
-      const modelId = getStoredSelectedModel(models)
-      const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding })
-      await hubState.refreshBots()
+      const bots = await seedExamples()
       toasts.add({ title: `${bots.length} example Bots ready`, description: 'Scout reads the web, Fixer runs code, Ledger reports (and emails), Concierge coordinates.', variant: 'success' })
       if (bots[0]) navigate({ to: '/bots/$id', params: { id: bots[0].id } })
     } catch (err) {
       toasts.add({ title: 'Couldn’t add the examples', description: String(err instanceof Error ? err.message : err), variant: 'error' })
     } finally { setSeeding(null) }
-  }, [hubState, overseer, authenticatedApi, workpieceId, toasts, navigate])
+  }, [hubState.hub, seedExamples, toasts, navigate])
 
   // First run. A new hub used to greet someone with an empty list and a button to press, so the
   // first minute was spent learning our nouns rather than seeing a Bot do anything. Now the Bots
@@ -244,12 +262,15 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // without anyone deciding anything. The others hold their first task until asked -- their tools
   // (a sandbox, sending email) are deliberately approval-gated, and an approval prompt is a poor
   // way to say hello. One short turn, well inside any daily cap.
-  const FIRST_TASK = "Introduce yourself in one line, then do this now: read https://news.ycombinator.com and tell me the single most interesting story right now -- title, link, and one line on why it matters."
   const firstRunStarted = useRef(false)
+  const hub = hubState.hub
+  const hubIsEmpty = hubState.bots.length === 0
+  // Only what the guard reads is a dependency. The effect still no-ops on re-runs via the ref, but
+  // it no longer re-runs on every hub event or on its own progress messages.
+  const latest = useRef({ seedExamples, navigate, toasts })
+  latest.current = { seedExamples, navigate, toasts }
   useEffect(() => {
-    const hub = hubState.hub
-    if (!hub || !overseer || firstRunStarted.current) return
-    if (hubState.bots.length > 0 || seeding) return
+    if (!hub || !overseer || !hubIsEmpty || firstRunStarted.current) return
     firstRunStarted.current = true
     void (async () => {
       // A hub older than this feature has no flags; leave it to the button rather than risk
@@ -257,32 +278,23 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       let welcomed: string | null = null
       try { welcomed = await hub.getMeta('firstRun') } catch { return }
       if (welcomed) return
+      const { seedExamples: seed, navigate: go, toasts: t } = latest.current
       try {
         setSeeding('Setting up your Bots…')
-        const models = await overseer.stub.listModels()
-        const modelId = getStoredSelectedModel(models)
-        const bots = await seedExampleBots({
-          api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId,
-          onProgress: setSeeding,
-        })
+        const bots = await seed()
         await hub.setMeta('firstRun', new Date().toISOString())
-        await hubState.refreshBots()
         const scout = bots.find((b) => b.name === 'Scout') ?? bots[0]
         if (scout) {
           setSeeding('Asking Scout for something to look at…')
           await hub.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
-          navigate({ to: '/bots/$id', params: { id: scout.id } })
+          go({ to: '/bots/$id', params: { id: scout.id } })
         }
       } catch (err) {
         // A failed welcome must not wedge the page: the roster and the button still work.
-        toasts.add({
-          title: 'Couldn\u2019t finish setting up',
-          description: String(err instanceof Error ? err.message : err),
-          variant: 'error',
-        })
+        t.add({ title: 'Couldn\u2019t finish setting up', description: String(err instanceof Error ? err.message : err), variant: 'error' })
       } finally { setSeeding(null) }
     })()
-  }, [hubState, overseer, authenticatedApi, workpieceId, seeding, navigate, toasts])
+  }, [hub, overseer, hubIsEmpty])
 
   const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
   const selectedGroup = useMemo(() => hubState.groups.find((g) => g.id === groupId) ?? null, [hubState.groups, groupId])
@@ -329,10 +341,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           No agent spawner is bound to the hub yet, so Bots can’t run. Give a Bot grants (Details → Grants) or assign AGENT_SPAWNER in the workspace’s Connections.
         </div>
       )}
-      <div className={`min-h-0 flex-1 overflow-y-auto md:hidden ${view === 'feed' ? 'flex flex-col' : 'hidden'}`}>
-        <Feed hub={hubState.hub} bots={hubState.bots} version={hubState.version} lastUpdate={hubState.lastUpdate}
-          onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
-      </div>
+      {view === 'feed' && <div className="min-h-0 flex-1 overflow-y-auto md:hidden flex flex-col">{feed}</div>}
       <nav className={`min-h-0 flex-1 overflow-y-auto ${view === 'feed' ? 'hidden md:block' : ''}`} aria-label="Bots">
         {hubState.error && <div className="p-3 text-[13px] md:text-[12px] text-kumo-danger">{hubState.error}</div>}
         {!hubState.hub && !hubState.error && (
@@ -448,8 +457,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           <div className="flex h-12 flex-none items-center border-b border-kumo-line px-4 text-[14px] md:text-[13px] font-medium text-kumo-default">
             What your Bots have been doing
           </div>
-          <Feed hub={hubState.hub} bots={hubState.bots} version={hubState.version} lastUpdate={hubState.lastUpdate}
-            onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
+          {feed}
         </section>
       )}
       <NewBotDialog
@@ -969,8 +977,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       await client.bind(bindingName, spawnerId)
       // Binding restarts the hub gadget and breaks the page's stub; use a fresh one for the respawn.
       const fresh = (await client.connectToGadget()) as unknown as HubStub
-      let result: { generation: number }
-      try { result = await fresh.respawnAgent(bot.id, bindingName) } finally { fresh[Symbol.dispose]() }
+      try { await fresh.respawnAgent(bot.id, bindingName) } finally { fresh[Symbol.dispose]() }
       toasts.add({ title: 'Saved', description: `${bot.name} is ready to work.`, variant: 'success' })
       onClose()
     } catch (err) {

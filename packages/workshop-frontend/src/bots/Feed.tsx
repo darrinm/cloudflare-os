@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Bot, HubApi, HubUpdate } from './types'
+import { formatRelativeTime } from '../Activity'
+import type { Bot, BotEvent, HubApi, HubUpdate } from './types'
 
 /**
  * What every Bot has been doing, newest first, in sentences a person would say out loud.
@@ -9,15 +10,6 @@ import type { Bot, HubApi, HubUpdate } from './types'
  * Housekeeping (a Bot being created, an agent re-attached, a message delivered) is deliberately
  * dropped: it is true, and nobody needs it.
  */
-
-export type FeedEvent = {
-  id: number
-  botId: string | null
-  ts: number
-  type: string
-  text: string
-  data?: Record<string, unknown>
-}
 
 export type FeedLine = {
   id: number
@@ -29,6 +21,8 @@ export type FeedLine = {
   tone: 'needs' | 'failed' | 'done' | 'quiet'
 }
 
+const FEED_LIMIT = 120
+
 const trim = (text: string, max = 240) => {
   const clean = String(text ?? '').replace(/\s+/g, ' ').trim()
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
@@ -38,61 +32,44 @@ const trim = (text: string, max = 240) => {
  * One hub event as a sentence, or null when it is bookkeeping rather than news. Pure, so the
  * wording can be tested without a browser.
  */
-export function summarise(event: FeedEvent, botName: string | null): FeedLine | null {
+export function summarise(event: BotEvent, botName: string | null): FeedLine | null {
   const who = botName ?? 'A Bot'
   const text = trim(event.text)
+  const say = (tone: FeedLine['tone'], line: string): FeedLine => ({ id: event.id, botId: event.botId, ts: event.ts, tone, line })
+  const data = (event.data ?? {}) as { state?: string; from?: { type?: string; name?: string } }
   switch (event.type) {
     case 'needsUser':
-      return { id: event.id, botId: event.botId, ts: event.ts, tone: 'needs', line: text ? `${who} needs you: ${text}` : `${who} needs you.` }
+      return say('needs', text ? `${who} needs you: ${text}` : `${who} needs you.`)
     case 'completed':
-      return { id: event.id, botId: event.botId, ts: event.ts, tone: 'done', line: text ? `${who}: ${text}` : `${who} finished.` }
+      return say('done', text ? `${who}: ${text}` : `${who} finished.`)
     case 'failed':
-      return { id: event.id, botId: event.botId, ts: event.ts, tone: 'failed', line: `${who} couldn’t finish: ${text || 'no reason given'}` }
+      return say('failed', `${who} couldn’t finish: ${text || 'no reason given'}`)
     case 'capped':
-      return { id: event.id, botId: event.botId, ts: event.ts, tone: 'failed', line: `${who} stopped for today — it reached the spending limit you set.` }
+      return say('failed', `${who} stopped for today — it reached the spending limit you set.`)
     case 'decision': {
-      // "Approved: Run: npm test" / "Rejected: Delete /data" -- say it as the reader's own action.
-      const approved = /^approved/i.test(text)
+      // Read the decision from the structured field the hub stored, not by parsing its own text;
+      // older events predate the field, so fall back to the prefix.
+      const approved = data.state ? data.state === 'approved' : /^approved/i.test(text)
       const what = text.replace(/^(approved|rejected):\s*/i, '')
-      return {
-        id: event.id, botId: event.botId, ts: event.ts, tone: 'quiet',
-        line: `${approved ? 'You said yes to' : 'You said no to'} ${what || 'a request'}${approved ? '' : ''} (${who}).`,
-      }
+      return say('quiet', `You said ${approved ? 'yes' : 'no'} to ${what || 'a request'} (${who}).`)
     }
     case 'message': {
       // Not every message is from a person. When an approval lands the hub sends the Bot a nudge
       // telling it to resume, and rendering that as "You asked ..." quotes our own plumbing back at
       // the reader as if they had typed it -- with an actionId in the middle of it. The decision
       // line already says what the reader did, so the nudge is dropped.
-      const from = (event.data?.from ?? {}) as { type?: string; name?: string }
+      const from = data.from ?? {}
       if (from.type === 'system') return null
-      if (from.type === 'bot') {
-        return { id: event.id, botId: event.botId, ts: event.ts, tone: 'quiet', line: `${from.name || 'Another Bot'} asked ${who}: ${text}` }
-      }
-      if (from.type === 'email') {
-        return { id: event.id, botId: event.botId, ts: event.ts, tone: 'quiet', line: `Email to ${who}${from.name ? ` from ${from.name}` : ''}: ${text}` }
-      }
-      return { id: event.id, botId: event.botId, ts: event.ts, tone: 'quiet', line: `You asked ${who}: ${text}` }
+      if (from.type === 'bot') return say('quiet', `${from.name || 'Another Bot'} asked ${who}: ${text}`)
+      if (from.type === 'email') return say('quiet', `Email to ${who}${from.name ? ` from ${from.name}` : ''}: ${text}`)
+      return say('quiet', `You asked ${who}: ${text}`)
     }
     case 'group':
-      return { id: event.id, botId: event.botId, ts: event.ts, tone: 'quiet', line: text }
+      return say('quiet', text)
     default:
       // created / updated / deleted / agent / skill / delivered: true, but not news.
       return null
   }
-}
-
-/** "just now", "12 min ago", "3 h ago", "Tue" -- a glance, not a timestamp. */
-export function when(ts: number, now = Date.now()): string {
-  const seconds = Math.max(0, Math.round((now - ts) / 1000))
-  if (seconds < 60) return 'just now'
-  const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours} h ago`
-  const days = Math.round(hours / 24)
-  if (days < 7) return `${days} d ago`
-  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 const TONE: Record<FeedLine['tone'], string> = {
@@ -102,22 +79,19 @@ const TONE: Record<FeedLine['tone'], string> = {
   quiet: 'border-l-2 border-transparent text-kumo-subtle',
 }
 
-export function Feed({ hub, bots, version, lastUpdate, onOpenBot }: {
-  hub: HubApi | null
-  bots: Bot[]
-  /** Bumped by the hub hook on every change, including new events. */
-  version: number
-  lastUpdate: HubUpdate | null
-  onOpenBot: (botId: string) => void
-}) {
-  const [events, setEvents] = useState<FeedEvent[] | null>(null)
+/**
+ * The feed's data: one read on connect, then each live event merged in place. The hub broadcasts
+ * the whole event row, so keeping up costs no RPC at all -- it used to re-read the newest 120 rows
+ * on every update, from two mounted copies.
+ */
+export function useFeed(hub: HubApi | null, lastUpdate: HubUpdate | null) {
+  const [events, setEvents] = useState<BotEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!hub) return
     try {
-      const rows = (await hub.activity(null, { limit: 120 })) as unknown as FeedEvent[]
-      setEvents(rows)
+      setEvents(await hub.activity(null, { limit: FEED_LIMIT }))
       setError(null)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
@@ -125,26 +99,35 @@ export function Feed({ hub, bots, version, lastUpdate, onOpenBot }: {
   }, [hub])
 
   useEffect(() => { void load() }, [load])
-  // Events arrive live over the hub subscription; re-read rather than trying to merge by hand.
   useEffect(() => {
-    if (lastUpdate?.type === 'event') void load()
-  }, [lastUpdate, version, load])
+    if (lastUpdate?.type !== 'event') return
+    const incoming = lastUpdate.event
+    setEvents((prev) => {
+      if (!prev) return prev
+      if (prev.some((e) => e.id === incoming.id)) return prev
+      return [...prev, incoming].slice(-FEED_LIMIT)
+    })
+  }, [lastUpdate])
 
-  const nameOf = useMemo(() => {
-    const byId = new Map(bots.map((b) => [b.id, b.name]))
-    return (id: string | null) => (id ? byId.get(id) ?? null : null)
-  }, [bots])
+  return { events, error }
+}
+
+export function Feed({ bots, events, error, onOpenBot }: {
+  bots: Bot[]
+  events: BotEvent[] | null
+  error: string | null
+  onOpenBot: (botId: string) => void
+}) {
+  const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
 
   const lines = useMemo(() => {
-    const all = (events ?? []).map((e) => summarise(e, nameOf(e.botId))).filter((l): l is FeedLine => l !== null)
-    all.sort((a, b) => b.ts - a.ts)
+    const all = (events ?? [])
+      .map((e) => summarise(e, e.botId ? names.get(e.botId) ?? null : null))
+      .filter((l): l is FeedLine => l !== null)
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
-    const needs = all.filter((l) => l.tone === 'needs')
-    const rest = all.filter((l) => l.tone !== 'needs')
-    return [...needs, ...rest]
-  }, [events, nameOf])
+    return all.sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
+  }, [events, names])
 
-  if (!hub) return null
   if (error) return <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
   if (events === null) {
     return (
@@ -178,7 +161,7 @@ export function Feed({ hub, bots, version, lastUpdate, onOpenBot }: {
           >
             <span className="text-[15px] md:text-[14px] leading-snug text-kumo-default">{l.line}</span>
             <span className="text-[13px] md:text-[12px] text-kumo-subtle">
-              {l.tone === 'needs' ? 'Waiting for you · ' : ''}{when(l.ts)}
+              {l.tone === 'needs' ? 'Waiting for you · ' : ''}{formatRelativeTime(new Date(l.ts))}
             </span>
           </button>
         </li>

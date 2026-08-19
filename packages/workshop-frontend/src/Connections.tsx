@@ -36,7 +36,7 @@ interface ConnectionsProps {
 }
 
 /**
- * Auto-approval rules live in Activity because they apply across the project, while this view is
+ * Auto-approval rules live in Activity because they apply across the workspace, while this view is
  * scoped to one app.
  */
 export default function Connections({ overseer, gadget, chatId, authenticatedApi, onConnectionsChange, isVisible, onHasGatekeepersChange }: ConnectionsProps) {
@@ -67,7 +67,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
       ])
       setGadgetInfo({ id, title: gadgetTitle })
       setBindings(bindingList)
-      // This tab shows one app, so drop hooks that wake a different one -- otherwise its
+      // This tab shows one gadget, so drop hooks that wake a different one -- otherwise its
       // toggle/delete controls would operate on another gadget's hooks.
       setHooks(hookList.filter((hook) => hook.gadgetId === id))
       onHasGatekeepersChange?.(bindingList.length > 0)
@@ -140,7 +140,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
 
   // What an agent spawner created here may offer its agents: this gadget itself (under the same
   // `GADGET` name the gadget's own code uses) plus each of the gadget's bindings. All are enabled
-  // by default in the modal, reproducing the pre-multi-app behavior where spawned agents
+  // by default in the modal, reproducing the pre-multi-gadget behavior where spawned agents
   // inherited everything the app held.
   const spawnerEnvCandidates = useMemo(() => {
     if (!gadgetInfo) return []
@@ -240,7 +240,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
                 const isEditing = editingBinding === gk.name
                 const isDeleting = deleteTarget?.name === gk.name
                 // Still provisional to the open chat (see GadgetBindingInfo.chatId). Blueprint
-                // annotations are excluded, since a template only ever exports permanent edges.
+                // annotations are excluded, since a blueprint only ever exports permanent edges.
                 const isPending = gk.chatId !== undefined
 
                 return (

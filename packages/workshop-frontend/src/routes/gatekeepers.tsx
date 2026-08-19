@@ -301,8 +301,8 @@ function ConnectorsHeroDiagram({
     y: gatekeeper.y + gatekeeper.height / 2,
   }
   const gadgetInput = {
-    x: app.x,
-    y: app.y + app.height / 2,
+    x: gadget.x,
+    y: gadget.y + gadget.height / 2,
   }
 
   const sourcePoint = (index: number) => ({
@@ -723,7 +723,7 @@ function ConnectorsPage() {
               Tools
             </h1>
             <p className="mt-2 text-[15px] md:text-[14px] leading-[20px] font-normal tracking-[-0.25px] text-kumo-subtle">
-              Add the apps and accounts your projects can use. Connect once, then wire
+              Add the apps and accounts your workspaces can use. Connect once, then wire
               them into anything you build.
             </p>
           </div>

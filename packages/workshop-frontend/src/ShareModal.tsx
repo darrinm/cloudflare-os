@@ -533,7 +533,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
     }
   }
 
-  // Where an invited collaborator opens the project. Adding them already granted access, so this
+  // Where an invited collaborator opens the workspace. Adding them already granted access, so this
   // carries no secret and is safe to show and re-show — unlike a share link, whose URL embeds a key.
   const workspaceUrl = `${window.location.origin}/workspace/${metadata.id}`
 
