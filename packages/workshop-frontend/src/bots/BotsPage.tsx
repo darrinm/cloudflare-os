@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
@@ -231,6 +231,54 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       toasts.add({ title: 'Couldn’t add the examples', description: String(err instanceof Error ? err.message : err), variant: 'error' })
     } finally { setSeeding(null) }
   }, [hubState, overseer, authenticatedApi, workpieceId, toasts, navigate])
+
+  // First run. A new hub used to greet someone with an empty list and a button to press, so the
+  // first minute was spent learning our nouns rather than seeing a Bot do anything. Now the Bots
+  // exist, are granted, and one of them has already done a real piece of work before you look.
+  //
+  // Scout is the one that runs: it reads the web, which needs no approval, so its answer lands
+  // without anyone deciding anything. The others hold their first task until asked -- their tools
+  // (a sandbox, sending email) are deliberately approval-gated, and an approval prompt is a poor
+  // way to say hello. One short turn, well inside any daily cap.
+  const FIRST_TASK = "Introduce yourself in one line, then do this now: read https://news.ycombinator.com and tell me the single most interesting story right now -- title, link, and one line on why it matters."
+  const firstRunStarted = useRef(false)
+  useEffect(() => {
+    const hub = hubState.hub
+    if (!hub || !overseer || firstRunStarted.current) return
+    if (hubState.bots.length > 0 || seeding) return
+    firstRunStarted.current = true
+    void (async () => {
+      // A hub older than this feature has no flags; leave it to the button rather than risk
+      // seeding a roster someone deliberately emptied.
+      let welcomed: string | null = null
+      try { welcomed = await hub.getMeta('firstRun') } catch { return }
+      if (welcomed) return
+      try {
+        setSeeding('Setting up your Bots…')
+        const models = await overseer.stub.listModels()
+        const modelId = getStoredSelectedModel(models)
+        const bots = await seedExampleBots({
+          api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId,
+          onProgress: setSeeding,
+        })
+        await hub.setMeta('firstRun', new Date().toISOString())
+        await hubState.refreshBots()
+        const scout = bots.find((b) => b.name === 'Scout') ?? bots[0]
+        if (scout) {
+          setSeeding('Asking Scout for something to look at…')
+          await hub.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
+          navigate({ to: '/bots/$id', params: { id: scout.id } })
+        }
+      } catch (err) {
+        // A failed welcome must not wedge the page: the roster and the button still work.
+        toasts.add({
+          title: 'Couldn\u2019t finish setting up',
+          description: String(err instanceof Error ? err.message : err),
+          variant: 'error',
+        })
+      } finally { setSeeding(null) }
+    })()
+  }, [hubState, overseer, authenticatedApi, workpieceId, seeding, navigate, toasts])
 
   const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
   const selectedGroup = useMemo(() => hubState.groups.find((g) => g.id === groupId) ?? null, [hubState.groups, groupId])
