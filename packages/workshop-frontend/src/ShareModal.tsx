@@ -51,13 +51,13 @@ function formatRelativeTime(date: Date): string {
 }
 
 const ROLE_LABELS: Record<CollaboratorRole, string> = {
-  build: 'Workspace',
-  use: 'Gadget only',
+  build: 'Project',
+  use: 'App only',
 }
 
 const ROLE_DESCRIPTIONS: Record<CollaboratorRole, string> = {
-  build: 'Edit gadgets, use chat, and manage access.',
-  use: 'Use gadgets without agent chat or editing.',
+  build: 'Edit apps, use chat, and manage access.',
+  use: 'Use apps without agent chat or editing.',
 }
 
 function roleLabel(role: CollaboratorRole | undefined): string {
@@ -533,7 +533,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
     }
   }
 
-  // Where an invited collaborator opens the workspace. Adding them already granted access, so this
+  // Where an invited collaborator opens the project. Adding them already granted access, so this
   // carries no secret and is safe to show and re-show — unlike a share link, whose URL embeds a key.
   const workspaceUrl = `${window.location.origin}/workspace/${metadata.id}`
 
@@ -541,7 +541,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
     if (await copyToClipboard(workspaceUrl)) {
       setInvitedLinkCopied(true)
     } else {
-      toasts.add({ title: 'Could not copy the workspace link.', variant: 'error' })
+      toasts.add({ title: 'Could not copy the project link.', variant: 'error' })
     }
   }
 
@@ -780,7 +780,7 @@ export default function ShareModal({ open, onClose, overseer, metadata, currentU
                 <ShieldWarning size={22} weight="duotone" />
               </div>
               <p className="mt-3 text-[15px] md:text-[14px] leading-5 font-medium tracking-[-0.3px] text-kumo-default">
-                This workspace can’t be shared
+                This project can’t be shared
               </p>
               <p className="mt-1.5 max-w-[320px] text-balance text-[13px] md:text-[12px] leading-[18px] tracking-[-0.1px] text-kumo-subtle">
                 It has observed sensitive data that can only be accessed by you, the owner.

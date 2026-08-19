@@ -165,7 +165,7 @@ export default function ConnectConnectorModal({
           ? accountDescription?.uniqueName
             ? `${accountDisplayName} / ${accountDescription.uniqueName}`
             : accountDisplayName
-          : 'Credentials expired; reconnect from the Gatekeepers page'}
+          : 'Sign-in expired; reconnect from the Tools page'}
       </span>
     </div>
   ) : (
@@ -320,8 +320,8 @@ export default function ConnectConnectorModal({
                     Gatekeeper sits between {vendorDescription.displayName} and your Gadgets.
                   </span>{' '}
                   <span className="text-kumo-subtle">
-                    Each Gadget only sees the resources you connect. If the workspace is shared,
-                    Gatekeeper verifies other users have the required permissions before they can
+                    Each App only sees the resources you connect. If the project is shared,
+                    We verify other users have the required permissions before they can
                     access those resources.
                   </span>
                 </div>
@@ -331,7 +331,7 @@ export default function ConnectConnectorModal({
 
           {isManage && (
             <div className="mt-5 rounded-lg border border-kumo-line bg-kumo-elevated px-4 py-3 text-[13px] md:text-[12px] leading-[17px] font-normal tracking-[-0.2px] text-kumo-subtle">
-              This account can be used by Gadgets you connect it to. Shared users must have the
+              This account can be used by Apps you connect it to. Shared users must have the
               required permissions before they can access those connected resources.
             </div>
           )}

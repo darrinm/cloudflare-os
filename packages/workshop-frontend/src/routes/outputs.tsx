@@ -51,7 +51,7 @@ function outputKey(output: OutputSummary): string {
   return `${output.workspaceId}:${output.workpieceId}`
 }
 
-// Whether the user may rename or remove this output. Follows the workspace roles, not ownership: a
+// Whether the user may rename or remove this app. Follows the project roles, not ownership: a
 // "build" collaborator holds the same capability over a workpiece as the owner (see
 // GadgetClientImpl). The user's own workspaces carry no role; a shared one must say so, since a
 // role missing there predates role caching and may well be "use".
@@ -79,7 +79,7 @@ function OutputMenu({
       className="press-exempt"
       onClick={(e) => { e.stopPropagation() }}
       // The card/row is itself a keyboard-activatable button; without this, Enter or Space on the
-      // menu trigger would also open the output.
+      // menu trigger would also open the app.
       onKeyDown={(e) => { e.stopPropagation() }}
     >
       <DropdownMenu>
@@ -87,7 +87,7 @@ function OutputMenu({
           render={
             <button
               type="button"
-              aria-label="Output actions"
+              aria-label="App actions"
               className="cursor-pointer rounded-md p-1.5 text-kumo-subtle transition-colors hover:bg-kumo-fill hover:text-kumo-default focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <DotsThreeVertical size={16} />
@@ -119,7 +119,7 @@ function OutputMenu({
 
 // Secondary line under an output's title in the grid, where there's no room for meta columns.
 function subtitle(output: OutputSummary): string {
-  const parts = [output.workspaceTitle || 'Untitled workspace']
+  const parts = [output.workspaceTitle || 'Untitled project']
   if (output.owner) parts.push(`Shared by ${output.owner.name}`)
   parts.push(`Workspace active ${formatRelativeTime(output.lastActive)}`)
   return parts.join(' · ')
@@ -130,7 +130,7 @@ function OutputProvenance({ owner }: { owner?: OutputSummary['owner'] }) {
   return (
     <span
       className="flex w-52 items-center gap-1 truncate whitespace-nowrap"
-      title={owner ? `In a workspace shared by ${owner.name}` : 'In a workspace you created'}
+      title={owner ? `In a workspace shared by ${owner.name}` : 'In a project you created'}
     >
       {owner ? <ShareNetwork size={11} /> : <User size={11} />}
       <span className="truncate">{owner ? `Shared by ${owner.name}` : 'Created by you'}</span>
@@ -146,7 +146,7 @@ type OutputActions = {
 }
 
 function OutputCard({
-  output, onOpen, onOpenWorkspace, onRename, onRemove,
+  app, onOpen, onOpenWorkspace, onRename, onRemove,
 }: { output: OutputSummary } & OutputActions) {
   return (
     <div
@@ -177,7 +177,7 @@ function OutputCard({
 }
 
 function OutputRow({
-  output, onOpen, onOpenWorkspace, onRename, onRemove,
+  app, onOpen, onOpenWorkspace, onRename, onRemove,
 }: { output: OutputSummary } & OutputActions) {
   return (
     <div
@@ -193,7 +193,7 @@ function OutputRow({
           {output.title || 'Untitled'}
         </p>
         <p className="mt-0.5 truncate text-[13px] md:text-[12px] leading-4 tracking-[-0.2px] text-kumo-subtle">
-          {formatOf(output.output).noun} · {output.workspaceTitle || 'Untitled workspace'}
+          {formatOf(output.output).noun} · {output.workspaceTitle || 'Untitled project'}
         </p>
       </div>
       {/* Fixed-width meta columns so rows line up like a table. */}
@@ -241,7 +241,7 @@ function FilterChip({
 
 // ─── scope ───────────────────────────────────────────────────────────────────
 
-// Whose outputs to show. Not a chip: type is the axis people browse by, so the chips are its
+// Whose apps to show. Not a chip: type is the axis people browse by, so the chips are its
 // alone. Ownership is a scope you set once, so it collapses into one control stating the current
 // answer.
 type OwnerFilter = 'all' | 'mine' | 'shared'
@@ -345,7 +345,7 @@ function RenameOutputDialog({
           <div className="flex items-start justify-between gap-4 border-b border-kumo-line px-5 py-4">
             <div className="min-w-0">
               <Dialog.Title className="text-[15px] font-medium leading-5 tracking-[-0.3px] text-kumo-default">
-                Rename output
+                Rename app
               </Dialog.Title>
               {/* Renames the output itself, unlike the sidebar's workspace rename, which relabels
                   only your own copy. */}
@@ -388,7 +388,7 @@ function RenameOutputDialog({
 type TypeFilter = 'all' | string
 
 function OutputsPage() {
-  useDocumentTitle('Outputs')
+  useDocumentTitle('Apps')
   const { authenticatedApi } = useAuthenticatedApi()
   const navigate = useNavigate()
   const toasts = useKumoToastManager()
@@ -425,7 +425,7 @@ function OutputsPage() {
     // visit.
     if (!loadedOnce.current) setLoading(true)
     setLoadError(false)
-    // Workspaces predating the outputs index are swept in a bounded batch per call, so keep asking
+    // Projects predating the apps index are swept in a bounded batch per call, so keep asking
     // until the server says it is done. Each round shows what has arrived so far, which is what
     // makes a large account fill in visibly while the page is open rather than over several
     // visits.
@@ -439,13 +439,13 @@ function OutputsPage() {
         if (!catchingUp) return
       }
     })().catch((err) => {
-      console.error('Failed to load outputs:', err)
+      console.error('Failed to load apps:', err)
       if (cancelled) return
       setLoading(false)
       // A failed *refresh* must not discard a page already showing something: it is still the last
       // good answer, and the next focus retries. The error state is for having nothing to show.
       if (loadedOnce.current) {
-        toastsRef.current.add({ title: "Couldn't refresh outputs", variant: 'error' })
+        toastsRef.current.add({ title: "Couldn't refresh apps", variant: 'error' })
       } else {
         setLoadError(true)
       }
@@ -493,8 +493,8 @@ function OutputsPage() {
         outputKey(output) === outputKey(current) ? { ...output, title } : output))
       setRenameOutput(null)
     } catch (err) {
-      console.error('Failed to rename output:', err)
-      toasts.add({ title: "Couldn't rename this output", variant: 'error' })
+      console.error('Failed to rename app:', err)
+      toasts.add({ title: "Couldn't rename this app", variant: 'error' })
     } finally {
       gadget?.[Symbol.dispose]()
       overseer?.[Symbol.dispose]()
@@ -515,8 +515,8 @@ function OutputsPage() {
       setOutputs((list) => list.filter((output) => outputKey(output) !== outputKey(current)))
       setRemoveOutput(null)
     } catch (err) {
-      console.error('Failed to remove output:', err)
-      toasts.add({ title: "Couldn't remove this output", variant: 'error' })
+      console.error('Failed to remove app:', err)
+      toasts.add({ title: "Couldn't remove this app", variant: 'error' })
     } finally {
       gadget?.[Symbol.dispose]()
       overseer?.[Symbol.dispose]()
@@ -526,7 +526,7 @@ function OutputsPage() {
 
   // Keep configured categories visible even before the user has made one. Apps is the universal
   // fallback; configured formats follow deployment order, then legacy/disabled types found in the
-  // actual list are appended so existing outputs never lose their filter.
+  // actual list are appended so existing apps never lose their filter.
   const presentTypes = useMemo(() => {
     let generic = formatOf()
     let byId = new Map<string, string>([[generic.id, generic.plural]])
@@ -564,7 +564,7 @@ function OutputsPage() {
   }
 
   // A control's own counts ignore that control but honour the others, so the numbers describe what
-  // clicking would actually give you. Without this the format chips still total every output while
+  // clicking would actually give you. Without this the format chips still total every app while
   // a scope is selected, and they don't add up to the list underneath.
   const inTypeScope = outputs.filter((o) => matchesOwner(o) && matchesSearch(o))
   const inOwnerScope = outputs.filter((o) => matchesType(o) && matchesSearch(o))
@@ -576,9 +576,9 @@ function OutputsPage() {
     <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-6 sm:px-10">
       <header className="flex items-end justify-between gap-4 px-3 pb-4 pt-10">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Outputs</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Apps</h1>
           <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
-            Everything your workspaces have produced, in one place.
+            Everything your projects have produced, in one place.
           </p>
         </div>
         <ViewToggle view={view} onChange={setView} />
@@ -623,7 +623,7 @@ function OutputsPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search outputs…"
+              placeholder="Search apps…"
               className="h-9 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[14px] md:text-[13px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] duration-150 ease-out focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
             />
           </div>
@@ -639,7 +639,7 @@ function OutputsPage() {
           </div>
         ) : loadError ? (
           <div className="py-12 text-center text-sm">
-            <p className="text-kumo-danger">Something went wrong loading your outputs.</p>
+            <p className="text-kumo-danger">Something went wrong loading your apps.</p>
             <button onClick={() => setReloadToken((n) => n + 1)} className="mt-1 text-kumo-brand underline">
               Try again
             </button>
@@ -651,12 +651,12 @@ function OutputsPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-kumo-default">
-                {isFiltered ? 'No outputs match' : 'No outputs yet'}
+                {isFiltered ? 'No apps match' : 'No apps yet'}
               </p>
               <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
                 {isFiltered
                   ? 'Try a different filter or search term.'
-                  : 'Anything your workspaces build will show up here.'}
+                  : 'Anything your projects build will show up here.'}
               </p>
             </div>
             {/* Offer the deployment's formats here rather than sending them to the home page. */}
@@ -700,7 +700,7 @@ function OutputsPage() {
           <>
             This permanently removes the output from “{removeOutput?.workspaceTitle}”
             {removeOutput?.owner ? ', for everyone with access to that workspace' : ''}. Other
-            outputs in that workspace stay available. This can’t be undone.
+            apps in that project stay available. This can’t be undone.
           </>
         }
         confirmLabel="Remove"

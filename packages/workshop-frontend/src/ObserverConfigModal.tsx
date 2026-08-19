@@ -18,7 +18,7 @@ import { WorkshopButton } from './components/WorkshopControls'
 import Avatar from './components/Avatar'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
 
-// Shown when a non-owner opens a shared Gadget that reads data through one or more gatekeeper
+// Shown when a non-owner opens a shared App that reads data through one or more gatekeeper
 // bindings, and they haven't yet chosen which of their own connected accounts to use for each one.
 // Each chosen account's owner is verified (server-side, via the gatekeeper) to actually have access
 // to the data the Gadget read — that's how we uphold the "observers can't see data they couldn't
@@ -319,9 +319,9 @@ export default function ObserverConfigModal({
         </Dialog.Title>
         <Text variant="secondary" size="sm" as="p">
           {isRetry
-            ? 'We couldn’t confirm your access to everything this workspace has read. Re-authenticate ' +
+            ? 'We couldn’t confirm your access to everything this project has read. Re-authenticate ' +
               'the account below, or choose a different one, then try again.'
-            : 'Before opening this workspace, confirm that your own accounts can access the connected ' +
+            : 'Before opening this project, confirm that your own accounts can access the connected ' +
               'data it uses.'}
         </Text>
 

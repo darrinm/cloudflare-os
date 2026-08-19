@@ -61,7 +61,7 @@ try {
 
 // Forward Escape key presses to the parent frame. The sandboxed iframe captures keydown events
 // when it has focus, so the parent never sees them. The workshop UI uses Escape to exit fullscreen
-// gadget mode, so forward it explicitly.
+// app mode, so forward it explicitly.
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     window.parent.postMessage({ type: 'escape' }, '*');
@@ -121,7 +121,7 @@ interface GadgetUIProps {
   isVisible?: boolean
   chatId?: number
   onConsoleLog?: (log: ConsoleLogEvent) => void
-  // Fires when the user presses Escape while the gadget iframe has focus. Sandboxed iframes
+  // Fires when the user presses Escape while the app iframe has focus. Sandboxed iframes
   // capture keydown events, so we forward Escape explicitly from inside the iframe.
   onIframeEscape?: () => void
 }
@@ -206,7 +206,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
   useEffect(() => {
     if (!rpcSessionRef.current) {
       if (handshakePendingRef.current !== null) {
-        reloadIframe(new Error('Gadget changed during RPC handshake.'))
+        reloadIframe(new Error('App changed during RPC handshake.'))
       }
       return
     }
@@ -225,7 +225,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
         const replacementStub = await Promise.race([
           replacementPromise,
           new Promise<never>((_, reject) => {
-            timeout = setTimeout(() => reject(new Error('Timed out reconnecting gadget UI.')), RECONNECT_TIMEOUT_MS)
+            timeout = setTimeout(() => reject(new Error('Timed out reconnecting app UI.')), RECONNECT_TIMEOUT_MS)
           }),
         ])
         if (!isCurrent()) return
@@ -339,7 +339,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
       if (event.data === 'handshake' && event.ports && event.ports[0]) {
         const port = event.ports[0]
         let gadgetStub: any = null
-        resetConnection(new Error('Gadget iframe reloaded.'))
+        resetConnection(new Error('App iframe reloaded.'))
         const generation = connectionGenerationRef.current
         handshakePendingRef.current = generation
         const isCurrent = () => !cancelled &&
@@ -372,7 +372,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
           port.close()
           if (!isCurrent()) return
           console.error('Failed to establish RPC connection:', caught)
-          setError('Failed to connect gadget to server')
+          setError('Failed to connect app to server')
         } finally {
           if (handshakePendingRef.current === generation) handshakePendingRef.current = null
         }
@@ -391,7 +391,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
     return () => {
       cancelled = true
       window.removeEventListener('message', handleMessage)
-      resetConnection(new Error('Gadget RPC session was closed.'))
+      resetConnection(new Error('App RPC session was closed.'))
     }
   }, [])
 
@@ -403,7 +403,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
         style={{ height }}
       >
         <Text variant="secondary">
-          Switch to this tab to load the Gadget UI
+          Switch to this tab to load the App UI
         </Text>
       </div>
     )
@@ -476,10 +476,10 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
           </div>
           <div className="space-y-1">
             <h2 className="text-[20px] leading-7 font-normal tracking-[-0.45px] text-kumo-default">
-              No gadget UI yet
+              No app UI yet
             </h2>
             <p className="text-[15px] leading-5 font-normal tracking-[-0.3px] text-kumo-subtle">
-              When the gadget builds one, it will appear here.
+              When the app builds one, it will appear here.
             </p>
           </div>
         </div>
@@ -500,7 +500,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
           border: 'none'
         }}
         sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-        title="Gadget UI"
+        title="App UI"
       />
     </div>
   )

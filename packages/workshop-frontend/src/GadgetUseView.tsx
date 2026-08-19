@@ -20,13 +20,13 @@ import GadgetExportMenu from './GadgetExportMenu'
 // The minimal, "use"-only experience: a shared top bar plus the gadget's deployed UI, and nothing
 // else. Collaborators with the "use" role may only render and interact with the gadget's mainline
 // UI (see UseOverseerInterface in the backend), so we deliberately omit the chat sidebar, the
-// Gadget/Code/Connections controls, workspace activity, and every editor-only control. The
+// App/Code/Connections controls, project activity, and every editor-only control. The
 // overseer and gadget passed in here are the restricted capabilities returned by openGadget() for
 // "use" sessions; calling anything outside getMetadata()/subscribeToMetadata()/subscribeToPresence()/
 // subscribeToWorkpieces()/getGadget() (and, on the gadget, getUiBundle()/connectToGadget()/exportPdf())
 // would throw.
 //
-// When the workspace has more than one gadget, a simple picker in the top bar switches between
+// When the project has more than one app, a simple picker in the top bar switches between
 // them (selection is owned by the parent, in the URL's `?w=` search param). Pending gadgets are
 // never listed: the restricted overseer's workpiece subscription withholds them.
 type Props = {
@@ -111,7 +111,7 @@ export default function GadgetUseView({
         <div className="flex items-center gap-2 flex-shrink-0">
           <GadgetExportMenu
             gadget={gadget}
-            gadgetTitle={gadgets.find(g => g.id === selectedGadgetId)?.title ?? 'Gadget'}
+            gadgetTitle={gadgets.find(g => g.id === selectedGadgetId)?.title ?? 'App'}
           />
           <GadgetPresence
             overseer={overseer}
@@ -133,7 +133,7 @@ export default function GadgetUseView({
           />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <p className="text-sm text-kumo-subtle">This workspace has no gadgets yet.</p>
+            <p className="text-sm text-kumo-subtle">This project has no apps yet.</p>
           </div>
         )}
       </div>

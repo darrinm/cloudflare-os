@@ -1,7 +1,7 @@
 import { List, GridFour } from '@phosphor-icons/react'
 
 /**
- * Shared grid/list segmented toggle. Used on Gatekeepers and Outputs so view-switching looks and
+ * Shared grid/list segmented toggle. Used on Gatekeepers and Apps so view-switching looks and
  * behaves identically across the app.
  */
 export default function ViewToggle({

@@ -74,7 +74,7 @@ class ConsoleLogSubscriberImpl extends RpcTarget implements ConsoleLogSubscriber
       method('server:', ...log.message)
     }
     // If the logs are not associated with any chat, deliver to the current chat. If they are
-    // associated with a chat, this implies that the logs come from a version of the gadget that
+    // associated with a chat, this implies that the logs come from a version of the app that
     // has proposed changes from that chat; only deliver if it matches the current chat.
     if (chatId === null || chatId === this.selectedChatIdRef.current) {
       this.logBufferRef.current.push(...logs.map(l => ({ ...l, source: 'server' as const })))
@@ -185,7 +185,7 @@ function PaneLabel({
   badge,
 }: {
   icon?: Icon
-  output?: BlueprintOutput
+  app?: BlueprintOutput
   title: string
   badge?: string
 }) {
@@ -211,9 +211,9 @@ function PaneLabel({
 // only just fits doesn't look clipped.
 const TAB_REVEAL_MARGIN = 8
 
-// The workpiece tabs in the pane header, shown when the workspace holds more than one. The Outputs
-// rail only shows when the pane is closed, so without these an open output gives no sign that the
-// workspace holds others.
+// The workpiece tabs in the pane header, shown when the project holds more than one. The Apps
+// rail only shows when the pane is closed, so without these an open app gives no sign that the
+// project holds others.
 function PaneWorkpieceTabs({
   gadgets,
   activeId,
@@ -357,8 +357,8 @@ function getInitialChatWidth() {
 }
 
 function workspaceViewStorageKey(gadgetId: string) {
-  // Per-workspace keys may outlive deleted workspaces, but each entry is tiny and bounded by
-  // workspaces created or opened.
+  // Per-project keys may outlive deleted projects, but each entry is tiny and bounded by
+  // projects created or opened.
   return `${WORKSPACE_VIEW_STORAGE_KEY_PREFIX}${gadgetId}`
 }
 
@@ -409,7 +409,7 @@ function NoGadgetPlaceholder({ height }: { height: string }) {
     <div className="flex items-center justify-center px-6 text-center" style={{ height }}>
       <div className="max-w-[360px]">
         <p className="m-0 text-[15px] leading-[22px] font-semibold tracking-[-0.3px] text-kumo-default">
-          No gadgets yet
+          No apps yet
         </p>
         <p className="mt-1.5 mb-0 text-[14px] md:text-[13px] leading-[19px] tracking-[-0.25px] text-kumo-subtle">
           Ask the agent in chat to build something, and it will appear here.
@@ -516,7 +516,7 @@ export default function GadgetEditor() {
     }
   }, [])
 
-  // Fullscreen gadget mode — renders the gadget iframe as an overlay covering the whole page.
+  // Fullscreen app mode — renders the app iframe as an overlay covering the whole page.
   // Tied to the URL hash (#fullscreen) so the state is bookmarkable and survives reloads.
   const [isGadgetFullscreen, setIsGadgetFullscreen] = useState(
     () => typeof window !== 'undefined' && window.location.hash === '#fullscreen'
@@ -614,13 +614,13 @@ export default function GadgetEditor() {
   const singleInitialChat = chatCount === 1 && hasChatZero
   const [userNavigatedToList, setUserNavigatedToList] = useState(false)
   // Note: raw `hasCode` (not `effectiveHasCode` below) is deliberate here, to avoid a dependency
-  // cycle: the effective value depends on the selected workpiece, whose pending-gadget visibility
+  // cycle: the effective value depends on the selected workpiece, whose pending-app visibility
   // depends on `effectiveSelectedChatId`, which depends on this pin. When no gadget is selected
   // yet, `hasCode` is null and the pin stays on -- the right behavior for new workspaces.
   const pinInitialChatSelection =
     singleInitialChat && hasCode !== true && !userNavigatedToList
 
-  // Before any code has been merged, a single-thread gadget conceptually only
+  // Before any code has been merged, a single-thread app conceptually only
   // has one useful conversation, so keep chat 0 selected even if the URL has
   // not caught up yet. As soon as merged code exists, dropping back to the chat
   // list should become possible.
@@ -635,7 +635,7 @@ export default function GadgetEditor() {
 
   // The format a workpiece was built as, for surfaces that only know an id (the chat's "created
   // app" cards, the tool-call rows). Read from the live workpiece list, so it stays correct as the
-  // workspace changes.
+  // project changes.
   //
   // Keyed on the formats, not on the workpiece list: this feeds buildChatDisplayEntries(), which
   // rebuilds the whole transcript when its inputs change, while `workpieces` is replaced by every
@@ -714,7 +714,7 @@ export default function GadgetEditor() {
   const selectedGadgetStub =
     gadget !== null && gadget.id === selectedGadgetId ? gadget.stub : null
   // Only the selected chat's streaming drives this editor. Everything downstream then narrows it
-  // further to the selected gadget.
+  // further to the selected app.
   const streamingActiveFile = streamingActiveFileState?.chatId === effectiveSelectedChatId
     ? streamingActiveFileState.file
     : undefined
@@ -756,7 +756,7 @@ export default function GadgetEditor() {
   }, [actionsById])
   const pendingActionsCount = pendingActions.length
 
-  // Whether the *selected* gadget has code. When no gadget is selected, the code interface is
+  // Whether the *selected* app has code. When no app is selected, the code interface is
   // unmounted and raw `hasCode` can't update, but a gadget-less workspace has no code to show.
   const effectiveHasCode = selectedFilesRoot !== undefined
     ? hasCode
@@ -856,7 +856,7 @@ export default function GadgetEditor() {
   }, [id])
 
   // Arriving with ?w= (from the Outputs page, say) has to show that workpiece, not whichever view
-  // this workspace was last left on -- selectedGadgetId already honours the parameter, but the
+  // this project was last left on -- selectedGadgetId already honours the parameter, but the
   // stored view is what decides whether the pane shows an app at all.
   //
   // Honoured once per workpiece so it doesn't reopen the pane when the user closes it while the
@@ -1062,7 +1062,7 @@ export default function GadgetEditor() {
 
   // ── resize handle ─────────────────────────────────────────────────────────────
   //
-  // Pointer capture keeps resizing reliable when dragging across the gadget iframe.
+  // Pointer capture keeps resizing reliable when dragging across the app iframe.
   const handleResizePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!showFullEditor) return
@@ -1130,7 +1130,7 @@ export default function GadgetEditor() {
     }
   }, [overseer])
 
-  // ── selected gadget stub ────────────────────────────────────────────────────────
+  // ── selected app stub ────────────────────────────────────────────────────────
   // Open a GadgetClient for the selected workpiece. getGadget() pipelines on the overseer stub,
   // so the stub is usable immediately with no extra round trip.
   useEffect(() => {
@@ -1143,8 +1143,8 @@ export default function GadgetEditor() {
     return () => { stub[Symbol.dispose]() }
   }, [overseer, selectedGadgetId])
 
-  // ── follow the agent across gadgets ─────────────────────────────────────────────
-  // When the agent starts editing a gadget other than the selected one, switch the picker to it,
+  // ── follow the agent across apps ─────────────────────────────────────────────
+  // When the agent starts editing a app other than the selected one, switch the picker to it,
   // unless the user picked a workpiece themselves during this turn.
   const userPickedWorkpieceThisTurnRef = useRef(false)
   useEffect(() => {
@@ -1167,7 +1167,7 @@ export default function GadgetEditor() {
   // ── workpiece picker handlers ───────────────────────────────────────────────────
   const handleSelectWorkpiece = useCallback((workpieceId: WorkpieceId) => {
     if (isAgentActive) userPickedWorkpieceThisTurnRef.current = true
-    // Picking a gadget is a deliberate move to its view, so the turn must not pull the tab back.
+    // Picking a app is a deliberate move to its view, so the turn must not pull the tab back.
     handleTabSelect('app')
     setWorkspaceVisibility('open', workpieceId)
     const pendingChatId = workpieces.get(workpieceId)?.chatId
@@ -1190,7 +1190,7 @@ export default function GadgetEditor() {
     try {
       await target.setTitle(title)
     } catch {
-      toasts.add({ title: 'Failed to rename gadget', variant: 'error' })
+      toasts.add({ title: 'Failed to rename app', variant: 'error' })
     } finally {
       target[Symbol.dispose]()
     }
@@ -1253,7 +1253,7 @@ export default function GadgetEditor() {
       await overseer.stub.deleteSelf()
       navigate({ to: '/' })
     } catch {
-      toasts.add({ title: 'Failed to delete workspace', variant: 'error' })
+      toasts.add({ title: 'Failed to delete project', variant: 'error' })
       setIsDeleting(false)
       setDeleteDialogOpen(false)
     }
@@ -1284,7 +1284,7 @@ export default function GadgetEditor() {
         </p>
         <div className="flex items-center gap-2">
           <WorkshopButton tone="secondary" onClick={handleGoToWorkspaces}>
-            Go to workspaces
+            Go to projects
           </WorkshopButton>
           <WorkshopButton tone="primary" onClick={retryOpen}>
             Try again
@@ -1302,7 +1302,7 @@ export default function GadgetEditor() {
       <div className="min-h-screen flex items-center justify-center bg-kumo-base">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-kumo-brand border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-kumo-subtle">Loading workspace…</p>
+          <p className="text-sm text-kumo-subtle">Loading project…</p>
         </div>
         {observerConfig && (
           <ObserverConfigModal
@@ -1372,7 +1372,7 @@ export default function GadgetEditor() {
                 onClick={handleSaveTitle}
                 disabled={!titleInput.trim()}
                 className="!h-7 !w-7 hover:text-kumo-brand disabled:opacity-30"
-                aria-label="Save workspace title"
+                aria-label="Save project title"
               >
                 <Check size={14} />
               </WorkshopIconButton>
@@ -1392,8 +1392,8 @@ export default function GadgetEditor() {
               <WorkshopIconButton
                 onClick={() => setIsEditingTitle(true)}
                 className="!h-7 !w-7 flex-shrink-0"
-                title="Rename workspace"
-                aria-label="Rename workspace"
+                title="Rename project"
+                aria-label="Rename project"
               >
                 <Pencil size={16} />
               </WorkshopIconButton>
@@ -1431,8 +1431,8 @@ export default function GadgetEditor() {
 
           <WorkshopIconButton
             onClick={() => setShareModalOpen(true)}
-            title="Share workspace"
-            aria-label="Share workspace"
+            title="Share project"
+            aria-label="Share project"
           >
             <ShareNetwork size={15} />
           </WorkshopIconButton>
@@ -1440,8 +1440,8 @@ export default function GadgetEditor() {
           <WorkshopIconButton
             onClick={() => setBlueprintModalOpen(true)}
             disabled={!selectedGadgetStub}
-            title="Blueprints"
-            aria-label="Blueprints"
+            title="Templates"
+            aria-label="Templates"
           >
             <Blueprint size={16} />
           </WorkshopIconButton>
@@ -1450,8 +1450,8 @@ export default function GadgetEditor() {
             <WorkshopIconButton
               danger
               onClick={() => setDeleteDialogOpen(true)}
-              title="Delete workspace"
-              aria-label="Delete workspace"
+              title="Delete project"
+              aria-label="Delete project"
             >
               <Trash size={16} />
             </WorkshopIconButton>
@@ -1608,7 +1608,7 @@ export default function GadgetEditor() {
               {!paneShowsActivity && !isNarrow && (
                 <GadgetExportMenu
                   gadget={selectedGadgetStub}
-                  gadgetTitle={selectedGadgetSummary?.title ?? 'Gadget'}
+                  gadgetTitle={selectedGadgetSummary?.title ?? 'App'}
                   chatId={previewChatId}
                   disabled={activeTab !== 'app' || previewMode}
                 />
@@ -1630,7 +1630,7 @@ export default function GadgetEditor() {
               )}
 
               <WorkshopIconButton
-                aria-label={paneShowsActivity ? 'Close activity' : 'Close gadget pane'}
+                aria-label={paneShowsActivity ? 'Close activity' : 'Close app pane'}
                 title="Close"
                 onClick={closeWorkspacePane}
               >
@@ -1655,7 +1655,7 @@ export default function GadgetEditor() {
               tabIndex={isGadgetFullscreen ? -1 : undefined}
               role={isGadgetFullscreen ? 'dialog' : undefined}
               aria-modal={isGadgetFullscreen ? true : undefined}
-              aria-label={isGadgetFullscreen ? 'Gadget full screen' : undefined}
+              aria-label={isGadgetFullscreen ? 'App full screen' : undefined}
               className={
                 activeTab !== 'app' || previewMode
                   ? 'hidden'
@@ -1792,7 +1792,7 @@ export default function GadgetEditor() {
 
       <DeleteConfirmationDialog
         open={deleteDialogOpen}
-        title="Delete workspace?"
+        title="Delete project?"
         description={<>This removes <span className="font-medium text-kumo-default">{metadata.title}</span>. You can&apos;t undo this.</>}
         isDeleting={isDeleting}
         onOpenChange={setDeleteDialogOpen}

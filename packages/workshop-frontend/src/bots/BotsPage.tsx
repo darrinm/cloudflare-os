@@ -118,7 +118,7 @@ function CreateHubPanel({
       <p className="text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
         Bots are persistent AI teammates: give each one a name, a role and standing instructions, then
         message it, put it on a schedule, or let it hand work to other Bots. Your Bots live in one
-        workspace created from the “Bots” blueprint.
+        project created from the “Bots” template.
       </p>
       {models === null ? <Loader /> : (
         <label className="flex w-full flex-col gap-1 text-left text-[13px] md:text-[12px] text-kumo-subtle">
@@ -188,7 +188,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     try {
       changed = (await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)).updated
     } catch (err) {
-      // Writing the code restarts the gadget, which kills this very call: that is the update
+      // Writing the code restarts the app, which kills this very call: that is the update
       // succeeding, not failing. Anything else is a real error.
       const msg = String(err instanceof Error ? err.message : err)
       if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
@@ -786,7 +786,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 
       <Section title={`Routines (${routines.length})`}>
         {routines.length === 0 && (
-          <div className="text-[13px] md:text-[12px] text-kumo-subtle">None. Ask the Bot (or the workspace agent) to schedule one; hooks are enabled in Connections.</div>
+          <div className="text-[13px] md:text-[12px] text-kumo-subtle">None. Ask the Bot (or the project agent) to schedule one; hooks are enabled in Connections.</div>
         )}
         <ul className="flex flex-col gap-2">
           {routines.map((r) => (

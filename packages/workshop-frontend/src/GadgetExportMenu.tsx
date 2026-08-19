@@ -32,7 +32,7 @@ export default function GadgetExportMenu({ gadget, gadgetTitle, chatId, disabled
         },
       )
     } catch (error) {
-      console.error('Failed to export Gadget as PDF:', error)
+      console.error('Failed to export App as PDF:', error)
       toasts.add({ title: 'Failed to export PDF', variant: 'error' })
     } finally {
       setExporting(false)

@@ -26,13 +26,13 @@ import SidebarUtilityStrip from './SidebarUtilityStrip'
 /**
  * The persistent left rail. Three pinned regions sandwich a single scrolling region of lists, so
  * the user can always reach Search, primary nav, and the bottom utility strip no matter how many
- * workspaces they have.
+ * projects they have.
  *
  * Layout (top → bottom):
  *   • brand row                            pinned
  *   • primary nav (Home, Workspaces, …)    pinned
  *   • workspace tools (⌘K search)          pinned
- *   • Favorites / Recent workspaces        SCROLLS
+ *   • Favorites / Recent projects        SCROLLS
  *   • utility strip (plug, avatar)         pinned
  */
 export default function Sidebar({
@@ -126,19 +126,19 @@ export default function Sidebar({
             />
             <SidebarItem
               to="/workspaces"
-              label="Workspaces"
+              label="Projects"
               icon={<SquaresFour size={14} weight="regular" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/blueprints"
-              label="Blueprints"
+              label="Templates"
               icon={<Blueprint size={14} weight="regular" />}
               collapsed={collapsed}
             />
             <SidebarItem
               to="/outputs"
-              label="Outputs"
+              label="Apps"
               icon={<Stack size={14} weight="regular" />}
               collapsed={collapsed}
             />

@@ -75,7 +75,7 @@ function BlueprintRow({
         <div className="flex items-center gap-2">
           {item.pinned && <Star size={12} weight="fill" className="flex-shrink-0 text-kumo-brand" />}
           <h3 className="truncate text-sm font-medium text-kumo-default">
-            {item.title || 'Untitled blueprint'}
+            {item.title || 'Untitled template'}
           </h3>
         </div>
         {item.description && (
@@ -146,7 +146,7 @@ export default function BlueprintList() {
         const ensure = (id: string): BlueprintItem => {
           let it = map.get(id)
           if (!it) {
-            it = { id, title: 'Untitled blueprint', description: '', recency: 0, pinned: false, inLibrary: false, isOwn: false }
+            it = { id, title: 'Untitled template', description: '', recency: 0, pinned: false, inLibrary: false, isOwn: false }
             map.set(id, it)
           }
           return it
@@ -171,7 +171,7 @@ export default function BlueprintList() {
         setLoading(false)
       })
       .catch((err) => {
-        console.error('Failed to load blueprints:', err)
+        console.error('Failed to load templates:', err)
         if (gen !== loadGenRef.current) return
         setLoading(false)
         setLoadError(true)
@@ -193,11 +193,11 @@ export default function BlueprintList() {
     setUploading(true)
     try {
       await authenticatedApi.importBlueprint(file.stream() as ReadableStream<Uint8Array>)
-      toasts.add({ title: 'Blueprint uploaded', variant: 'success' })
+      toasts.add({ title: 'Template uploaded', variant: 'success' })
       load()
     } catch (err) {
-      console.error('Failed to upload blueprint:', err)
-      toasts.add({ title: 'Failed to upload blueprint', variant: 'error' })
+      console.error('Failed to upload template:', err)
+      toasts.add({ title: 'Failed to upload template', variant: 'error' })
     } finally {
       setUploading(false)
     }
@@ -214,7 +214,7 @@ export default function BlueprintList() {
     try {
       await authenticatedApi.setBlueprintPinned(item.id, nextPinned)
     } catch (err) {
-      console.error('Failed to update blueprint pin:', err)
+      console.error('Failed to update template pin:', err)
       setItems((prev) => sortItems(prev.map((b) => (b.id === item.id ? { ...b, pinned: item.pinned } : b))))
       toasts.add({ title: 'Failed to update favorite', variant: 'error' })
     } finally {
@@ -234,8 +234,8 @@ export default function BlueprintList() {
       )
       toasts.add({ title: 'Removed from library', variant: 'success' })
     } catch (err) {
-      console.error('Failed to remove blueprint from library:', err)
-      toasts.add({ title: 'Failed to remove blueprint', variant: 'error' })
+      console.error('Failed to remove template from library:', err)
+      toasts.add({ title: 'Failed to remove template', variant: 'error' })
     }
   }
 
@@ -266,7 +266,7 @@ export default function BlueprintList() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search blueprints…"
+              placeholder="Search templates…"
               className="h-9 w-full rounded-lg border border-kumo-line bg-kumo-base pl-9 pr-4 text-[14px] md:text-[13px] tracking-[-0.25px] text-kumo-default placeholder:text-kumo-inactive transition-[border-color,box-shadow] duration-150 ease-out focus:border-kumo-ring focus:outline-none focus:ring-[3px] focus:ring-kumo-ring/15"
             />
           </div>
@@ -281,7 +281,7 @@ export default function BlueprintList() {
               type="button"
               onClick={() => uploadInputRef.current?.click()}
               disabled={uploading}
-              title="Upload a .gadget archive"
+              title="Upload a .app archive"
               className={ACTION_BUTTON}
             >
               <UploadSimple size={14} weight="bold" />
@@ -302,27 +302,27 @@ export default function BlueprintList() {
           </div>
         ) : loadError ? (
           <div className="py-12 text-center text-sm">
-            <p className="text-kumo-danger">Something went wrong loading your blueprints.</p>
+            <p className="text-kumo-danger">Something went wrong loading your templates.</p>
             <button type="button" onClick={load} className="mt-1 text-kumo-brand underline">Try again</button>
           </div>
         ) : filtered.length === 0 ? (
           search ? (
-            <div className="py-12 text-center text-sm text-kumo-inactive">No blueprints found</div>
+            <div className="py-12 text-center text-sm text-kumo-inactive">No templates found</div>
           ) : (
             <div className="flex flex-col items-center gap-3 px-3 py-16 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kumo-fill text-kumo-subtle">
                 <BlueprintIcon size={18} />
               </div>
               <div>
-                <p className="text-sm font-medium text-kumo-default">No blueprints yet</p>
+                <p className="text-sm font-medium text-kumo-default">No templates yet</p>
                 <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
-                  Publish a workspace as a blueprint, or add one from Explore.
+                  Publish a project as a template, or add one from Explore.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Link to="/explore" className={ACTION_BUTTON}>
                   <Compass size={14} />
-                  Explore blueprints
+                  Explore templates
                 </Link>
                 <button
                   type="button"
@@ -331,7 +331,7 @@ export default function BlueprintList() {
                   className={ACTION_BUTTON}
                 >
                   <UploadSimple size={14} weight="bold" />
-                  {uploading ? 'Uploading…' : 'Upload .gadget'}
+                  {uploading ? 'Uploading…' : 'Upload .app'}
                 </button>
               </div>
             </div>
