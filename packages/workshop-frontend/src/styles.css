@@ -826,3 +826,16 @@ html {
 body:has([role="dialog"], [role="alertdialog"]) .app-header {
   z-index: 0;
 }
+
+
+/* iOS Safari zooms the page when a focused field's text is smaller than 16px, and the reader has to
+   pinch back out on every tap. Below the md breakpoint (and on any touch screen) every text field
+   gets 16px; the utility classes are more specific, hence !important. Checkboxes and radios are
+   excluded -- they have no text and sizing them here would change the control. */
+@media (max-width: 767px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
