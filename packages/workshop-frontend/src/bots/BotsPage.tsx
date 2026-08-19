@@ -232,14 +232,24 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // The seeding core: pick the model, create and grant the example Bots, refresh the roster. Both
   // the "Add example Bots" button and the first run go through here, so how examples are made is
   // decided once.
-  const seedExamples = useCallback(async (): Promise<Bot[]> => {
+  // One seed at a time in this page: the button and the first run share this, and seedExampleBots
+  // checks for existing Bots once at its start, so two runs overlapping in one tab would each see
+  // an empty roster and make every Bot twice. (Two tabs remain possible; the hub's firstRun flag
+  // and the button's loading state make that a deliberate double-press, not an accident.)
+  const seedInFlight = useRef<Promise<Bot[]> | null>(null)
+  const seedExamples = useCallback(async (afterSeed?: (hub: HubStub, bots: Bot[]) => Promise<void>): Promise<Bot[]> => {
+    if (seedInFlight.current) return seedInFlight.current
     const hub = hubState.hub
     if (!hub || !overseer) return []
-    const models = await overseer.stub.listModels()
-    const modelId = getStoredSelectedModel(models)
-    const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding })
-    await hubState.refreshBots()
-    return bots
+    const run = (async () => {
+      const models = await overseer.stub.listModels()
+      const modelId = getStoredSelectedModel(models)
+      const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding, afterSeed })
+      await hubState.refreshBots()
+      return bots
+    })()
+    seedInFlight.current = run
+    try { return await run } finally { seedInFlight.current = null }
   }, [hubState, overseer, authenticatedApi, workpieceId])
 
   const addExamples = useCallback(async () => {
@@ -281,14 +291,20 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       const { seedExamples: seed, navigate: go, toasts: t } = latest.current
       try {
         setSeeding('Setting up your Bots…')
-        const bots = await seed()
-        await hub.setMeta('firstRun', new Date().toISOString())
-        const scout = bots.find((b) => b.name === 'Scout') ?? bots[0]
-        if (scout) {
+        let scoutId: string | null = null
+        // Everything after the Bots exist runs on a stub the seeder knows is live: every bind during
+        // seeding restarts the gadget, so the `hub` captured above is broken by the time seeding
+        // returns, and using it here failed the welcome every time -- the Bots were created, then a
+        // "couldn't finish" toast and no task for Scout.
+        await seed(async (live, bots) => {
+          await live.setMeta('firstRun', new Date().toISOString())
+          const scout = bots.find((b) => b.name === 'Scout') ?? bots[0]
+          if (!scout) return
           setSeeding('Asking Scout for something to look at…')
-          await hub.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
-          go({ to: '/bots/$id', params: { id: scout.id } })
-        }
+          await live.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
+          scoutId = scout.id
+        })
+        if (scoutId) go({ to: '/bots/$id', params: { id: scoutId } })
       } catch (err) {
         // A failed welcome must not wedge the page: the roster and the button still work.
         t.add({ title: 'Couldn\u2019t finish setting up', description: String(err instanceof Error ? err.message : err), variant: 'error' })

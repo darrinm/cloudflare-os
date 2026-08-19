@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatRelativeTime } from '../Activity'
 import type { Bot, BotEvent, HubApi, HubUpdate } from './types'
 
@@ -88,10 +88,15 @@ export function useFeed(hub: HubApi | null, lastUpdate: HubUpdate | null) {
   const [events, setEvents] = useState<BotEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const pendingRef = useRef<BotEvent[]>([])
   const load = useCallback(async () => {
     if (!hub) return
     try {
-      setEvents(await hub.activity(null, { limit: FEED_LIMIT }))
+      const snapshot = await hub.activity(null, { limit: FEED_LIMIT })
+      // Fold in anything that arrived while the snapshot was in flight, dropping what it already has.
+      const held = pendingRef.current.splice(0)
+      const seen = new Set(snapshot.map((e) => e.id))
+      setEvents([...snapshot, ...held.filter((e) => !seen.has(e.id))].slice(-FEED_LIMIT))
       setError(null)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
@@ -103,7 +108,9 @@ export function useFeed(hub: HubApi | null, lastUpdate: HubUpdate | null) {
     if (lastUpdate?.type !== 'event') return
     const incoming = lastUpdate.event
     setEvents((prev) => {
-      if (!prev) return prev
+      // Before the first snapshot lands, events are held rather than dropped: the snapshot may
+      // have been computed before this one was stored, and a dropped event never comes back.
+      if (!prev) { pendingRef.current.push(incoming); return prev }
       if (prev.some((e) => e.id === incoming.id)) return prev
       return [...prev, incoming].slice(-FEED_LIMIT)
     })
@@ -122,6 +129,10 @@ export function Feed({ bots, events, error, onOpenBot }: {
 
   const lines = useMemo(() => {
     const all = (events ?? [])
+      // A Bot that no longer exists cannot need anything, and its line would otherwise sit pinned
+      // at the top as "A Bot needs you" with a tap that opens nothing -- the audit log keeps the
+      // event, but the feed is for what is live.
+      .filter((e) => !e.botId || names.has(e.botId) || e.type !== 'needsUser')
       .map((e) => summarise(e, e.botId ? names.get(e.botId) ?? null : null))
       .filter((l): l is FeedLine => l !== null)
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
