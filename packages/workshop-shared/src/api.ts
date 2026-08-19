@@ -502,7 +502,7 @@ export interface AuthenticatedApi extends RpcTarget {
              configureObservers?: RpcStub<ObserverConfigCallback>): Promise<RpcStub<Overseer>>;
 
   /**
-   * Create a new workspace. It will start out titled "Untitled Workspace".
+   * Create a new project. It will start out titled "Untitled Project".
    *
    * Note: A gadget is considered "provisional" until it has some sort of activity, such as a
    *   chat message or code edit. Provisional gadgets do not appear on the home page and will be

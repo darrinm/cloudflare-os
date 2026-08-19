@@ -99,7 +99,7 @@ function OutputMenu({
             <ArrowSquareOut size={13} className="mr-2" /> Open
           </DropdownMenu.Item>
           <DropdownMenu.Item onClick={onOpenWorkspace} className={MENU_ITEM}>
-            <Cube size={13} className="mr-2" /> Open workspace
+            <Cube size={13} className="mr-2" /> Open project
           </DropdownMenu.Item>
           {onRename && (
             <DropdownMenu.Item onClick={onRename} className={MENU_ITEM}>
@@ -121,7 +121,7 @@ function OutputMenu({
 function subtitle(output: OutputSummary): string {
   const parts = [output.workspaceTitle || 'Untitled project']
   if (output.owner) parts.push(`Shared by ${output.owner.name}`)
-  parts.push(`Workspace active ${formatRelativeTime(output.lastActive)}`)
+  parts.push(`Project active ${formatRelativeTime(output.lastActive)}`)
   return parts.join(' · ')
 }
 
@@ -201,7 +201,7 @@ function OutputRow({
         <OutputProvenance owner={output.owner} />
         <span className="flex w-40 items-center justify-end gap-1 whitespace-nowrap">
           <Clock size={10} />
-          Workspace active {formatRelativeTime(output.lastActive)}
+          Project active {formatRelativeTime(output.lastActive)}
         </span>
       </div>
       <OutputMenu onOpen={onOpen} onOpenWorkspace={onOpenWorkspace}
@@ -578,7 +578,7 @@ function OutputsPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Apps</h1>
           <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
-            Everything your workspaces have produced, in one place.
+            Everything your projects have produced, in one place.
           </p>
         </div>
         <ViewToggle view={view} onChange={setView} />

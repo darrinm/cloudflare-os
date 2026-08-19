@@ -723,7 +723,7 @@ function ConnectorsPage() {
               Tools
             </h1>
             <p className="mt-2 text-[15px] md:text-[14px] leading-[20px] font-normal tracking-[-0.25px] text-kumo-subtle">
-              Add the apps and accounts your workspaces can use. Connect once, then wire
+              Add the apps and accounts your projects can use. Connect once, then wire
               them into anything you build.
             </p>
           </div>
@@ -750,7 +750,7 @@ function ConnectorsPage() {
         {loadError && (
           <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-6 text-center">
             <p className="m-0 text-[14px] md:text-[13px] leading-[18px] font-medium tracking-[-0.25px] text-kumo-danger">
-              Something went wrong loading your gatekeepers.
+              Something went wrong loading your tools.
             </p>
             <p className="mt-1 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
               Check your connection and try refreshing the page.
@@ -760,7 +760,7 @@ function ConnectorsPage() {
 
         {initialLoading && (
           <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-8 text-center text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-            Loading gatekeepers...
+            Loading tools...
           </div>
         )}
 

@@ -479,7 +479,7 @@ function GadgetUISession({ gadget, height, reloadTrigger, isVisible = true, chat
               No app UI yet
             </h2>
             <p className="text-[15px] leading-5 font-normal tracking-[-0.3px] text-kumo-subtle">
-              When the gadget builds one, it will appear here.
+              When the app builds one, it will appear here.
             </p>
           </div>
         </div>

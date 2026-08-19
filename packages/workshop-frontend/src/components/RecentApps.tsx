@@ -119,7 +119,7 @@ export default function RecentApps() {
     return (
       <section className="w-full max-w-2xl mx-auto">
         <div className="text-center py-8 text-kumo-inactive text-sm">
-          No workspaces yet. Create your first one above!
+          No projects yet. Create your first one above!
         </div>
       </section>
     )

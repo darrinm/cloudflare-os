@@ -255,7 +255,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
                             Delete {gk.resourceTitle}?
                           </p>
                           <p className="truncate text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
-                            The binding <span className="font-mono">{gk.name}</span> will be removed from this gadget.
+                            The binding <span className="font-mono">{gk.name}</span> will be removed from this app.
                           </p>
                         </div>
                         <WorkshopButton
@@ -366,7 +366,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
                 Hooks
               </h2>
               <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-                Callbacks that let connected resources wake up this gadget when events happen.
+                Callbacks that let connected resources wake up this app when events happen.
               </p>
             </div>
 

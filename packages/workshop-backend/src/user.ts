@@ -1441,15 +1441,30 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
   async listProvidedAccounts(): Promise<ProvidedAccountInfo[]> {
     await this.#ensureAutoProvisionedAccounts();
     let config = await readAdminConfig(this.env);
-    let result: ProvidedAccountInfo[] = [];
+    let candidates: ConnectedAccountRecord[] = [];
     for (let rec of this.#connectedAccountRecords()) {
       if (!rec.description.singleton && !rec.description.providesUi) continue;
       // A "disabled" ambient gatekeeper's account stays dormant: don't surface its singleton capsule
       // or management UI. (Its data is preserved, so re-enabling restores it.)
       if (rec.autoProvisioned && ambientGatekeeperMode(config, rec.vendorId) === "disabled") continue;
-      result.push({ accountId: rec.id, vendorId: rec.vendorId, description: rec.description });
+      candidates.push(rec);
     }
-    return result;
+    // The description was captured when the account was provisioned, and a vendor that later renames
+    // its app (or changes its icon) never reached anyone who already had one: the nav kept saying
+    // "Sandbox" after the app became "Computer". Refresh from the live account, in parallel, and
+    // keep the stored copy when a vendor is unreachable so a flaky one cannot blank the nav.
+    let refreshed = await Promise.all(candidates.map(async (rec) => {
+      try {
+        let description = await (rec.account as unknown as { describe(): Promise<AccountDescription> }).describe();
+        if (JSON.stringify(description) !== JSON.stringify(rec.description)) {
+          this.storage.connectedAccounts.put({ ...rec, description });
+        }
+        return description;
+      } catch {
+        return rec.description;
+      }
+    }));
+    return candidates.map((rec, i) => ({ accountId: rec.id, vendorId: rec.vendorId, description: refreshed[i] }));
   }
 
   /**
