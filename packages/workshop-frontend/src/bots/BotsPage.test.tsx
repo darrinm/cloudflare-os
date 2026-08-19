@@ -16,6 +16,9 @@ const testState = vi.hoisted(() => {
     listOutputs,
     authenticatedApi: { listModels, listOutputs, newGadgetFromBlueprint: vi.fn<() => unknown>() },
     workspaceOpen: { overseer: null as null | { stub: unknown }, error: null, retry: vi.fn<() => void>() },
+    seedExampleBots: vi.fn<() => Promise<Array<{ id: string; name: string }>>>(async () => [
+      { id: "scout1", name: "Scout" }, { id: "fixer1", name: "Fixer" },
+    ]),
     hub: {
       hub: null as unknown,
       bots: [] as unknown[],
@@ -44,6 +47,10 @@ vi.mock("../ChatInterface", () => ({ default: () => <div data-testid="chat" /> }
 vi.mock("../useWorkspaceOpen", () => ({ useWorkspaceOpen: () => testState.workspaceOpen }));
 vi.mock("./useBotsHub", () => ({ useBotsHub: () => testState.hub }));
 vi.mock("../useActions", () => ({ useActions: () => ({ actionsById: new Map(), isReady: true }) }));
+vi.mock("./examples", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./examples")>()),
+  seedExampleBots: testState.seedExampleBots,
+}));
 
 import { BotsPageContent } from "./BotsPage";
 
@@ -89,6 +96,59 @@ describe("BotsPageContent", () => {
     expect(testState.listOutputs).toHaveBeenCalled();
     const select = container!.querySelector("select");
     expect(select?.textContent).toContain("Model One");
+  });
+
+  it("welcomes a new hub with Bots and one real result, exactly once", async () => {
+    testState.listOutputs.mockResolvedValue({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    const setMeta = vi.fn<(k: string, v: string) => Promise<string>>(async (_k, v) => v);
+    const send = vi.fn<() => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 1, delivered: true }));
+    testState.hub.hub = { getMeta: async () => null, setMeta, send, activity: async () => [] };
+    testState.hub.bots = [];
+
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
+
+    expect(testState.seedExampleBots).toHaveBeenCalledTimes(1);
+    // The welcome is recorded on the hub, not in this browser, so the same person's phone agrees.
+    expect(setMeta).toHaveBeenCalledWith("firstRun", expect.any(String));
+    // Scout runs something real: reading the web needs no approval, so an answer lands unaided.
+    expect(send.mock.calls[0]?.[0]).toBe("scout1");
+    expect(String(send.mock.calls[0]?.[1])).toMatch(/news\.ycombinator\.com/);
+  });
+
+  it("leaves a hub alone once it has been welcomed", async () => {
+    testState.listOutputs.mockResolvedValue({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    // An emptied roster is a choice, not a fresh hub: the flag is what distinguishes them.
+    testState.hub.hub = { getMeta: async () => "2026-08-19T00:00:00.000Z", setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    testState.hub.bots = [];
+
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
+
+    expect(testState.seedExampleBots).not.toHaveBeenCalled();
+  });
+
+  it("leaves a hub too old to have flags to the button", async () => {
+    testState.listOutputs.mockResolvedValue({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    testState.hub.hub = { getMeta: async () => { throw new Error("getMeta is not a function"); }, setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    testState.hub.bots = [];
+
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
+
+    expect(testState.seedExampleBots).not.toHaveBeenCalled();
   });
 
   it("renders the roster and the selected Bot's conversation once the hub is found", async () => {

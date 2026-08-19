@@ -119,6 +119,9 @@ export type HubSubscriberApi = { update(u: HubUpdate): void }
  */
 export interface HubApi {
   getInfo(): Promise<HubInfo>
+  /** Durable flags belonging to the hub rather than to one browser (hub revision 7+). */
+  getMeta(key: string): Promise<string | null>
+  setMeta(key: string, value: string | null): Promise<string | null>
   listBots(): Promise<Bot[]>
   getBot(id: string): Promise<Bot | null>
   createBot(input: { name: string; role?: string; instructions?: string; avatar?: string; color?: string }): Promise<Bot>
