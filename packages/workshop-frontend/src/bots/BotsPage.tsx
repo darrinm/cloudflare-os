@@ -12,6 +12,7 @@ import type {
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
+import Feed from './Feed'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
 import { useDocumentTitle } from '../useDocumentTitle'
@@ -168,6 +169,9 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [showSkills, setShowSkills] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [seeding, setSeeding] = useState<string | null>(null)
+  // What you see with nothing selected. The feed answers "what happened?", which is the daily
+  // question; the roster answers "who have I got?", which you ask far less often.
+  const [view, setView] = useState<'feed' | 'roster'>('feed')
   // "Show work": the conversation is a teammate view by default (what the Bot says, approvals,
   // errors); the code runs / callbacks / gadget calls are one tap away, remembered per browser.
   const [showWork, setShowWork] = useState<boolean>(() => { try { return localStorage.getItem('bots:showWork') === '1' } catch { return false } })
@@ -294,7 +298,23 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const roster = (
     <aside className={`${anySelected ? 'hidden md:flex' : 'flex'} h-full w-full flex-col border-r border-kumo-line bg-kumo-base md:w-64 md:flex-none`}>
       <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
-        <h1 className="text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
+        <div className="flex min-w-0 items-center gap-1">
+          <h1 className="hidden md:block text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
+          <div className="flex md:hidden items-center gap-1" role="tablist" aria-label="View">
+            {(['feed', 'roster'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
+              >
+                {v === 'feed' ? 'Activity' : 'Bots'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-1">
           <WorkshopIconButton onClick={() => setShowSkills(true)} title="Skills" aria-label="Skills" className="!h-8 !w-8" disabled={!hubState.hub}>
             <Lightning size={14} />
@@ -309,7 +329,11 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           No agent spawner is bound to the hub yet, so Bots can’t run. Give a Bot grants (Details → Grants) or assign AGENT_SPAWNER in the workspace’s Connections.
         </div>
       )}
-      <nav className="min-h-0 flex-1 overflow-y-auto" aria-label="Bots">
+      <div className={`min-h-0 flex-1 overflow-y-auto md:hidden ${view === 'feed' ? 'flex flex-col' : 'hidden'}`}>
+        <Feed hub={hubState.hub} bots={hubState.bots} version={hubState.version} lastUpdate={hubState.lastUpdate}
+          onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
+      </div>
+      <nav className={`min-h-0 flex-1 overflow-y-auto ${view === 'feed' ? 'hidden md:block' : ''}`} aria-label="Bots">
         {hubState.error && <div className="p-3 text-[13px] md:text-[12px] text-kumo-danger">{hubState.error}</div>}
         {!hubState.hub && !hubState.error && (
           // Connecting to the hub: a quiet placeholder, not the empty state (which would flash on
@@ -420,8 +444,12 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           onDeleted={() => navigate({ to: '/bots' })}
         />
       ) : (
-        <section className="hidden min-w-0 flex-1 items-center justify-center p-8 text-center text-[14px] md:text-[13px] text-kumo-subtle md:flex">
-          {!hubState.hub ? '' : hubState.bots.length ? 'Pick a Bot to open its conversation.' : 'Create your first Bot with the + button.'}
+        <section className="hidden min-w-0 flex-1 flex-col md:flex" aria-label="Activity">
+          <div className="flex h-12 flex-none items-center border-b border-kumo-line px-4 text-[14px] md:text-[13px] font-medium text-kumo-default">
+            What your Bots have been doing
+          </div>
+          <Feed hub={hubState.hub} bots={hubState.bots} version={hubState.version} lastUpdate={hubState.lastUpdate}
+            onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
         </section>
       )}
       <NewBotDialog
