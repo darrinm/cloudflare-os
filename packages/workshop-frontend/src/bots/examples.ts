@@ -93,6 +93,12 @@ type SeedDeps = {
   hubWorkpieceId: number
   modelId: string | null
   onProgress?: (line: string) => void
+  /**
+   * Runs on a live hub stub after the Bots exist. Binding restarts the gadget and breaks every
+   * stub taken before it, so a caller that captured `hub` up front cannot safely use it once
+   * seeding returns; this is the only place that can still reach the hub reliably.
+   */
+  afterSeed?: (hub: HubStub, bots: Bot[]) => Promise<void>
 }
 
 type GadgetClient = ReturnType<RpcStub<Overseer>['getGadget']>
@@ -214,7 +220,9 @@ export async function seedExampleBots(deps: SeedDeps): Promise<Bot[]> {
       await onHub((h) => h.newRoutine(routineBot.id, { title: EXAMPLE_ROUTINE.title, instructions: EXAMPLE_ROUTINE.instructions, schedule: EXAMPLE_ROUTINE.schedule }))
     }
     onProgress?.('skills, group and routine ready')
-    return EXAMPLE_BOTS.map((d) => bots[d.key])
+    const made = EXAMPLE_BOTS.map((d) => bots[d.key])
+    if (deps.afterSeed) await onHub((h) => deps.afterSeed!(h, made))
+    return made
   } finally {
     try { ownHub?.[Symbol.dispose]() } catch { /* ignore */ }
     client[Symbol.dispose]()

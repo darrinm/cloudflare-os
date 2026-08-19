@@ -16,9 +16,13 @@ const testState = vi.hoisted(() => {
     listOutputs,
     authenticatedApi: { listModels, listOutputs, newGadgetFromBlueprint: vi.fn<() => unknown>() },
     workspaceOpen: { overseer: null as null | { stub: unknown }, error: null, retry: vi.fn<() => void>() },
-    seedExampleBots: vi.fn<() => Promise<Array<{ id: string; name: string }>>>(async () => [
-      { id: "scout1", name: "Scout" }, { id: "fixer1", name: "Fixer" },
-    ]),
+    liveHub: { setMeta: vi.fn<(k: string, v: string) => Promise<string>>(async (_k, v) => v), send: vi.fn<(botId: string, text: string) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 1, delivered: true })) },
+    seedExampleBots: vi.fn<(deps: { afterSeed?: (hub: unknown, bots: Array<{ id: string; name: string }>) => Promise<void> }) => Promise<Array<{ id: string; name: string }>>>(async (deps) => {
+      const bots = [{ id: "scout1", name: "Scout" }, { id: "fixer1", name: "Fixer" }];
+      // Like the real seeder: anything after the Bots exist runs on a stub known to be live.
+      if (deps.afterSeed) await deps.afterSeed(testState.liveHub, bots);
+      return bots;
+    }),
     hub: {
       hub: null as unknown,
       bots: [] as unknown[],
@@ -104,20 +108,27 @@ describe("BotsPageContent", () => {
       catchingUp: false,
     });
     testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
-    const setMeta = vi.fn<(k: string, v: string) => Promise<string>>(async (_k, v) => v);
-    const send = vi.fn<(botId: string, text: string) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 1, delivered: true }));
-    testState.hub.hub = { getMeta: async () => null, setMeta, send, activity: async () => [] };
+    // The page's own stub. Seeding binds resources, which restarts the gadget and breaks this very
+    // stub, so the welcome must NOT use it: it asserts nothing was called on it after seeding.
+    const staleSetMeta = vi.fn<(k: string, v: string) => Promise<string>>(async () => { throw new Error("Gadget restarted due to code update"); });
+    const staleSend = vi.fn<(botId: string, text: string) => Promise<{ eventId: number; delivered: boolean }>>(async () => { throw new Error("Gadget restarted due to code update"); });
+    testState.hub.hub = { getMeta: async () => null, setMeta: staleSetMeta, send: staleSend, activity: async () => [] };
     testState.hub.bots = [];
 
     await render(null);
     await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
 
     expect(testState.seedExampleBots).toHaveBeenCalledTimes(1);
-    // The welcome is recorded on the hub, not in this browser, so the same person's phone agrees.
-    expect(setMeta).toHaveBeenCalledWith("firstRun", expect.any(String));
+    // The welcome is recorded on the hub (not in this browser, so the same person's phone agrees),
+    // and on the LIVE stub the seeder hands back -- the captured one is broken by then.
+    expect(testState.liveHub.setMeta).toHaveBeenCalledWith("firstRun", expect.any(String));
+    expect(staleSetMeta).not.toHaveBeenCalled();
     // Scout runs something real: reading the web needs no approval, so an answer lands unaided.
-    expect(send.mock.calls[0]?.[0]).toBe("scout1");
-    expect(String(send.mock.calls[0]?.[1])).toMatch(/news\.ycombinator\.com/);
+    expect(testState.liveHub.send.mock.calls[0]?.[0]).toBe("scout1");
+    expect(String(testState.liveHub.send.mock.calls[0]?.[1])).toMatch(/news\.ycombinator\.com/);
+    expect(staleSend).not.toHaveBeenCalled();
+    // And no false "couldn't finish" toast: the Bots were created and the welcome went out.
+    expect(testState.addToast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "error" }));
   });
 
   it("leaves a hub alone once it has been welcomed", async () => {
