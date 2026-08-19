@@ -256,7 +256,7 @@ export default function FileSidebar({
           }
         }}
         title="Delete file?"
-        description={<>This removes <span className="font-mono text-kumo-default">{deletingFile}</span> from the gadget. You can&apos;t undo this.</>}
+        description={<>This removes <span className="font-mono text-kumo-default">{deletingFile}</span> from the app. You can&apos;t undo this.</>}
         onConfirm={confirmDelete}
       />
     </div>

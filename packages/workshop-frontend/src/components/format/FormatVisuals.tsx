@@ -1,4 +1,4 @@
-// The ways an output format is drawn:
+// The ways an app format is drawn:
 //
 //   <FormatGlyph>     bare icon             workspace tab, menus, pickers, command palette
 //   <FormatMiniature> icon on a small tile  chat cards
@@ -6,7 +6,7 @@
 //   <FormatThumbnail> wireframe drawing     Outputs grid cards
 //   <FormatPreview>   wireframe drawing     admin Formats panel
 //
-// The wireframes are abstract: unlike a screenshot they look right before the output has any
+// The wireframes are abstract: unlike a screenshot they look right before the app has any
 // content, which is when the user is deciding what to make.
 
 import type { BlueprintOutput } from '@gadgets/workshop-shared/api'
@@ -22,7 +22,7 @@ export function FormatGlyph({
   className,
   weight,
 }: {
-  output?: BlueprintOutput
+  app?: BlueprintOutput
   size?: keyof typeof GLYPH_SIZES
   className?: string
   weight?: 'regular' | 'fill'
@@ -45,7 +45,7 @@ export function FormatTile({
   size = 'md',
   className = '',
 }: {
-  output?: BlueprintOutput
+  app?: BlueprintOutput
   size?: keyof typeof TILE_SIZES
   className?: string
 }) {
@@ -221,7 +221,7 @@ export function FormatThumbnail({
   output,
   className = '',
 }: {
-  output?: BlueprintOutput
+  app?: BlueprintOutput
   className?: string
 }) {
   const Wireframe = WIREFRAMES[wireframeOf(output)]
@@ -237,7 +237,7 @@ export function FormatThumbnail({
 }
 
 // The size the wireframes are drawn for: bar heights, gaps and insets are in pixels, so they only
-// read correctly at roughly the size of an Outputs card. Anything smaller scales the whole
+// read correctly at roughly the size of an Apps card. Anything smaller scales the whole
 // drawing.
 const PREVIEW_WIDTH = 200
 const PREVIEW_HEIGHT = 150

@@ -4,7 +4,7 @@
 // listed first for the agent. Promoting changes four surfaces the admin can't see from here, so
 // the panel previews the buttons users will get and the literal line the model will read.
 //
-// Presentation is never authored from scratch: a promoted blueprint arrives with its own noun,
+// Presentation is never authored from scratch: a promoted template arrives with its own noun,
 // plural and icon, and clearing an override falls back to it.
 
 import { useEffect, useMemo, useState } from 'react'
@@ -60,7 +60,7 @@ export default function AdminFormatsPanel({
         }
         setCandidates([...byId.values()])
       })
-      .catch((err) => console.error('Failed to list promotable blueprints:', err))
+      .catch((err) => console.error('Failed to list promotable templates:', err))
     return () => {
       cancelled = true
     }
@@ -132,7 +132,7 @@ export default function AdminFormatsPanel({
           render={
             <Button variant="secondary" disabled={busy || available.length === 0}>
               <Plus size={14} className="mr-1.5" />
-              Promote a blueprint
+              Promote a template
             </Button>
           }
         />
@@ -149,7 +149,7 @@ export default function AdminFormatsPanel({
               <FormatGlyph output={candidate.declared} size="lg" className="shrink-0 text-kumo-subtle" />
               <span className="min-w-0">
                 <span className="block truncate text-[14px] md:text-[13px] text-kumo-default">
-                  {candidate.title || 'Untitled blueprint'}
+                  {candidate.title || 'Untitled template'}
                 </span>
                 <span className="block truncate text-[12px] md:text-[11px] text-kumo-inactive">
                   {candidate.declared
@@ -174,7 +174,7 @@ function PreviewStrip({ formats }: { formats: AdminFormat[] }) {
       </p>
       {formats.length === 0 ? (
         <p className="text-[14px] md:text-[13px] italic text-kumo-inactive">
-          Nothing yet. People will only see “New workspace”.
+          Nothing yet. People will only see “New project”.
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
@@ -190,7 +190,7 @@ function PreviewStrip({ formats }: { formats: AdminFormat[] }) {
         </div>
       )}
       <p className="mt-2.5 text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
-        In the composer’s + menu, the command palette, and on an empty Outputs page, in this order.
+        In the composer’s + menu, the command palette, and on an empty Apps page, in this order.
       </p>
     </div>
   )
@@ -201,7 +201,7 @@ function EmptyState() {
     <div className="mb-5 rounded-lg border border-kumo-line bg-kumo-base px-4 py-5 text-center">
       <p className="text-sm font-medium text-kumo-default">No standard formats yet</p>
       <p className="mx-auto mt-1 max-w-md text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
-        Promote a blueprint to offer it by name wherever people start something, and to have the
+        Promote a template to offer it by name wherever people start something, and to have the
         agent prefer it over building the same thing from scratch.
       </p>
     </div>
@@ -243,7 +243,7 @@ function FormatRow({
           {format.missing ? (
             <span
               className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-kumo-tint text-kumo-danger"
-              title="This blueprint no longer exists"
+              title="This template no longer exists"
             >
               <Warning size={16} />
             </span>
@@ -264,9 +264,9 @@ function FormatRow({
             </span>
             <span className="mt-0.5 block truncate text-xs text-kumo-subtle">
               {format.missing
-                ? 'Blueprint deleted. Remove this entry.'
+                ? 'Template deleted. Remove this entry.'
                 : needsNaming
-                ? 'This blueprint doesn’t declare what it produces. Give it a name to offer it.'
+                ? 'This template doesn’t declare what it produces. Give it a name to offer it.'
                 : `${format.blueprintTitle} · shown under ${format.output!.plural} on Outputs`}
             </span>
           </span>
@@ -302,7 +302,7 @@ function FormatRow({
         <div className="flex flex-col gap-4 border-t border-kumo-line px-3 py-4">
           {format.missing ? (
             <p className="text-[14px] md:text-[13px] text-kumo-subtle">
-              The blueprint behind this format was deleted, so nobody is offered it. Remove the
+              The template behind this format was deleted, so nobody is offered it. Remove the
               entry.
             </p>
           ) : (
@@ -310,12 +310,12 @@ function FormatRow({
               <Fieldset
                 title="How it’s presented"
                 detail={
-                  'Leave a field empty to use the name the blueprint declares. ' +
+                  'Leave a field empty to use the name the template declares. ' +
                   (format.bundled
-                    ? 'A bundled blueprint can change its declared names when this deployment ' +
+                    ? 'A bundled template can change its declared names when this deployment ' +
                       'updates; a value you type here stays as you set it. '
                     : '') +
-                  'Applies to outputs made from now on — existing ones keep the name they were ' +
+                  'Applies to apps made from now on — existing ones keep the name they were ' +
                   'made with.'
                 }
               >
@@ -324,7 +324,7 @@ function FormatRow({
                     {/* Fields read from `output` when the presentation resolves, and otherwise
                         from whatever has been filled in so far. `output` is all-or-nothing -- it
                         is undefined until noun, plural and icon are all present -- so reading only
-                        from it made an admin naming an undeclared blueprint watch each value they
+                        from it made an admin naming an undeclared template watch each value they
                         saved vanish from the form. */}
                     <IconPicker
                       icon={format.output?.icon ?? format.overrides?.icon}
@@ -354,7 +354,7 @@ function FormatRow({
                   <figure className="hidden shrink-0 flex-col items-center gap-1.5 sm:flex">
                     <FormatPreview output={format.output} width={112} />
                     <figcaption className="text-[11px] md:text-[10px] uppercase tracking-[0.06em] text-kumo-inactive">
-                      On Outputs
+                      On Apps
                     </figcaption>
                   </figure>
                 </div>
@@ -399,7 +399,7 @@ function FormatRow({
               <div className="flex items-end justify-between gap-4 border-t border-kumo-line pt-3">
                 <p className="text-[13px] md:text-[12px] leading-4 text-kumo-subtle">
                   {(format.enabled
-                    ? 'Turning this off removes it from the menus above and from the agent’s catalog. Outputs already made from it keep working. '
+                    ? 'Turning this off removes it from the menus above and from the agent’s catalog. Apps already made from it keep working. '
                     : 'Currently hidden from the menus above and from the agent’s catalog. ') +
                     (format.bundled
                       ? 'It ships with the deployment, so it stays in this list either way.'
@@ -459,9 +459,9 @@ function Badge({ children, tone = 'neutral' }: { children: React.ReactNode; tone
   )
 }
 
-// A field that either overrides the blueprint or defers to it. Committing an empty value, or one
+// A field that either overrides the template or defers to it. Committing an empty value, or one
 // equal to the blueprint's, sends null to clear the override rather than freezing today's
-// blueprint text into the config.
+// template text into the config.
 function OverrideField({
   label,
   value,

@@ -301,8 +301,8 @@ function ConnectorsHeroDiagram({
     y: gatekeeper.y + gatekeeper.height / 2,
   }
   const gadgetInput = {
-    x: gadget.x,
-    y: gadget.y + gadget.height / 2,
+    x: app.x,
+    y: app.y + app.height / 2,
   }
 
   const sourcePoint = (index: number) => ({
@@ -402,7 +402,7 @@ function ConnectorsHeroDiagram({
         <button
           type="button"
           className="themed-card-hover-shadow grid h-[52px] w-[52px] place-items-center rounded-2xl border border-kumo-line bg-kumo-base text-kumo-brand transition-[border-color,box-shadow] hover:border-kumo-fill focus:outline-none focus-visible:ring-2 focus-visible:ring-kumo-ring focus-visible:ring-offset-2 focus-visible:ring-offset-kumo-base"
-          aria-label="Gatekeeper keeps Gadget access limited to connected resources"
+          aria-label="Keeps app access limited to what you have connected"
         >
           <ShieldCheck size={21} weight="duotone" />
         </button>
@@ -416,7 +416,7 @@ function ConnectorsHeroDiagram({
                 Gatekeeper
               </p>
               <p className="mt-1 text-[12px] md:text-[11px] leading-4 font-normal tracking-[-0.1px] text-kumo-subtle">
-                Keeps each workspace limited to the resources you connect and ensures every user has the required permissions before accessing them.
+                Keeps each project limited to the resources you connect and ensures every user has the required permissions before accessing them.
               </p>
             </div>
           </div>
@@ -442,7 +442,7 @@ type ModalTarget =
   | null
 
 function ConnectorsPage() {
-  useDocumentTitle('Gatekeepers')
+  useDocumentTitle('Tools')
   const siteName = useSiteName()
 
   const { authenticatedApi } = useAuthenticatedApi()
@@ -720,10 +720,10 @@ function ConnectorsPage() {
         <header className="mb-8 grid gap-8 lg:grid-cols-[minmax(0,540px)_444px] lg:items-center lg:justify-between">
           <div>
             <h1 className="m-0 text-3xl font-semibold leading-tight tracking-tight text-kumo-default sm:text-[34px]">
-              Gatekeepers
+              Tools
             </h1>
             <p className="mt-2 text-[15px] md:text-[14px] leading-[20px] font-normal tracking-[-0.25px] text-kumo-subtle">
-              Add the apps and accounts your workspaces can use. Connect once, then wire
+              Add the apps and accounts your projects can use. Connect once, then wire
               them into anything you build.
             </p>
           </div>
@@ -840,7 +840,7 @@ function ConnectorsPage() {
               description={
                 search
                   ? "We couldn't find anything matching your search."
-                  : 'Gatekeepers will appear here as they become available in your workspace.'
+                  : 'Tools will appear here as they become available in your project.'
               }
               icon={Plugs}
             />

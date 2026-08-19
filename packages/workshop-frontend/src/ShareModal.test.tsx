@@ -224,7 +224,7 @@ describe('ShareModal', () => {
     expect(rendered.textContent).toContain('Q3 planning')
     expect(rendered.textContent).not.toContain('Pipeline dashboard')
 
-    await click(roleOption(rendered, 'Workspace'))
+    await click(roleOption(rendered, 'Project'))
 
     expect(rendered.textContent).toContain('Pipeline dashboard')
   })
@@ -240,7 +240,7 @@ describe('ShareModal', () => {
     expect(rendered.querySelector('#link-verification-heading')).toBeNull()
 
     const buildOptions = [...rendered.querySelectorAll<HTMLButtonElement>('[data-testid="role-option"]')]
-      .filter(option => option.textContent?.startsWith('Workspace'))
+      .filter(option => option.textContent?.startsWith('Project'))
     expect(buildOptions).toHaveLength(2)
     await click(buildOptions[1])
 

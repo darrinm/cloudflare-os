@@ -148,7 +148,7 @@ type CreatedGadgetCardInfo = {
   title: string;
   isPending: boolean;
 
-  // The output format this gadget was built as, inherited from the blueprint it came from.
+  // The output format this app was built as, inherited from the template it came from.
   // Absent for a gadget built from scratch, which reads as a generic app.
   output?: BlueprintOutput;
 };
@@ -645,7 +645,7 @@ function formatGadgetBindingTarget(
 
 // Convert raw tool calls into user-facing transcript labels.
 // What a `createGadget` call produced. Read from the gadget's own stamped output rather than
-// re-derived from the blueprint, so any blueprint declaring a format counts, not just promoted
+// re-derived from the template, so any template declaring a format counts, not just promoted
 // ones. Undefined for a plain gadget, a still-streaming call, or a log predating formats.
 type ToolOutputResolver = (tc: AiToolCall) => BlueprintOutput | undefined;
 
@@ -721,7 +721,7 @@ function getToolCallSummary(
     case "observeUserChanges":
       return { verb: "Observed user changes" };
     case "listBlueprints":
-      return { verb: "Listed blueprints" };
+      return { verb: "Listed templates" };
     case "listConnectableResources":
       return { verb: "Listed connectable resources", target: tc.input.vendorId };
     case "requestConnection":
@@ -862,7 +862,7 @@ function getProvisionalToolLabel(toolName: AiToolCall["toolName"] | null | undef
     case "saveCapsuleAsBinding":
       return "Saving resource";
     case "createGadget":
-      return "Creating gadget";
+      return "Creating app";
     case "executeCode":
       return "Running code";
     case "webFetch":
@@ -890,12 +890,12 @@ function getProvisionalToolVerb(toolName: AiToolCall["toolName"]): string {
     case "setBindingHook": return "Connecting";
     case "setGadgetBinding": return "Wiring up";
     case "saveCapsuleAsBinding": return "Saving";
-    case "createGadget": return "Creating gadget";
+    case "createGadget": return "Creating app";
     case "executeCode": return "Running code";
     case "webFetch": return "Fetching";
     case "observeUserChanges": return "Observing user changes";
     case "giveUp": return "Stopping";
-    case "listBlueprints": return "Listing blueprints";
+    case "listBlueprints": return "Listing templates";
     case "listConnectableResources": return "Listing connectable resources";
     case "requestConnection": return "Requesting a connection";
   }
@@ -919,7 +919,7 @@ function describeProvisionalToolCount(toolName: AiToolCall["toolName"], count: n
     case "createGadget": return `Creating ${pluralize(count, "gadget")}`;
     case "observeUserChanges": return `Observing ${pluralize(count, "change set")}`;
     case "giveUp": return "Stopping";
-    case "listBlueprints": return "Listing blueprints";
+    case "listBlueprints": return "Listing templates";
     case "listConnectableResources": return "Listing connectable resources";
     case "requestConnection": return `Requesting ${pluralize(count, "connection")}`;
   }
@@ -1832,7 +1832,7 @@ export const ChatInput = ({
   ) => Promise<RpcStub<GatekeeperClient<any>> | null>;
   /**
    * Returns an overseer stub, used by the attach modal to create gatekeepers. Can be async
-   * to support lazy provisional-gadget creation on the Home page.
+   * to support lazy provisional-app creation on the Home page.
    */
   getOverseer: () => Promise<RpcStub<Overseer>> | RpcStub<Overseer>;
   onSend: (
@@ -3789,8 +3789,8 @@ function appendWorkParts(target: WorkMessageParts, source: WorkMessageParts) {
   }
 }
 
-// Suffix appended to discard labels when the discarded changes include gadget creations, since
-// reverting also deletes the created gadgets.
+// Suffix appended to discard labels when the discarded changes include app creations, since
+// reverting also deletes the created apps.
 function describeCreatedGadgetDeletion(titles: string[] | undefined): string {
   if (!titles || titles.length === 0) return "";
   const names = titles.map((t) => `“${t}”`).join(", ");
@@ -3856,7 +3856,7 @@ function DiscardPendingChangesPopover({
             Discard all pending changes?
           </Popover.Title>
           <p className="mt-0.5 text-[12.5px] md:text-[11.5px] leading-4 tracking-[-0.15px] text-kumo-subtle">
-            Return to the last accepted version. Any gadgets created by these changes will be
+            Return to the last accepted version. Any apps created by these changes will be
             permanently deleted. Pending changes can&apos;t be restored.
           </p>
           <p className="mt-2 border-t border-kumo-line pt-2 text-[12px] md:text-[11px] leading-[15px] tracking-[-0.1px] text-kumo-inactive">
@@ -4251,7 +4251,7 @@ export function computeMessageStates(
   // loaded, since its own "changes" messages would then count the same edits again.
   //
   // Only the bytes appear here, because that is all these entries are read for: reconstructing the
-  // proposed code. A prefix that only created gadgets carries none, and stays reachable through the
+  // proposed code. A prefix that only created apps carries none, and stays reachable through the
   // server's own cut -- see the accept-changes banner.
   if (
     compacted?.proposedChanges !== undefined &&
@@ -4372,7 +4372,7 @@ interface ChatInterfaceProps {
   /**
    * Presents the thread as a conversation with a teammate rather than an agent transcript: the
    * spawner prompt (the Bot's persona, the chat's first message) is not shown, and the machinery
-   * -- code runs, callback payloads, gadget calls, observation rows -- is folded away unless
+   * -- code runs, callback payloads, app calls, observation rows -- is folded away unless
    * `showWork` is set. Approvals, errors and what the Bot actually says stay. The Bots page uses it.
    */
   conversationView?: boolean;
@@ -4457,7 +4457,7 @@ type ProvisionalToolCallState = {
   toolName: AiToolCall["toolName"] | null;
   // Human-readable target (e.g. filename) once known from the streaming input.
   target?: string;
-  // For createGadget: what it is producing, once the server has resolved the blueprint. Tool inputs
+  // For createGadget: what it is producing, once the server has resolved the template. Tool inputs
   // aren't streamed, so this is the only way the row can name a Doc while it is still being made.
   outputFormat?: BlueprintOutput;
   code: string;
@@ -7678,7 +7678,7 @@ function ChatInterface({
                                 <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-kumo-inactive" aria-hidden="true">
                                   <Plug size={16} />
                                 </span>
-                                <span>Used the gadget</span>
+                                <span>Used the app</span>
                               </span>
                             </Tooltip>
                           </div>
@@ -7825,7 +7825,7 @@ function ChatInterface({
                                   Discard
                                 </button>
                               </Tooltip>
-                              <Tooltip content="Save these edits as a draft version. They won't affect the gadget until you accept changes." asChild>
+                              <Tooltip content="Save these edits as a draft version. They won't affect the app until you accept changes." asChild>
                                 <button
                                   type="button"
                                   disabled={isAgentActive}
@@ -8062,7 +8062,7 @@ function ChatInterface({
                             ? "Wait for the agent to finish before accepting changes."
                             : isDiscardingChanges
                               ? "Wait for pending changes to finish discarding."
-                              : "Keep this draft and make it the gadget's current version."} asChild>
+                              : "Keep this draft and make it the app's current version."} asChild>
                             <WorkshopButton
                               disabled={changesActionsDisabled}
                               onClick={() =>

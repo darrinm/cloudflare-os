@@ -16,7 +16,7 @@ interface WorkpiecePickerProps {
   // The gadget the agent is currently streaming edits into, if any. Shown as an activity dot when
   // it isn't the selected one (e.g. because the user pinned their selection mid-turn).
   agentEditingId?: WorkpieceId | null
-  // Gadgets with at least one enabled hook, i.e. whose code can be woken by an external event.
+  // Apps with at least one enabled hook, i.e. whose code can be woken by an external event.
   hookedGadgetIds: ReadonlySet<WorkpieceId>
   expanded: boolean
   onExpandedChange: (expanded: boolean) => void
@@ -60,15 +60,15 @@ export default function WorkpiecePicker({
       <button
         type="button"
         onClick={toggleExpanded}
-        title={expanded ? 'Collapse outputs' : 'Expand outputs'}
-        aria-label={expanded ? 'Collapse outputs' : 'Expand outputs'}
+        title={expanded ? 'Collapse apps' : 'Expand apps'}
+        aria-label={expanded ? 'Collapse apps' : 'Expand apps'}
         aria-expanded={expanded}
         className={`flex h-12 flex-shrink-0 cursor-pointer items-center text-kumo-inactive transition-colors hover:text-kumo-subtle ${
           expanded ? 'justify-between px-3' : 'justify-center'
         }`}
       >
         {expanded && (
-          <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em]">Outputs</span>
+          <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-[0.06em]">Apps</span>
         )}
         {expanded ? <CaretRight size={14} /> : <CaretLeft size={14} />}
       </button>
@@ -98,7 +98,7 @@ export default function WorkpiecePicker({
                   onClick={commitRename}
                   disabled={!editing.value.trim()}
                   className="!h-6 !w-6"
-                  aria-label="Save gadget name"
+                  aria-label="Save app name"
                 >
                   <Check size={13} />
                 </WorkshopIconButton>
@@ -173,7 +173,7 @@ export default function WorkpiecePicker({
                 <WorkshopIconButton
                   onClick={() => setEditing({ id: gadget.id, value: gadget.title })}
                   className="!h-6 !w-6 flex-shrink-0 opacity-0 transition-opacity duration-150 ease-out group-hover/workpiece:opacity-100 focus-visible:opacity-100"
-                  title="Rename gadget"
+                  title="Rename app"
                   aria-label={`Rename ${gadget.title}`}
                 >
                   <PencilSimple size={13} />

@@ -36,8 +36,8 @@ interface ConnectionsProps {
 }
 
 /**
- * Auto-approval rules live in Activity because they apply across the workspace, while this view is
- * scoped to one gadget.
+ * Auto-approval rules live in Activity because they apply across the project, while this view is
+ * scoped to one app.
  */
 export default function Connections({ overseer, gadget, chatId, authenticatedApi, onConnectionsChange, isVisible, onHasGatekeepersChange }: ConnectionsProps) {
   const [bindings, setBindings] = useState<GadgetBindingInfo[]>([])
@@ -67,7 +67,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
       ])
       setGadgetInfo({ id, title: gadgetTitle })
       setBindings(bindingList)
-      // This tab shows one gadget, so drop hooks that wake a different one -- otherwise its
+      // This tab shows one app, so drop hooks that wake a different one -- otherwise its
       // toggle/delete controls would operate on another gadget's hooks.
       setHooks(hookList.filter((hook) => hook.gadgetId === id))
       onHasGatekeepersChange?.(bindingList.length > 0)
@@ -140,8 +140,8 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
 
   // What an agent spawner created here may offer its agents: this gadget itself (under the same
   // `GADGET` name the gadget's own code uses) plus each of the gadget's bindings. All are enabled
-  // by default in the modal, reproducing the pre-multi-gadget behavior where spawned agents
-  // inherited everything the gadget held.
+  // by default in the modal, reproducing the pre-multi-app behavior where spawned agents
+  // inherited everything the app held.
   const spawnerEnvCandidates = useMemo(() => {
     if (!gadgetInfo) return []
     return [
@@ -211,7 +211,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
                 Connections
               </h2>
               <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
-                External resources this gadget can use.
+                External resources this app can use.
               </p>
             </div>
             <WorkshopButton
@@ -230,7 +230,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
           ) : bindings.length === 0 ? (
             <EmptyState
               title="No connected resources"
-              description="Connect Google Docs, GitHub, Google Sheets, and other services so this gadget can safely use external data."
+              description="Connect Google Docs, GitHub, Google Sheets, and other services so this app can safely use external data."
               actionLabel="Connect resource"
               onAction={() => setIsNewConnectionModalVisible(true)}
             />
@@ -240,7 +240,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
                 const isEditing = editingBinding === gk.name
                 const isDeleting = deleteTarget?.name === gk.name
                 // Still provisional to the open chat (see GadgetBindingInfo.chatId). Blueprint
-                // annotations are excluded, since a blueprint only ever exports permanent edges.
+                // annotations are excluded, since a template only ever exports permanent edges.
                 const isPending = gk.chatId !== undefined
 
                 return (
@@ -331,10 +331,10 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
                             </WorkshopIconButton>
                           </Tooltip>
                           {!isPending && (
-                            <Tooltip content="Edit blueprint settings" asChild>
+                            <Tooltip content="Edit template settings" asChild>
                               <WorkshopIconButton
                                 onClick={() => setAnnotationTarget(gk)}
-                                aria-label="Edit blueprint settings"
+                                aria-label="Edit template settings"
                               >
                                 <Blueprint size={14} />
                               </WorkshopIconButton>
@@ -480,7 +480,7 @@ export default function Connections({ overseer, gadget, chatId, authenticatedApi
         gadget={gadget}
         onClose={() => setAnnotationTarget(null)}
         onSaved={() => {
-          toasts.add({ title: 'Blueprint settings saved.', variant: 'success' })
+          toasts.add({ title: 'Template settings saved.', variant: 'success' })
           setAnnotationTarget(null)
         }}
       />
@@ -559,10 +559,10 @@ function BlueprintAnnotationModal({
           <div className="flex items-start justify-between gap-4 border-b border-kumo-line px-4 py-4 sm:px-5">
             <div className="min-w-0">
               <Dialog.Title className="text-[15px] leading-5 font-medium tracking-[-0.3px] text-kumo-default">
-                Blueprint settings
+                Template settings
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
-                How this connection appears in blueprints.
+                How this connection appears in templates.
               </Dialog.Description>
             </div>
             <Dialog.Close

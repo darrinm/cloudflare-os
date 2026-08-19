@@ -7,8 +7,8 @@ import { PersonAvatar } from './PersonAvatar'
 const MAX_VISIBLE = 3
 
 const ROLE_LABELS: Record<PresenceParticipant['role'], string> = {
-  build: 'Workspace',
-  use: 'Gadget only',
+  build: 'Project',
+  use: 'App only',
 }
 
 export function GadgetPresence({

@@ -563,7 +563,7 @@ export default function OnboardingWizard({
                   Connect your services
                 </h2>
                 <p className="text-sm text-kumo-subtle mb-6">
-                  Link your accounts so your gadgets can access them. You can always add more later.
+                  Link your accounts so your apps can access them. You can always add more later.
                 </p>
 
                 {vendorsLoading ? (
@@ -734,7 +734,7 @@ const SHOWCASE_FEATURES: ShowcaseFeature[] = [
     icon: Sparkle,
     iconColor: 'text-media-100',
     iconBg: 'bg-media-200',
-    title: 'Build gadgets or just chat',
+    title: 'Build apps or just chat',
     description:
       'Create full web apps, or keep it simple with agent-only conversations. Your call.',
   },
@@ -744,7 +744,7 @@ const SHOWCASE_FEATURES: ShowcaseFeature[] = [
     iconBg: 'bg-compute-200',
     title: 'Collaborate in real time',
     description:
-      'Share a workspace with teammates and work on it together, live.',
+      'Share a project with teammates and work on it together, live.',
   },
   {
     icon: Key,

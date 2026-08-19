@@ -5,7 +5,7 @@ import { ConnectionConfigField } from './ConnectionConfigField'
 
 /**
  * One prospective entry of AgentSpawnerConfig.env: a workpiece the spawned agents may use, and
- * the name they see it under. Candidates are prefilled from the gadget the spawner is being
+ * the name they see it under. Candidates are prefilled from the app the spawner is being
  * created for (its own bindings, plus the gadget itself); the user toggles them on or off and may
  * rename them. Choosing targets the gadget doesn't already hold isn't supported here yet.
  */
@@ -132,7 +132,7 @@ export function AgentSpawnerConfigForm({
         {env.length === 0 ? (
           <p className="text-[13px] md:text-[12px] leading-4 font-normal tracking-[-0.2px] text-kumo-subtle">
             Nothing is available to offer spawned agents here. Create the agent from a gadget's
-            Connections tab to give it access to that gadget and its resources.
+            Connections tab to give it access to that app and its resources.
           </p>
         ) : (
           <div className="grid gap-2">

@@ -55,7 +55,7 @@ export interface GatekeeperModalProps {
    * normally the gadget the spawner is being created for plus that gadget's own bindings. All are
    * enabled by default, reproducing the pre-multi-gadget "spawned agents inherit everything"
    * behavior; the user may deselect or rename them. Empty (the default) means the spawner starts
-   * with an empty env, which is all a context with no gadget can offer.
+   * with an empty env, which is all a context with no app can offer.
    */
   spawnerEnvCandidates?: Omit<SpawnerEnvRow, 'enabled'>[]
   /**
@@ -798,7 +798,7 @@ export default function GatekeeperModal({
             <Dialog.Description className="mt-1 text-[14px] md:text-[13px] leading-[18px] font-normal tracking-[-0.25px] text-kumo-subtle">
               {selectedConnection
                 ? selectedConnection.description
-                : 'Choose what this gadget should be able to use.'}
+                : 'Choose what this app should be able to use.'}
             </Dialog.Description>
           </div>
           <Dialog.Close

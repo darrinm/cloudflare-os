@@ -218,7 +218,7 @@ function ProvidersPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">AI providers</h1>
           <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
-            Configure the AI models available to your workspaces.
+            Configure the AI models available to your projects.
           </p>
         </div>
         <button type="button" onClick={() => setSheetOpen(true)} className={PRIMARY_BTN}>
@@ -295,7 +295,7 @@ function ProvidersPage() {
             <div>
               <p className="text-sm font-medium text-kumo-default">No AI providers yet</p>
               <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
-                Add a provider to start building workspaces with AI.
+                Add a provider to start building projects with AI.
               </p>
             </div>
             <button type="button" onClick={() => setSheetOpen(true)} className={PRIMARY_BTN}>
