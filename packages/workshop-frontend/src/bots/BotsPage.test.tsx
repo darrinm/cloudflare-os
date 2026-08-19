@@ -181,7 +181,7 @@ describe("BotsPageContent", () => {
     // and reports no sandbox.
     await vi.waitFor(() => expect(container!.textContent).toContain("Browser profile: inbox-manager-abc12345"));
     expect(listBindings).toHaveBeenCalled();
-    expect(container!.textContent).toContain("none — give one in Grants");
+    expect(container!.textContent).toContain("none yet — add one in Details");
     // Grants offer running a hub skill; the roster header offers the Skills manager.
     expect(container!.textContent).toContain("Run a skill…");
     await vi.waitFor(() => expect(container!.textContent).toContain("$0.50"));

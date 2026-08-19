@@ -140,7 +140,7 @@ function CreateHubPanel({
         onClick={async () => {
           setBusy(true)
           try { await onCreate(modelId) }
-          catch (err) { toasts.add({ title: 'Couldn’t create the Bots hub', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
+          catch (err) { toasts.add({ title: 'Couldn’t set up your Bots', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
           finally { setBusy(false) }
         }}
       >
@@ -182,7 +182,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // memory, routines, groups, costs), bindings and the workpiece id are kept.
   const updateHub = useCallback(async () => {
     if (!overseer) return
-    setSeeding('Updating the hub…')
+    setSeeding('Updating your Bots…')
     const client = overseer.stub.getGadget(workpieceId)
     let changed: string[] | null = null
     try {
@@ -192,7 +192,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       // succeeding, not failing. Anything else is a real error.
       const msg = String(err instanceof Error ? err.message : err)
       if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
-        toasts.add({ title: 'Couldn’t update the hub', description: msg, variant: 'error' })
+        toasts.add({ title: 'Couldn’t update your Bots', description: msg, variant: 'error' })
         client[Symbol.dispose]()
         setSeeding(null)
         return
@@ -212,7 +212,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       } finally { fresh[Symbol.dispose]() }
     } catch { /* the toast just omits the revision */ }
     toasts.add({
-      title: changed?.length === 0 ? 'Hub already up to date' : 'Hub updated',
+      title: changed?.length === 0 ? 'Already up to date' : 'Hub updated',
       description: `${revision ? `Now running revision ${revision}. ` : ''}Your Bots, memory, routines and costs are untouched.`,
       variant: 'success',
     })
@@ -457,7 +457,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         onClose={() => setShowNew(false)}
         onCreate={async (input) => {
           const hub = hubState.hub
-          if (!hub) throw new Error('Not connected to the Bots hub yet.')
+          if (!hub) throw new Error('Not connected yet.')
           const bot: Bot = await hub.createBot(input)
           await hubState.refreshBots()
           setShowNew(false)
@@ -472,7 +472,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         group={null}
         onSave={async (input) => {
           const hub = hubState.hub
-          if (!hub) throw new Error('Not connected to the Bots hub yet.')
+          if (!hub) throw new Error('Not connected yet.')
           const g = await hub.createGroup(input)
           await hubState.refreshBots()
           setShowNewGroup(false)
@@ -518,7 +518,7 @@ function BotTranscript({ overseer, bot, workspaceId, showWork }: { overseer: Rpc
     return (
       <CenteredNote>
         {looked && !bot.agentReady
-          ? 'This Bot has no agent yet — give it grants in Details, or bind AGENT_SPAWNER to the hub.'
+          ? 'This Bot can’t run yet — open Details and give it something to work with.'
           : <Loader />}
       </CenteredNote>
     )
@@ -722,7 +722,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
           {pendingCount > 0 && <> {pendingCount} action{pendingCount === 1 ? '' : 's'} awaiting approval in the conversation.</>}
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setGrantsOpen(true)}>Change grants…</Button>
+          <Button variant="secondary" onClick={() => setGrantsOpen(true)}>Change what it can use…</Button>
           <Button variant="secondary" onClick={() => setRunSkillOpen(true)}>Run a skill…</Button>
         </div>
       </Section>
@@ -761,7 +761,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
             <div key={kind} className="flex items-start justify-between gap-2 text-[13px] md:text-[12px]">
               <span className="min-w-0">
                 <span className="block text-kumo-default">{COMPUTER_VENDORS[kind].title}</span>
-                <span className="block truncate text-kumo-subtle" title={b?.resourceTitle}>{b ? b.resourceTitle : 'none — give one in Grants'}</span>
+                <span className="block truncate text-kumo-subtle" title={b?.resourceTitle}>{b ? b.resourceTitle : 'none yet — add one in Details'}</span>
               </span>
               {b && <a className="flex-none text-kumo-brand underline-offset-2 hover:underline" href={COMPUTER_VENDORS[kind].appPath} target="_blank" rel="noreferrer">Open</a>}
             </div>
@@ -971,10 +971,10 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       const fresh = (await client.connectToGadget()) as unknown as HubStub
       let result: { generation: number }
       try { result = await fresh.respawnAgent(bot.id, bindingName) } finally { fresh[Symbol.dispose]() }
-      toasts.add({ title: 'Grants updated', description: `${bot.name} now runs with its own spawner (agent #${result.generation}).`, variant: 'success' })
+      toasts.add({ title: 'Saved', description: `${bot.name} is ready to work.`, variant: 'success' })
       onClose()
     } catch (err) {
-      toasts.add({ title: 'Couldn’t update grants', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+      toasts.add({ title: 'Couldn’t save that', description: String(err instanceof Error ? err.message : err), variant: 'error' })
     } finally {
       client?.[Symbol.dispose]()
       spawner?.[Symbol.dispose]()
@@ -1009,7 +1009,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
         <div className="flex flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">Grants for {bot.name}</Dialog.Title>
+              <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">What {bot.name} can use</Dialog.Title>
               <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">
                 Pick which of the hub’s connections this Bot may use, and its model. Applying re-creates the Bot’s agent; its memory carries over.
               </Dialog.Description>
@@ -1024,8 +1024,8 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
                   {models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
               </label>
-              <div className="text-[13px] md:text-[12px] text-kumo-subtle">Connections (bind more to the hub under the workspace’s Connections)</div>
-              {bindings.length === 0 && <div className="text-[13px] md:text-[12px] text-kumo-subtle">The hub has no connections yet; the Bot gets HUB only.</div>}
+              <div className="text-[13px] md:text-[12px] text-kumo-subtle">Anything else it can use</div>
+              {bindings.length === 0 && <div className="text-[13px] md:text-[12px] text-kumo-subtle">Nothing else is connected yet, so this Bot has only its own memory.</div>}
               <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto">
                 {bindings.map((b) => (
                   <li key={b.name}>
@@ -1077,7 +1077,7 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
               </ul>
               <div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-                <Button variant="primary" onClick={apply} loading={busy} disabled={!modelId}>Apply grants</Button>
+                <Button variant="primary" onClick={apply} loading={busy} disabled={!modelId}>Save</Button>
               </div>
             </>
           )}

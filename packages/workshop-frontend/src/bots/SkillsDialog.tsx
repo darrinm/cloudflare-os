@@ -81,7 +81,7 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
                   )}
                   {onUpdateHub && (
                     <Button variant="secondary" size="sm" onClick={onUpdateHub} loading={!!addingExamples} title="Bring this hub up to the deployment's current version; your Bots, memory and routines are kept">
-                      {hubRevision ? `Update hub (rev ${hubRevision})` : 'Update hub'}
+                      {hubRevision ? `Update Bots (v${hubRevision})` : 'Update Bots'}
                     </Button>
                   )}
                   {addingExamples && <span className="ml-2">{addingExamples}</span>}
