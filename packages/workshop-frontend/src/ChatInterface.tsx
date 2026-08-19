@@ -148,7 +148,7 @@ type CreatedGadgetCardInfo = {
   title: string;
   isPending: boolean;
 
-  // The output format this app was built as, inherited from the template it came from.
+  // The output format this gadget was built as, inherited from the blueprint it came from.
   // Absent for a gadget built from scratch, which reads as a generic app.
   output?: BlueprintOutput;
 };
@@ -645,7 +645,7 @@ function formatGadgetBindingTarget(
 
 // Convert raw tool calls into user-facing transcript labels.
 // What a `createGadget` call produced. Read from the gadget's own stamped output rather than
-// re-derived from the template, so any template declaring a format counts, not just promoted
+// re-derived from the blueprint, so any blueprint declaring a format counts, not just promoted
 // ones. Undefined for a plain gadget, a still-streaming call, or a log predating formats.
 type ToolOutputResolver = (tc: AiToolCall) => BlueprintOutput | undefined;
 
@@ -3789,7 +3789,7 @@ function appendWorkParts(target: WorkMessageParts, source: WorkMessageParts) {
   }
 }
 
-// Suffix appended to discard labels when the discarded changes include app creations, since
+// Suffix appended to discard labels when the discarded changes include gadget creations, since
 // reverting also deletes the created apps.
 function describeCreatedGadgetDeletion(titles: string[] | undefined): string {
   if (!titles || titles.length === 0) return "";
@@ -4251,7 +4251,7 @@ export function computeMessageStates(
   // loaded, since its own "changes" messages would then count the same edits again.
   //
   // Only the bytes appear here, because that is all these entries are read for: reconstructing the
-  // proposed code. A prefix that only created apps carries none, and stays reachable through the
+  // proposed code. A prefix that only created gadgets carries none, and stays reachable through the
   // server's own cut -- see the accept-changes banner.
   if (
     compacted?.proposedChanges !== undefined &&
@@ -4372,7 +4372,7 @@ interface ChatInterfaceProps {
   /**
    * Presents the thread as a conversation with a teammate rather than an agent transcript: the
    * spawner prompt (the Bot's persona, the chat's first message) is not shown, and the machinery
-   * -- code runs, callback payloads, app calls, observation rows -- is folded away unless
+   * -- code runs, callback payloads, gadget calls, observation rows -- is folded away unless
    * `showWork` is set. Approvals, errors and what the Bot actually says stay. The Bots page uses it.
    */
   conversationView?: boolean;
@@ -4457,7 +4457,7 @@ type ProvisionalToolCallState = {
   toolName: AiToolCall["toolName"] | null;
   // Human-readable target (e.g. filename) once known from the streaming input.
   target?: string;
-  // For createGadget: what it is producing, once the server has resolved the template. Tool inputs
+  // For createGadget: what it is producing, once the server has resolved the blueprint. Tool inputs
   // aren't streamed, so this is the only way the row can name a Doc while it is still being made.
   outputFormat?: BlueprintOutput;
   code: string;

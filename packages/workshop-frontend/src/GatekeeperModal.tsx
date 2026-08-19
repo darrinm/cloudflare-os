@@ -55,7 +55,7 @@ export interface GatekeeperModalProps {
    * normally the gadget the spawner is being created for plus that gadget's own bindings. All are
    * enabled by default, reproducing the pre-multi-gadget "spawned agents inherit everything"
    * behavior; the user may deselect or rename them. Empty (the default) means the spawner starts
-   * with an empty env, which is all a context with no app can offer.
+   * with an empty env, which is all a context with no gadget can offer.
    */
   spawnerEnvCandidates?: Omit<SpawnerEnvRow, 'enabled'>[]
   /**

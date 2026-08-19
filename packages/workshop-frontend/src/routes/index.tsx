@@ -103,7 +103,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
     setThinkingLevel(choice === "default" ? undefined : choice);
   }, []);
 
-  // Pre-create a provisional app as soon as the user starts interacting, so that navigation
+  // Pre-create a provisional gadget as soon as the user starts interacting, so that navigation
   // after submit is instant. Same pattern as before — disposed on unmount if never consumed.
   const provisionalOverseerRef = useRef<{ stub: RpcStub<Overseer> } | null>(null);
 
@@ -196,7 +196,7 @@ export function HomePageContent({ prompt }: HomeSearch) {
             What are we working on?
           </h1>
           <p className="mx-auto mt-3 max-w-md text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
-            Ask a question, create an app, or create an app that works with your tools and data.
+            Ask a question, create an output, or create an app that works with your tools and data.
           </p>
         </header>
 

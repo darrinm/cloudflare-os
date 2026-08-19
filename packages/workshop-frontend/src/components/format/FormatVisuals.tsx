@@ -1,4 +1,4 @@
-// The ways an app format is drawn:
+// The ways an output format is drawn:
 //
 //   <FormatGlyph>     bare icon             workspace tab, menus, pickers, command palette
 //   <FormatMiniature> icon on a small tile  chat cards
@@ -6,7 +6,7 @@
 //   <FormatThumbnail> wireframe drawing     Outputs grid cards
 //   <FormatPreview>   wireframe drawing     admin Formats panel
 //
-// The wireframes are abstract: unlike a screenshot they look right before the app has any
+// The wireframes are abstract: unlike a screenshot they look right before the output has any
 // content, which is when the user is deciding what to make.
 
 import type { BlueprintOutput } from '@gadgets/workshop-shared/api'
@@ -22,7 +22,7 @@ export function FormatGlyph({
   className,
   weight,
 }: {
-  app?: BlueprintOutput
+  output?: BlueprintOutput
   size?: keyof typeof GLYPH_SIZES
   className?: string
   weight?: 'regular' | 'fill'
@@ -45,7 +45,7 @@ export function FormatTile({
   size = 'md',
   className = '',
 }: {
-  app?: BlueprintOutput
+  output?: BlueprintOutput
   size?: keyof typeof TILE_SIZES
   className?: string
 }) {
@@ -221,7 +221,7 @@ export function FormatThumbnail({
   output,
   className = '',
 }: {
-  app?: BlueprintOutput
+  output?: BlueprintOutput
   className?: string
 }) {
   const Wireframe = WIREFRAMES[wireframeOf(output)]

@@ -20,13 +20,13 @@ import GadgetExportMenu from './GadgetExportMenu'
 // The minimal, "use"-only experience: a shared top bar plus the gadget's deployed UI, and nothing
 // else. Collaborators with the "use" role may only render and interact with the gadget's mainline
 // UI (see UseOverseerInterface in the backend), so we deliberately omit the chat sidebar, the
-// App/Code/Connections controls, project activity, and every editor-only control. The
+// Gadget/Code/Connections controls, workspace activity, and every editor-only control. The
 // overseer and gadget passed in here are the restricted capabilities returned by openGadget() for
 // "use" sessions; calling anything outside getMetadata()/subscribeToMetadata()/subscribeToPresence()/
 // subscribeToWorkpieces()/getGadget() (and, on the gadget, getUiBundle()/connectToGadget()/exportPdf())
 // would throw.
 //
-// When the project has more than one app, a simple picker in the top bar switches between
+// When the workspace has more than one gadget, a simple picker in the top bar switches between
 // them (selection is owned by the parent, in the URL's `?w=` search param). Pending gadgets are
 // never listed: the restricted overseer's workpiece subscription withholds them.
 type Props = {

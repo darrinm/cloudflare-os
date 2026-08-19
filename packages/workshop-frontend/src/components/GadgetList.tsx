@@ -42,7 +42,7 @@ function AppRow({
   onTogglePin,
   onRename,
 }: {
-  app: GadgetMetadataWithTimestamps
+  gadget: GadgetMetadataWithTimestamps
   onDelete: (gadget: GadgetMetadataWithTimestamps) => void
   onShare: (gadget: GadgetMetadataWithTimestamps) => void
   onInfo: (gadget: GadgetMetadataWithTimestamps) => void
@@ -484,7 +484,7 @@ const MAX_FEATURED_SHOWN = 6
 function HomeFeaturedBlueprintCard({
   blueprint,
 }: {
-  template: BlueprintPublicInfo
+  blueprint: BlueprintPublicInfo
 }) {
   const badges = uniqueBindingBadges(blueprint.metadata.bindings).slice(0, 1)
 

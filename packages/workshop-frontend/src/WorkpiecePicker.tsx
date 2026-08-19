@@ -16,7 +16,7 @@ interface WorkpiecePickerProps {
   // The gadget the agent is currently streaming edits into, if any. Shown as an activity dot when
   // it isn't the selected one (e.g. because the user pinned their selection mid-turn).
   agentEditingId?: WorkpieceId | null
-  // Apps with at least one enabled hook, i.e. whose code can be woken by an external event.
+  // Gadgets with at least one enabled hook, i.e. whose code can be woken by an external event.
   hookedGadgetIds: ReadonlySet<WorkpieceId>
   expanded: boolean
   onExpandedChange: (expanded: boolean) => void

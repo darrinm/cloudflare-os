@@ -81,7 +81,7 @@ export default function BlueprintsPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">Explore</h1>
           <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] tracking-[-0.25px] text-kumo-subtle">
-            Discover featured templates to use as starting points. Open one to create a project
+            Discover featured blueprints to use as starting points. Open one to create a workspace
             from it, or save it to reuse later.
           </p>
         </div>
