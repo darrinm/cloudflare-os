@@ -93,7 +93,11 @@ export function LiveGlance({ bot }: { bot: Bot }) {
   // ball is in your court, and the Bot's own reason (why it handed off) is the subtitle so you know
   // what to do. Tapping deep-links straight to that profile's live view with the control sheet up,
   // where you can actually drive the page; otherwise it just opens the live view to watch.
-  const subtitle = state.takeover ? (state.takeoverReason || host) : host
+  // "Waiting for you" is a claim about the Bot, so it needs the Bot's reason behind it. Control the
+  // person took themselves (from the Browser app) stores none, and labelling that as the Bot waiting
+  // would invent a request nobody made -- it reads as "You have control", which is all it is.
+  const asked = state.takeover && !!state.takeoverReason
+  const subtitle = asked ? state.takeoverReason : host
   return (
     <button
       type="button"
@@ -109,7 +113,7 @@ export function LiveGlance({ bot }: { bot: Bot }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[13px] md:text-[12px] font-medium text-kumo-default">
           <span className="h-1.5 w-1.5 flex-none animate-pulse rounded-full bg-kumo-brand" />
-          {state.takeover ? 'Waiting for you' : 'Browsing'}
+          {asked ? 'Waiting for you' : state.takeover ? 'You have control' : 'Browsing'}
         </span>
         {subtitle && <span className="block truncate text-[12px] md:text-[11px] text-kumo-subtle">{subtitle}</span>}
       </span>
