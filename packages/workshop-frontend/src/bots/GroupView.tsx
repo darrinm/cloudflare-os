@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { CaretLeft, PaperPlaneRight, PencilSimple, X } from '@phosphor-icons/react'
 import { WorkshopIconButton } from '../components/WorkshopControls'
-import type { HubStub } from './useBotsHub'
-import type { Bot, BotGroup, GroupPost, HubUpdate } from './types'
+import type { HubStub, SeqUpdate } from './useBotsHub'
+import type { Bot, BotGroup, GroupPost } from './types'
 
 function fmtTime(ts: number): string {
   const d = new Date(ts)
@@ -16,12 +16,12 @@ function fmtTime(ts: number): string {
  * member as work; their replies come back as posts. Not a kernel chat — each Bot's own reasoning
  * stays in its own conversation.
  */
-export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOpenBot, onDeleted }: {
+export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenBot, onDeleted }: {
   group: BotGroup
   bots: Bot[]
   hub: HubStub
   userName: string
-  lastUpdate: HubUpdate | null
+  updates: SeqUpdate[]
   onBack: () => void
   onOpenBot: (botId: string) => void
   onDeleted: () => void
@@ -45,12 +45,24 @@ export function GroupView({ group, bots, hub, userName, lastUpdate, onBack, onOp
     return () => { cancelled = true }
   }, [hub, group.id])
 
-  // Live posts arrive through the hub subscription the page already holds.
+  // Live posts arrive through the hub subscription the page already holds. Drain everything newer
+  // than the last update handled -- a single "latest" slot would drop one of two posts landing in
+  // the same render batch. The id-dedupe makes replaying older buffered updates harmless.
+  const seenSeqRef = useRef(0)
   useEffect(() => {
-    if (lastUpdate?.type !== 'groupPost' || lastUpdate.groupId !== group.id) return
-    const post = lastUpdate.post
-    setPosts((prev) => (prev && !prev.some((p) => p.id === post.id) ? [...prev, post] : prev))
-  }, [lastUpdate, group.id])
+    const fresh: GroupPost[] = []
+    for (const { seq, update } of updates) {
+      if (seq <= seenSeqRef.current) continue
+      seenSeqRef.current = seq
+      if (update.type === 'groupPost' && update.groupId === group.id) fresh.push(update.post)
+    }
+    if (!fresh.length) return
+    setPosts((prev) => {
+      if (!prev) return prev
+      const add = fresh.filter((p) => !prev.some((q) => q.id === p.id))
+      return add.length ? [...prev, ...add] : prev
+    })
+  }, [updates, group.id])
 
   useEffect(() => { bottomRef.current?.scrollIntoView?.({ block: 'end' }) }, [posts?.length])
 

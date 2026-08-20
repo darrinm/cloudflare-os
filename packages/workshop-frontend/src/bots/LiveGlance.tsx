@@ -30,8 +30,15 @@ export function LiveGlance({ bot }: { bot: Bot }) {
   const [frame, setFrame] = useState<string | null>(null)
   const [state, setState] = useState<{ name: string; url: string | null; takeover: boolean } | null>(null)
   const uiRef = useRef<BrowserUi | null>(null)
+  const failsRef = useRef(0)
 
   const ownName = computerNameFor(bot)
+
+  // The `ui` is an RPC stub holding a server-side capability; release it whenever it is dropped.
+  const disposeUi = useCallback(() => {
+    try { uiRef.current?.[Symbol.dispose]?.() } catch { /* already broken */ }
+    uiRef.current = null
+  }, [])
 
   const poll = useCallback(async () => {
     if (document.hidden) return
@@ -42,6 +49,7 @@ export function LiveGlance({ bot }: { bot: Bot }) {
         uiRef.current = app.ui as unknown as BrowserUi
       }
       const profiles = await uiRef.current.listProfiles()
+      failsRef.current = 0
       const mine = profiles.find((p) => p.name === ownName) ?? profiles.find((p) => p.name === HOUSEHOLD_PROFILE)
       if (!mine || !mine.live) { setState(null); setFrame(null); return }
       setState({ name: mine.name, url: mine.url, takeover: mine.takeover })
@@ -50,10 +58,17 @@ export function LiveGlance({ bot }: { bot: Bot }) {
         : shot?.dataUrl ?? (shot?.data ? `data:image/jpeg;base64,${shot.data}` : null)
       if (dataUrl) setFrame(dataUrl)
     } catch {
-      // A restart or a missing grant is not news here; the glance just stays absent.
-      uiRef.current = null
+      // A restart or a missing grant is not news here; the glance just stays absent. One failure
+      // may be a blip (keep the last frame); a second in a row means the session is gone, and a
+      // stale thumbnail with a pulsing "Browsing" dot would be a lie.
+      disposeUi()
+      if (++failsRef.current >= 2) { setState(null); setFrame(null) }
     }
-  }, [authenticatedApi, ownName])
+  }, [authenticatedApi, ownName, disposeUi])
+
+  // Dispose the held stub on unmount (the polling effect below re-runs to change cadence, so the
+  // stub's lifetime is the component's, not the effect's).
+  useEffect(() => disposeUi, [disposeUi])
 
   useEffect(() => {
     let alive = true

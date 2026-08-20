@@ -177,7 +177,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [view, setView] = useState<'feed' | 'roster'>('feed')
   // One subscription to the feed's data, shared by the phone tab and the desktop pane: mounting
   // the component twice used to fetch twice, on every event.
-  const feedData = useFeed(hubState.hub, hubState.lastUpdate)
+  const feedData = useFeed(hubState.hub, hubState.updates)
   const feed = hubState.hub
     ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
     : null
@@ -256,7 +256,12 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     if (!hubState.hub) return
     setSeeding('Starting…')
     try {
-      const bots = await seedExamples()
+      // Mark the hub welcomed on this path too: examples seeded by hand must not leave the hub
+      // looking never-welcomed, or emptying the roster later would auto-reseed it. Best-effort --
+      // a hub older than the flags feature simply doesn't have setMeta.
+      const bots = await seedExamples(async (live) => {
+        try { await live.setMeta('firstRun', new Date().toISOString()) } catch { /* pre-flags hub */ }
+      })
       toasts.add({ title: `${bots.length} example Bots ready`, description: 'Scout reads the web, Fixer runs code, Ledger reports (and emails), Concierge coordinates.', variant: 'success' })
       if (bots[0]) navigate({ to: '/bots/$id', params: { id: bots[0].id } })
     } catch (err) {
@@ -296,12 +301,20 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         // seeding restarts the gadget, so the `hub` captured above is broken by the time seeding
         // returns, and using it here failed the welcome every time -- the Bots were created, then a
         // "couldn't finish" toast and no task for Scout.
+        let sent = false
         await seed(async (live, bots) => {
-          await live.setMeta('firstRun', new Date().toISOString())
           const scout = bots.find((b) => b.name === 'Scout') ?? bots[0]
           if (!scout) return
-          setSeeding('Asking Scout for something to look at…')
-          await live.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
+          // The seeder retries this whole callback when the hub restarts mid-flight, so the one
+          // non-idempotent step -- the send, a billable turn -- is guarded against running twice.
+          if (!sent) {
+            setSeeding('Asking Scout for something to look at…')
+            await live.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
+            sent = true
+          }
+          // Recorded after the send: a welcome that failed leaves the flag unset, so a hub that is
+          // still empty tries again next load instead of being marked welcomed with nothing to show.
+          await live.setMeta('firstRun', new Date().toISOString())
           scoutId = scout.id
         })
         if (scoutId) go({ to: '/bots/$id', params: { id: scoutId } })
@@ -462,7 +475,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           bots={hubState.bots}
           hub={hubState.hub}
           userName={currentUser?.name || 'you'}
-          lastUpdate={hubState.lastUpdate}
+          updates={hubState.updates}
           onBack={() => navigate({ to: '/bots' })}
           onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })}
           onDeleted={() => navigate({ to: '/bots' })}

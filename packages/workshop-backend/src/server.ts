@@ -832,7 +832,12 @@ export default {
     if (url.pathname === TOUCH_ICON_PATH) {
       let config = await readAdminConfig(env);
       if (config.siteLogoConfigured) return serveSiteLogo(req, env.BLUEPRINT_CONTENT);
-      return Response.redirect(new URL("/apple-touch-icon.png", url).toString(), 302);
+      // Built by hand because Response.redirect() can't carry headers; without caching every icon
+      // fetch pays a Worker invocation and an admin-config read just to be sent next door.
+      return new Response(null, {
+        status: 302,
+        headers: { location: new URL("/apple-touch-icon.png", url).toString(), "cache-control": "public, max-age=300" },
+      });
     }
 
     if (url.pathname === MANIFEST_PATH) {

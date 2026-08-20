@@ -10,9 +10,10 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- iOS ignores the manifest's icons for Add to Home Screen and needs a raster; without this
          the home-screen icon is a generic letter. Served by the backend so a configured site logo
-         takes precedence over the bundled default. -->
-    <link rel="apple-touch-icon" href="/api/apple-touch-icon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+         takes precedence over the bundled default. One link only: Safari prefers the best-sized
+         candidate (last on a tie), so a second, sized link to the static default would always
+         outrank this one and the configured logo would never appear. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/api/apple-touch-icon.png" />
     <link rel="manifest" href="/api/manifest.webmanifest" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
