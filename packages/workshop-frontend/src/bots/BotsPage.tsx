@@ -13,6 +13,8 @@ import type {
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
 import Feed, { useFeed } from './Feed'
+import Audit, { AUDIT_LIMIT, downloadFile, eventsCsv } from './Audit'
+import TryTakeoverCard, { TRY_TAKEOVER_TASK, pickTakeoverBot } from './TryTakeoverCard'
 import LiveGlance from './LiveGlance'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
@@ -173,13 +175,59 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [seeding, setSeeding] = useState<string | null>(null)
   // What you see with nothing selected. The feed answers "what happened?", which is the daily
-  // question; the roster answers "who have I got?", which you ask far less often.
-  const [view, setView] = useState<'feed' | 'roster'>('feed')
+  // question; the roster answers "who have I got?", which you ask far less often; the audit is
+  // the full record for the rare day you need it.
+  const [view, setView] = useState<'feed' | 'roster' | 'audit'>('feed')
   // One subscription to the feed's data, shared by the phone tab and the desktop pane: mounting
-  // the component twice used to fetch twice, on every event.
+  // the component twice used to fetch twice, on every event. The audit reads a deeper window, and
+  // only while it is open.
   const feedData = useFeed(hubState.hub, hubState.updates)
+  const auditData = useFeed(view === 'audit' ? hubState.hub : null, hubState.updates, AUDIT_LIMIT)
+  const openBot = useCallback((id: string) => navigate({ to: '/bots/$id', params: { id } }), [navigate])
+
+  // The takeover walk-through: offered once per hub (the flag lives on the hub, like firstRun, so
+  // a phone and a laptop agree), and started through the real path -- the Bot asks which site,
+  // opens it and requests the takeover; nothing here imitates that flow.
+  const [takeoverOffer, setTakeoverOffer] = useState<'unknown' | 'show' | 'hide'>('unknown')
+  const takeoverBot = useMemo(() => pickTakeoverBot(hubState.bots), [hubState.bots])
+  useEffect(() => {
+    const hub = hubState.hub
+    if (!hub || !takeoverBot || takeoverOffer !== 'unknown') return
+    let cancelled = false
+    void (async () => {
+      // A hub older than the flags feature has no getMeta: no flag, no offer.
+      let seen: string | null = 'unsupported'
+      try { seen = await hub.getMeta('tryTakeover') } catch { /* pre-flags hub */ }
+      if (!cancelled) setTakeoverOffer(seen ? 'hide' : 'show')
+    })()
+    return () => { cancelled = true }
+  }, [hubState.hub, takeoverBot, takeoverOffer])
+  const settleTakeoverOffer = useCallback(async (tried: boolean) => {
+    setTakeoverOffer('hide')
+    const hub = hubState.hub
+    if (!hub) return
+    try { await hub.setMeta('tryTakeover', `${tried ? 'tried' : 'dismissed'} ${new Date().toISOString()}`) } catch { /* pre-flags hub */ }
+  }, [hubState.hub])
+  const tryTakeover = useCallback(async () => {
+    const hub = hubState.hub
+    if (!hub || !takeoverBot) return
+    try {
+      await hub.send(takeoverBot.id, TRY_TAKEOVER_TASK, { type: 'user', name: currentUser?.name || 'You' })
+      void settleTakeoverOffer(true)
+      openBot(takeoverBot.id)
+    } catch (err) {
+      toasts.add({ title: `Couldn’t reach ${takeoverBot.name}`, description: String(err instanceof Error ? err.message : err), variant: 'error' })
+    }
+  }, [hubState.hub, takeoverBot, currentUser?.name, settleTakeoverOffer, openBot, toasts])
+  const takeoverCard = takeoverOffer === 'show' && takeoverBot
+    ? <TryTakeoverCard bot={takeoverBot} onTry={() => { void tryTakeover() }} onDismiss={() => { void settleTakeoverOffer(false) }} />
+    : undefined
+
   const feed = hubState.hub
-    ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={(id) => navigate({ to: '/bots/$id', params: { id } })} />
+    ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={openBot} header={takeoverCard} />
+    : null
+  const audit = hubState.hub
+    ? <Audit bots={hubState.bots} events={auditData.events} error={auditData.error} onOpenBot={openBot} />
     : null
   // "Show work": the conversation is a teammate view by default (what the Bot says, approvals,
   // errors); the code runs / callbacks / gadget calls are one tap away, remembered per browser.
@@ -340,7 +388,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         <div className="flex min-w-0 items-center gap-1">
           <h1 className="hidden md:block text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
           <div className="flex md:hidden items-center gap-1" role="tablist" aria-label="View">
-            {(['feed', 'roster'] as const).map((v) => (
+            {(['feed', 'roster', 'audit'] as const).map((v) => (
               <button
                 key={v}
                 type="button"
@@ -349,7 +397,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 onClick={() => setView(v)}
                 className={`rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
               >
-                {v === 'feed' ? 'Activity' : 'Bots'}
+                {v === 'feed' ? 'Activity' : v === 'roster' ? 'Bots' : 'Audit'}
               </button>
             ))}
           </div>
@@ -369,7 +417,8 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         </div>
       )}
       {view === 'feed' && <div className="min-h-0 flex-1 overflow-y-auto md:hidden flex flex-col">{feed}</div>}
-      <nav className={`min-h-0 flex-1 overflow-y-auto ${view === 'feed' ? 'hidden md:block' : ''}`} aria-label="Bots">
+      {view === 'audit' && <div className="min-h-0 flex-1 md:hidden flex flex-col">{audit}</div>}
+      <nav className={`min-h-0 flex-1 overflow-y-auto ${view !== 'roster' ? 'hidden md:block' : ''}`} aria-label="Bots">
         {hubState.error && <div className="p-3 text-[13px] md:text-[12px] text-kumo-danger">{hubState.error}</div>}
         {!hubState.hub && !hubState.error && (
           // Connecting to the hub: a quiet placeholder, not the empty state (which would flash on
@@ -479,11 +528,19 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           onDeleted={() => navigate({ to: '/bots' })}
         />
       ) : (
-        <section className="hidden min-w-0 flex-1 flex-col md:flex" aria-label="Activity">
-          <div className="flex h-12 flex-none items-center border-b border-kumo-line px-4 text-[14px] md:text-[13px] font-medium text-kumo-default">
-            What your Bots have been doing
+        <section className="hidden min-w-0 flex-1 flex-col md:flex" aria-label={view === 'audit' ? 'Audit' : 'Activity'}>
+          <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-4 text-[14px] md:text-[13px] font-medium text-kumo-default">
+            <span>{view === 'audit' ? 'The record' : 'What your Bots have been doing'}</span>
+            <button
+              type="button"
+              onClick={() => setView(view === 'audit' ? 'feed' : 'audit')}
+              className="rounded-md px-2 py-1 text-[13px] md:text-[12px] font-normal text-kumo-subtle hover:bg-kumo-tint hover:text-kumo-default"
+              aria-pressed={view === 'audit'}
+            >
+              {view === 'audit' ? 'Activity' : 'Audit'}
+            </button>
           </div>
-          {feed}
+          {view === 'audit' ? audit : feed}
         </section>
       )}
       <NewBotDialog
@@ -878,24 +935,12 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 
 /** Audit export: the Bot's full hub activity (messages, deliveries, outcomes, memory, approvals) as a file. */
 async function exportActivity(hub: HubStub, bot: Bot, format: 'json' | 'csv') {
-  const events = await hub.activity(bot.id, { limit: 500 })
+  const events = await hub.activity(bot.id, { limit: AUDIT_LIMIT })
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-  let blob: Blob
-  if (format === 'json') {
-    blob = new Blob([JSON.stringify({ bot: { id: bot.id, name: bot.name, role: bot.role }, exported: new Date().toISOString(), events }, null, 2)], { type: 'application/json' })
-  } else {
-    const esc = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`
-    const rows = [['id', 'time', 'type', 'text', 'data'].join(','), ...events.map((e) => [e.id, new Date(e.ts).toISOString(), e.type, e.text, JSON.stringify(e.data)].map(esc).join(','))]
-    blob = new Blob([rows.join('\n')], { type: 'text/csv' })
-  }
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `bot-${bot.id}-activity-${stamp}.${format}`
-  document.body.append(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const blob = format === 'json'
+    ? new Blob([JSON.stringify({ bot: { id: bot.id, name: bot.name, role: bot.role }, exported: new Date().toISOString(), events }, null, 2)], { type: 'application/json' })
+    : new Blob([eventsCsv(events, new Map([[bot.id, bot.name]]))], { type: 'text/csv' })
+  downloadFile(`bot-${bot.id}-activity-${stamp}.${format}`, blob)
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

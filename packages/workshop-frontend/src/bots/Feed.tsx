@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../Activity'
 import { drainNew, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotEvent, HubApi } from './types'
@@ -114,7 +114,7 @@ const TONE: Record<FeedLine['tone'], string> = {
  * the whole event row, so keeping up costs no RPC at all -- it used to re-read the newest 120 rows
  * on every update, from two mounted copies.
  */
-export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
+export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_LIMIT) {
   const [events, setEvents] = useState<BotEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -123,16 +123,16 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
   const load = useCallback(async () => {
     if (!hub) return
     try {
-      const snapshot = await hub.activity(null, { limit: FEED_LIMIT })
+      const snapshot = await hub.activity(null, { limit })
       // Fold in anything that arrived while the snapshot was in flight, dropping what it already has.
       const held = pendingRef.current.splice(0)
       const seen = new Set(snapshot.map((e) => e.id))
-      setEvents([...snapshot, ...held.filter((e) => !seen.has(e.id))].slice(-FEED_LIMIT))
+      setEvents([...snapshot, ...held.filter((e) => !seen.has(e.id))].slice(-limit))
       setError(null)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
     }
-  }, [hub])
+  }, [hub, limit])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
@@ -145,18 +145,20 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
       const seen = new Set(prev.map((e) => e.id))
       const fresh = incoming.filter((e) => !seen.has(e.id))
       if (!fresh.length) return prev
-      return [...prev, ...fresh].slice(-FEED_LIMIT)
+      return [...prev, ...fresh].slice(-limit)
     })
-  }, [updates])
+  }, [updates, limit])
 
   return { events, error }
 }
 
-export function Feed({ bots, events, error, onOpenBot }: {
+export function Feed({ bots, events, error, onOpenBot, header }: {
   bots: Bot[]
   events: BotEvent[] | null
   error: string | null
   onOpenBot: (botId: string) => void
+  /** Shown above the lines, inside the same scroll: a first-run card, for instance. */
+  header?: ReactNode
 }) {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
 
@@ -202,14 +204,18 @@ export function Feed({ bots, events, error, onOpenBot }: {
   }
   if (!lines.length) {
     return (
-      <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
-        Nothing yet.
+      <div className="flex min-h-0 flex-col overflow-y-auto">
+        {header}
+        <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
+          Nothing yet.
+        </div>
       </div>
     )
   }
 
   return (
     <ul className="flex min-h-0 flex-col overflow-y-auto" aria-label="What your Bots have been doing">
+      {header && <li>{header}</li>}
       {lines.map((l) => (
         <li key={l.id}>
           <button

@@ -1,0 +1,137 @@
+import { useMemo, useState } from 'react'
+import { Button } from '@cloudflare/kumo'
+import type { Bot, BotEvent } from './types'
+
+/**
+ * Every hub event, for the person who wants the record rather than the story: the feed drops
+ * housekeeping and rewrites the rest as sentences; this keeps each row as the hub stored it, with
+ * the filters an audit needs (who, what kind, what text) and the whole filtered set as a file.
+ */
+
+export type AuditRow = {
+  id: number
+  ts: number
+  bot: string
+  type: string
+  text: string
+  /** For decisions: what was decided, and whether a standing "always allow" did it. */
+  decision?: { approved: boolean; auto: boolean }
+}
+
+export const AUDIT_LIMIT = 500
+
+export function auditRows(events: BotEvent[], names: Map<string, string>): AuditRow[] {
+  return events.map((e) => {
+    const data = (e.data ?? {}) as { state?: string; autoApproved?: boolean }
+    const row: AuditRow = {
+      id: e.id, ts: e.ts, type: e.type,
+      bot: e.botId ? names.get(e.botId) ?? 'Deleted Bot' : '',
+      text: String(e.text ?? '').replace(/\s+/g, ' ').trim(),
+    }
+    if (e.type === 'decision') {
+      row.decision = { approved: data.state ? data.state === 'approved' : /^approved/i.test(row.text), auto: Boolean(data.autoApproved) }
+    }
+    return row
+  }).toReversed()
+}
+
+export function filterRows(rows: AuditRow[], f: { bot: string; type: string; q: string }): AuditRow[] {
+  const q = f.q.trim().toLowerCase()
+  return rows.filter((r) => (!f.bot || r.bot === f.bot) && (!f.type || r.type === f.type) && (!q || r.text.toLowerCase().includes(q) || r.bot.toLowerCase().includes(q)))
+}
+
+export function eventsCsv(events: BotEvent[], names: Map<string, string>): string {
+  const esc = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`
+  const header = ['id', 'time', 'bot', 'type', 'text', 'data'].join(',')
+  return [header, ...events.map((e) => [e.id, new Date(e.ts).toISOString(), e.botId ? names.get(e.botId) ?? e.botId : '', e.type, e.text, JSON.stringify(e.data)].map(esc).join(','))].join('\n')
+}
+
+export function downloadFile(name: string, blob: Blob) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.append(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+
+const fmt = (ts: number) => {
+  const d = new Date(ts)
+  const sameDay = d.toDateString() === new Date().toDateString()
+  return sameDay ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+export function Audit({ bots, events, error, onOpenBot }: {
+  bots: Bot[]
+  events: BotEvent[] | null
+  error: string | null
+  onOpenBot: (botId: string) => void
+}) {
+  const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
+  const byName = useMemo(() => new Map(bots.map((b) => [b.name, b.id])), [bots])
+  const [bot, setBot] = useState('')
+  const [type, setType] = useState('')
+  const [q, setQ] = useState('')
+  const rows = useMemo(() => auditRows(events ?? [], names), [events, names])
+  const types = useMemo(() => [...new Set(rows.map((r) => r.type))].sort(), [rows])
+  const shown = useMemo(() => filterRows(rows, { bot, type, q }), [rows, bot, type, q])
+  const shownIds = useMemo(() => new Set(shown.map((r) => r.id)), [shown])
+
+  const exportAs = (format: 'json' | 'csv') => {
+    const picked = (events ?? []).filter((e) => shownIds.has(e.id))
+    const blob = format === 'json'
+      ? new Blob([JSON.stringify({ exported: new Date().toISOString(), bots: bots.map((b) => ({ id: b.id, name: b.name, role: b.role })), events: picked }, null, 2)], { type: 'application/json' })
+      : new Blob([eventsCsv(picked, names)], { type: 'text/csv' })
+    downloadFile(`bots-audit-${stamp()}.${format}`, blob)
+  }
+
+  const select = 'rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[14px] md:text-[13px] text-kumo-default'
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-none flex-wrap items-center gap-2 border-b border-kumo-line px-3 py-2">
+        <select className={select} value={bot} onChange={(e) => setBot(e.target.value)} aria-label="Bot">
+          <option value="">All Bots</option>
+          {bots.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+        </select>
+        <select className={select} value={type} onChange={(e) => setType(e.target.value)} aria-label="Kind">
+          <option value="">All kinds</option>
+          {types.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <input className={`${select} min-w-0 flex-1`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search" />
+        <Button variant="secondary" size="sm" onClick={() => exportAs('json')} disabled={!shown.length}>JSON</Button>
+        <Button variant="secondary" size="sm" onClick={() => exportAs('csv')} disabled={!shown.length}>CSV</Button>
+      </div>
+      {error && <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load the record: {error}</div>}
+      {!error && events === null && <div className="p-4 text-[13px] md:text-[12px] text-kumo-subtle" aria-busy="true">Loading…</div>}
+      {!error && events !== null && !shown.length && <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">Nothing matches.</div>}
+      <ul className="min-h-0 flex-1 overflow-y-auto" aria-label="Audit">
+        {shown.map((r) => (
+          <li key={r.id} className="border-b border-kumo-line px-3 py-2 text-[13px] md:text-[12px]">
+            <div className="flex flex-wrap items-baseline gap-x-2 text-kumo-subtle">
+              <span className="tabular-nums">{fmt(r.ts)}</span>
+              {r.bot && (
+                <button type="button" className="font-medium text-kumo-default hover:underline" onClick={() => { const id = byName.get(r.bot); if (id) onOpenBot(id) }}>{r.bot}</button>
+              )}
+              <span className="uppercase tracking-wide">{r.type}</span>
+              {r.decision && (
+                <span className={r.decision.approved ? 'text-kumo-default' : 'text-kumo-danger'}>
+                  {r.decision.approved ? 'approved' : 'rejected'}{r.decision.auto ? ' · always allow' : ''}
+                </span>
+              )}
+            </div>
+            {r.text && <div className="mt-0.5 break-words text-kumo-default">{r.text.length > 300 ? `${r.text.slice(0, 299)}…` : r.text}</div>}
+          </li>
+        ))}
+      </ul>
+      <div className="flex-none border-t border-kumo-line px-3 py-1.5 text-[12px] md:text-[11px] text-kumo-subtle">
+        {shown.length} of {rows.length}{rows.length >= AUDIT_LIMIT ? ` (last ${AUDIT_LIMIT})` : ''}
+      </div>
+    </div>
+  )
+}
+
+export default Audit
