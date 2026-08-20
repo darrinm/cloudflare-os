@@ -214,7 +214,7 @@ describe("BotsPageContent", () => {
     const hub = {
       getMeta: vi.fn(async (k: string) => meta.get(k) ?? null),
       setMeta: vi.fn(async (k: string, v: string) => { meta.set(k, v); return v; }),
-      send: vi.fn(async () => ({ eventId: 9, delivered: true })),
+      send: vi.fn<(botId: string, text: string, from: unknown) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 9, delivered: true })),
       activity: async () => [],
     };
     testState.hub.hub = hub;
