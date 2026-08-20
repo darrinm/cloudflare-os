@@ -1,4 +1,5 @@
 import { RpcStub } from "capnweb";
+import { createDeadline } from "./browser-export.js";
 import { GadgetMetadataWithTimestamps, AiChatAuthorInfo, AiModelConfig, SUGGESTED_MODELS, CollaboratorRole, ConnectedAccountsSubscriber, ConnectedAccountsFilter, GatekeeperVendorFilter, GadgetMetadata, BlueprintMetadata, BlueprintLibrarySummary, BlueprintSource, BlueprintUserSummary, BLUEPRINT_SCREENSHOT_R2_PREFIX, GatekeeperVendorInfo, BlueprintOutput, OutputSummary, WorkpieceId, ListOutputsResult, AUTH_ERROR_CODES, createAuthError, type ThinkingLevel } from '@gadgets/workshop-shared/api';
 import { Gatekeeper, GatekeeperUser, GatekeeperUserVerifier, GatekeeperVendor, AccountDescription, VendorDescription, GatekeeperConnectCallback, SupportedResource, ResourceConfiguratorFrame, AppUiContext, GatekeeperUiFrame } from "@gadgets/workshop-shared/gatekeeper";
 import { shouldAutoProvisionAccount, ambientGatekeeperMode } from "./provisioning-policy.js";
@@ -1438,6 +1439,10 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
    * DO. Callers filter on `description.singleton` (ambient capsules / catalog) or
    * `description.providesUi` (management-UI listing).
    */
+  /** When each account's description was last refreshed from its vendor (per instance). */
+  #describeRefreshedAt = new Map<number, number>();
+  static readonly #DESCRIBE_REFRESH_MS = 60 * 60 * 1000;
+
   async listProvidedAccounts(): Promise<ProvidedAccountInfo[]> {
     await this.#ensureAutoProvisionedAccounts();
     let config = await readAdminConfig(this.env);
@@ -1453,16 +1458,19 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     // its app (or changes its icon) never reached anyone who already had one: the nav kept saying
     // "Sandbox" after the app became "Computer". Refresh from the live account, in parallel, and
     // keep the stored copy when a vendor is unreachable so a flaky one cannot blank the nav.
+    // Renames are ship-time-rare and this sits on the nav/gadget-open path, so each record is
+    // asked at most once an hour per instance: steady-state calls stay RPC-free.
+    let now = Date.now();
     let refreshed = await Promise.all(candidates.map(async (rec) => {
+      if (now - (this.#describeRefreshedAt.get(rec.id) ?? 0) < UserDurableObject.#DESCRIBE_REFRESH_MS) return rec.description;
+      this.#describeRefreshedAt.set(rec.id, now);
+      // Bounded: the catch below only covers a vendor that *rejects* -- a wedged one would
+      // otherwise hang every caller behind it.
+      let deadline = createDeadline(2000, "describe() timed out");
       try {
-        // Bounded: this sits on the nav/gadget-open path, and the catch below only covers a vendor
-        // that *rejects* -- a wedged one would otherwise hang every caller behind it.
         let call = (rec.account as unknown as Pick<GatekeeperUser, "describe">).describe();
-        call.catch(() => {}); // the race may abandon it; don't leave an unhandled rejection
-        let description = await Promise.race([
-          call,
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("describe() timed out")), 2000)),
-        ]);
+        call.catch(() => {}); // the deadline may abandon it; don't leave an unhandled rejection
+        let description = await deadline.race(call);
         // Re-read before writing: describe() yields this DO, and a reconnect or disconnect that
         // landed meanwhile must not be clobbered (or resurrected) by our pre-await snapshot.
         let current: ConnectedAccountRecord | undefined;
@@ -1473,6 +1481,8 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
         return description;
       } catch {
         return rec.description;
+      } finally {
+        deadline.clear();
       }
     }));
     return candidates.map((rec, i) => ({ accountId: rec.id, vendorId: rec.vendorId, description: refreshed[i] }));

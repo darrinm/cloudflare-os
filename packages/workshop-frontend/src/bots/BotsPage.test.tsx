@@ -49,7 +49,10 @@ vi.mock("../AuthContext", () => ({
 }));
 vi.mock("../ChatInterface", () => ({ default: () => <div data-testid="chat" /> }));
 vi.mock("../useWorkspaceOpen", () => ({ useWorkspaceOpen: () => testState.workspaceOpen }));
-vi.mock("./useBotsHub", () => ({ useBotsHub: () => testState.hub }));
+vi.mock("./useBotsHub", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./useBotsHub")>()),
+  useBotsHub: () => testState.hub,
+}));
 vi.mock("../useActions", () => ({ useActions: () => ({ actionsById: new Map(), isReady: true }) }));
 vi.mock("./examples", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./examples")>()),

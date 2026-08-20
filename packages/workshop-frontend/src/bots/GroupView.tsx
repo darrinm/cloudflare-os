@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { CaretLeft, PaperPlaneRight, PencilSimple, X } from '@phosphor-icons/react'
 import { WorkshopIconButton } from '../components/WorkshopControls'
-import type { HubStub, SeqUpdate } from './useBotsHub'
+import { drainNew, type HubStub, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotGroup, GroupPost } from './types'
 
 function fmtTime(ts: number): string {
@@ -50,12 +50,7 @@ export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenB
   // the same render batch. The id-dedupe makes replaying older buffered updates harmless.
   const seenSeqRef = useRef(0)
   useEffect(() => {
-    const fresh: GroupPost[] = []
-    for (const { seq, update } of updates) {
-      if (seq <= seenSeqRef.current) continue
-      seenSeqRef.current = seq
-      if (update.type === 'groupPost' && update.groupId === group.id) fresh.push(update.post)
-    }
+    const fresh = drainNew(updates, seenSeqRef, (u) => (u.type === 'groupPost' && u.groupId === group.id ? u.post : null))
     if (!fresh.length) return
     setPosts((prev) => {
       if (!prev) return prev

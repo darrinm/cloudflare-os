@@ -28,6 +28,22 @@ export type BotsHubState = {
   updates: SeqUpdate[]
 }
 
+/**
+ * Every update newer than the last one this consumer handled, mapped through `pick` (return null
+ * to skip). The seq protocol -- monotonic, replay-tolerant -- lives here once; a consumer keeps
+ * only a ref and a picker.
+ */
+export function drainNew<T>(updates: SeqUpdate[], seenSeqRef: { current: number }, pick: (u: HubUpdate) => T | null): T[] {
+  const out: T[] = []
+  for (const { seq, update } of updates) {
+    if (seq <= seenSeqRef.current) continue
+    seenSeqRef.current = seq
+    const v = pick(update)
+    if (v !== null) out.push(v)
+  }
+  return out
+}
+
 class HubSubscriber extends RpcTarget {
   constructor(private readonly onUpdate: (u: HubUpdate) => void) { super() }
   update(u: HubUpdate) { this.onUpdate(u) }

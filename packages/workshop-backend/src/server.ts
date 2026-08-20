@@ -831,7 +831,14 @@ export default {
     // else the bundled default. One URL so index.html can link it without knowing which.
     if (url.pathname === TOUCH_ICON_PATH) {
       let config = await readAdminConfig(env);
-      if (config.siteLogoConfigured) return serveSiteLogo(req, env.BLUEPRINT_CONTENT);
+      if (config.siteLogoConfigured) {
+        // Same cache policy as the fallback: without it every icon fetch pays a Worker
+        // invocation, a KV read and an R2 get.
+        let logo = await serveSiteLogo(req, env.BLUEPRINT_CONTENT);
+        let headers = new Headers(logo.headers);
+        headers.set("cache-control", "public, max-age=300");
+        return new Response(logo.body, { status: logo.status, headers });
+      }
       // Built by hand because Response.redirect() can't carry headers; without caching every icon
       // fetch pays a Worker invocation and an admin-config read just to be sent next door.
       return new Response(null, {
