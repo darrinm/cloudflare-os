@@ -4143,12 +4143,13 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
     foldedKey ||= key;
   };
   for (const entry of entries) {
-    if (first && entry.type === "message" && entry.message.type === "message" &&
-        entry.message.author.type === "user") {
+    // The persona is the chat's first message, sent by whoever spawned the agent: a person (author
+    // "user") or, for a Bot the hub created, the hub itself (author "gadget"). Anything the agent
+    // said cannot be it; anything before the first message (a work row) is not it either.
+    if (first && entry.type === "message" && entry.message.type === "message") {
       first = false;
-      continue;
+      if (entry.message.author.type !== "agent") continue;
     }
-    first = false;
     if (showWork) { out.push(entry); continue; }
     if (entry.type === "workRun") { fold(entry.key, "code", entry.toolCalls.length); continue; }
     if (entry.type === "message") {

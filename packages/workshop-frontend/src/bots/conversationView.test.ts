@@ -33,6 +33,22 @@ describe('Bot conversation view', () => {
       .toBe('ran 3 steps · read 2 things · 1 hand-off · used the hub')
     expect(describeBotWork({ code: 1, callbacks: 0, gadget: 0, observations: 0 })).toBe('ran 1 step')
   })
+  it('drops a persona the hub sent (author "gadget"), even behind a leading work row', () => {
+    // A Bot the hub creates gets its chat from the hub, so the persona is authored by a gadget, and
+    // the spawn's own bookkeeping can precede it. It showed in full on the phone because the filter
+    // wanted a user-authored first entry.
+    const list = [
+      { type: 'workRun', key: 'w0', toolCalls: [{}], observations: [], toolCallGroups: [{}] },
+      { type: 'message', key: 'persona', message: { type: 'message', author: { type: 'gadget', id: 'owner', name: 'Bots' }, message: 'You are "Researcher", a persistent AI teammate…' } },
+      user('u1', 'Quick check: Node release?'),
+      agent('a1', 'Node.js LTS is v24.19.0…'),
+    ]
+    expect(toConversationEntries(list as never, false).filter((e) => e.type !== 'botWork').map((e) => e.key)).toEqual(['u1', 'a1'])
+    expect(toConversationEntries(list as never, true).map((e) => e.key)).toEqual(['w0', 'u1', 'a1'])
+    // An agent that speaks first is not a persona.
+    const spoken = [agent('a0', 'Hello'), user('u1', 'Hi')]
+    expect(toConversationEntries(spoken as never, false).map((e) => e.key)).toEqual(['a0', 'u1'])
+  })
   it('with showWork keeps everything except the persona', () => {
     const keys = toConversationEntries(entries as never, true).map((e) => e.key)
     expect(keys[0]).toBe('u1')
