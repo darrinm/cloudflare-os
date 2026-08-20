@@ -125,13 +125,10 @@ describe('router email', () => {
 describe('wrangler.jsonc contract', () => {
   const config = parse(wranglerConfigText);
 
-  it('runs the worker first for API, screenshot, and gatekeeper prefixes', () => {
-    const first: string[] = config.assets.run_worker_first;
-    expect(first).toContain('/api');
-    expect(first).toContain('/api/*');
-    expect(first).toContain('/blueprint-screenshot');
-    expect(first).toContain('/blueprint-screenshot/*');
-    expect(first).toContain('/gatekeeper/*');
+  it('runs the worker first for everything but the hashed bundles', () => {
+    // Documents (the shell it serves uncacheable), API, screenshots and gatekeeper prefixes all go
+    // through the worker; only /assets/* is served straight from static assets.
+    expect(config.assets.run_worker_first).toEqual(['/*', '!/assets/*']);
   });
 
   it('serves the frontend as a single-page application', () => {

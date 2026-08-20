@@ -15,19 +15,15 @@
   ],
 
   // The router owns the public origin for customer instances, so it serves the frontend.
-  // `run_worker_first` keeps API and gatekeeper prefixes on the worker; everything else falls
-  // through to static assets with SPA fallback.
+  // Everything but the hashed bundles under /assets runs through the worker: the API and
+  // gatekeeper prefixes it routes, and every document, which it serves uncacheable (the HTML shell
+  // names this deploy's bundles, and a cached copy outlived the deploy). Wrangler rejects listing
+  // the API prefixes alongside "/*" as redundant, so the one wildcard carries them.
   "assets": {
     "directory": "../workshop-frontend/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": [
-      "/api",
-      "/api/*",
-      "/blueprint-screenshot",
-      "/blueprint-screenshot/*",
-      "/gatekeeper/*"
-    ]
+    "run_worker_first": ["/*", "!/assets/*"]
   },
 
   "observability": {
