@@ -30,7 +30,7 @@ const testState = vi.hoisted(() => {
       info: null as unknown,
       error: null as string | null,
       version: 0,
-      lastUpdate: null,
+      updates: [] as unknown[],
       refreshBots: vi.fn<() => Promise<void>>(async () => {}),
     },
   };

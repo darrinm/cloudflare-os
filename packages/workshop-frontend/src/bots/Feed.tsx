@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatRelativeTime } from '../Activity'
-import type { Bot, BotEvent, HubApi, HubUpdate } from './types'
+import type { SeqUpdate } from './useBotsHub'
+import type { Bot, BotEvent, HubApi } from './types'
 
 /**
  * What every Bot has been doing, newest first, in sentences a person would say out loud.
@@ -109,11 +110,12 @@ const TONE: Record<FeedLine['tone'], string> = {
  * the whole event row, so keeping up costs no RPC at all -- it used to re-read the newest 120 rows
  * on every update, from two mounted copies.
  */
-export function useFeed(hub: HubApi | null, lastUpdate: HubUpdate | null) {
+export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
   const [events, setEvents] = useState<BotEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const pendingRef = useRef<BotEvent[]>([])
+  const seenSeqRef = useRef(0)
   const load = useCallback(async () => {
     if (!hub) return
     try {
@@ -130,16 +132,25 @@ export function useFeed(hub: HubApi | null, lastUpdate: HubUpdate | null) {
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
-    if (lastUpdate?.type !== 'event') return
-    const incoming = lastUpdate.event
+    // Drain every update newer than the last one handled: a single "latest" slot would coalesce
+    // a burst (two events in one render batch) and silently lose the earlier event.
+    const incoming: BotEvent[] = []
+    for (const { seq, update } of updates) {
+      if (seq <= seenSeqRef.current) continue
+      seenSeqRef.current = seq
+      if (update.type === 'event') incoming.push(update.event)
+    }
+    if (!incoming.length) return
     setEvents((prev) => {
       // Before the first snapshot lands, events are held rather than dropped: the snapshot may
-      // have been computed before this one was stored, and a dropped event never comes back.
-      if (!prev) { pendingRef.current.push(incoming); return prev }
-      if (prev.some((e) => e.id === incoming.id)) return prev
-      return [...prev, incoming].slice(-FEED_LIMIT)
+      // have been computed before these were stored, and a dropped event never comes back.
+      if (!prev) { pendingRef.current.push(...incoming); return prev }
+      const seen = new Set(prev.map((e) => e.id))
+      const fresh = incoming.filter((e) => !seen.has(e.id))
+      if (!fresh.length) return prev
+      return [...prev, ...fresh].slice(-FEED_LIMIT)
     })
-  }, [lastUpdate])
+  }, [updates])
 
   return { events, error }
 }
@@ -154,6 +165,17 @@ export function Feed({ bots, events, error, onOpenBot }: {
 
   const lines = useMemo(() => {
     const byId = new Map((events ?? []).map((e) => [e.id, e]))
+    // The last time each Bot moved on -- the reader answered or decided, or the Bot finished or
+    // failed. An ask older than that is no longer waiting on anyone, and pinning it forever would
+    // fill the top of the feed with stale demands.
+    const movedOn = new Map<string, number>()
+    for (const e of events ?? []) {
+      if (!e.botId) continue
+      const from = ((e.data ?? {}) as { from?: { type?: string } }).from
+      const resolves = e.type === 'completed' || e.type === 'failed' || e.type === 'capped'
+        || e.type === 'decision' || (e.type === 'message' && (!from?.type || from.type === 'user'))
+      if (resolves) movedOn.set(e.botId, Math.max(movedOn.get(e.botId) ?? 0, e.ts))
+    }
     const all = (events ?? [])
       // A Bot that no longer exists cannot need anything, and its line would otherwise sit pinned
       // at the top as "A Bot needs you" with a tap that opens nothing -- the audit log keeps the
@@ -161,6 +183,9 @@ export function Feed({ bots, events, error, onOpenBot }: {
       .filter((e) => !e.botId || names.has(e.botId) || e.type !== 'needsUser')
       .map((e) => summarise(e, e.botId ? names.get(e.botId) ?? null : null, byId))
       .filter((l): l is FeedLine => l !== null)
+      // An answered ask stays in the story, but as context, not as a demand.
+      .map((l) => (l.tone === 'needs' && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts
+        ? { ...l, tone: 'quiet' as const } : l))
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
     return all.sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
   }, [events, names])

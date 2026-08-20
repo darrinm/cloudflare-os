@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { DropdownMenu, useKumoToastManager } from '@cloudflare/kumo'
 import { useAuthenticatedApi } from '../AuthContext'
+import { BLUEPRINT_ARCHIVE_EXTENSION } from '../fileTransfers'
 import { MENU_CONTENT, MENU_ITEM, MENU_ITEM_DANGER } from './menuStyles'
 
 // A unified row item, merged from the user's published blueprints (`listOwnBlueprints`) and their
@@ -251,7 +252,7 @@ export default function BlueprintList() {
       <input
         ref={uploadInputRef}
         type="file"
-        accept=".gadget"
+        accept={BLUEPRINT_ARCHIVE_EXTENSION}
         className="hidden"
         onChange={handleBlueprintSelected}
       />
@@ -281,7 +282,7 @@ export default function BlueprintList() {
               type="button"
               onClick={() => uploadInputRef.current?.click()}
               disabled={uploading}
-              title="Upload a .app archive"
+              title={`Upload a ${BLUEPRINT_ARCHIVE_EXTENSION} archive`}
               className={ACTION_BUTTON}
             >
               <UploadSimple size={14} weight="bold" />
@@ -331,7 +332,7 @@ export default function BlueprintList() {
                   className={ACTION_BUTTON}
                 >
                   <UploadSimple size={14} weight="bold" />
-                  {uploading ? 'Uploading…' : 'Upload .app'}
+                  {uploading ? 'Uploading…' : `Upload ${BLUEPRINT_ARCHIVE_EXTENSION}`}
                 </button>
               </div>
             </div>

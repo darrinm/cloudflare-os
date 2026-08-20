@@ -6,6 +6,12 @@ import type { Bot, BotGroup, HubApi, HubInfo, HubUpdate } from './types'
 /** RPC to the Bots Hub gadget's Durable Object (see packages/bots-hub in the deployment). */
 export type HubStub = RpcStub<HubApi>
 
+/** One hub update with a monotonic sequence number, so consumers can drain exactly the new ones. */
+export type SeqUpdate = { seq: number; update: HubUpdate }
+
+/** How many recent updates to keep buffered for consumers; enough to ride out any render burst. */
+const UPDATE_BUFFER = 100
+
 export type BotsHubState = {
   hub: HubStub | null
   bots: Bot[]
@@ -14,7 +20,12 @@ export type BotsHubState = {
   error: string | null
   /** Bumped on every hub update; consumers re-fetch details they show. */
   version: number
-  lastUpdate: HubUpdate | null
+  /**
+   * Recent hub updates in arrival order. A single "latest update" slot loses events: two updates
+   * landing in one render batch overwrite each other before any consumer's effect runs. Consumers
+   * track the last `seq` they handled and fold in everything newer.
+   */
+  updates: SeqUpdate[]
 }
 
 class HubSubscriber extends RpcTarget {
@@ -31,9 +42,11 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
   refreshBots: () => Promise<void>
 } {
   const [state, setState] = useState<BotsHubState>({
-    hub: null, bots: [], groups: [], info: null, error: null, version: 0, lastUpdate: null,
+    hub: null, bots: [], groups: [], info: null, error: null, version: 0, updates: [],
   })
   const hubRef = useRef<HubStub | null>(null)
+  // Monotonic across reconnects, so consumers' "last seq handled" refs stay valid.
+  const seqRef = useRef(0)
   // Bumped when the hub stub breaks (the gadget restarts whenever something is bound to it, e.g.
   // a Bot's new spawner or computer), so the effect below reconnects instead of leaving the page
   // on a dead stub.
@@ -66,7 +79,8 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
           if (u.type === 'bots' || u.type === 'groups') {
             refreshBots().catch(() => {})
           }
-          setState((s) => ({ ...s, version: s.version + 1, lastUpdate: u }))
+          const item = { seq: ++seqRef.current, update: u }
+          setState((s) => ({ ...s, version: s.version + 1, updates: [...s.updates, item].slice(-UPDATE_BUFFER) }))
         })
         const snapshot = await connected.subscribe(subscriber)
         if (cancelled) return
@@ -81,7 +95,7 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
       hubRef.current = null
       try { hub?.[Symbol.dispose]() } catch { /* ignore */ }
       try { gadgetClient?.[Symbol.dispose]() } catch { /* ignore */ }
-      setState({ hub: null, bots: [], groups: [], info: null, error: null, version: 0, lastUpdate: null })
+      setState({ hub: null, bots: [], groups: [], info: null, error: null, version: 0, updates: [] })
     }
   }, [overseer, workpieceId, refreshBots, attempt])
 

@@ -1455,9 +1455,20 @@ export class UserDurableObject extends DurableObject<Cloudflare.Env> {
     // keep the stored copy when a vendor is unreachable so a flaky one cannot blank the nav.
     let refreshed = await Promise.all(candidates.map(async (rec) => {
       try {
-        let description = await (rec.account as unknown as { describe(): Promise<AccountDescription> }).describe();
-        if (JSON.stringify(description) !== JSON.stringify(rec.description)) {
-          this.storage.connectedAccounts.put({ ...rec, description });
+        // Bounded: this sits on the nav/gadget-open path, and the catch below only covers a vendor
+        // that *rejects* -- a wedged one would otherwise hang every caller behind it.
+        let call = (rec.account as unknown as Pick<GatekeeperUser, "describe">).describe();
+        call.catch(() => {}); // the race may abandon it; don't leave an unhandled rejection
+        let description = await Promise.race([
+          call,
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("describe() timed out")), 2000)),
+        ]);
+        // Re-read before writing: describe() yields this DO, and a reconnect or disconnect that
+        // landed meanwhile must not be clobbered (or resurrected) by our pre-await snapshot.
+        let current: ConnectedAccountRecord | undefined;
+        try { current = this.storage.connectedAccounts.get(rec.id); } catch { return description; }
+        if (current && JSON.stringify(current.description) !== JSON.stringify(description)) {
+          this.storage.connectedAccounts.put({ ...current, description });
         }
         return description;
       } catch {
