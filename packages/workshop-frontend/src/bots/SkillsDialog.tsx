@@ -10,7 +10,7 @@ import type { HubSkill } from './types'
  * with `$ARGUMENT` where the invocation's args go. Agent Skills from the Context Library work too
  * (through the conversation's `/` menu); these are the hub-local kind that needs no collection.
  */
-export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples, onUpdateHub, updating, updateAvailable, targetRevision }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null; onUpdateHub?: () => void; updating?: string | null; updateAvailable?: boolean; targetRevision?: number }) {
+export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples, onUpdateHub, updating, updateAvailable }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null; onUpdateHub?: () => void; updating?: string | null; updateAvailable?: boolean }) {
   const toasts = useKumoToastManager()
   const [skills, setSkills] = useState<HubSkill[] | null>(null)
   const [editing, setEditing] = useState<{ name: string; description: string; body: string } | null>(null)
@@ -81,7 +81,7 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
                   )}
                   {onUpdateHub && updateAvailable && (
                     <Button variant="secondary" size="sm" onClick={onUpdateHub} loading={!!updating} title="Bring this hub up to the deployment's current version; your Bots, memory and routines are kept">
-                      {targetRevision ? `Update Bots (v${targetRevision})` : 'Update Bots'}
+                      Update Bots
                     </Button>
                   )}
                   {(updating || addingExamples) && <span className="text-[12px] md:text-[11px] text-kumo-subtle">{updating || addingExamples}</span>}

@@ -562,8 +562,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       />
       {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding}
         onUpdateHub={updateHub} updating={updating}
-        updateAvailable={bundledRevision !== null && bundledRevision > (hubState.info?.revision ?? 0)}
-        targetRevision={bundledRevision ?? undefined} />}
+        updateAvailable={bundledRevision !== null && bundledRevision > (hubState.info?.revision ?? 0)} />}
     </div>
   )
 }
@@ -621,25 +620,30 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <LiveGlance bot={bot} />
-      <ChatInterface
-        workspaceId={workspaceId}
-        overseer={overseer}
-        selectedChatId={chatId}
-        onNavigateToChat={() => {}}
-        hideChatHeader
-        conversationView
-        showWork={showWork}
-        conversationEvents={conversationEvents}
-        onOpenPath={onOpenPath}
-        constrainChatWidth
-        pendingConsoleLogCount={0}
-        consoleLogPreview=""
-        consoleLogSeverity="info"
-        onConsumeConsoleLogs={() => ''}
-        onDiscardConsoleLogs={() => {}}
-        onOpenGadget={() => {}}
-        outputOfWorkpiece={() => undefined}
-      />
+      {/* ChatInterface sizes itself with h-full, so it needs a bounded box to fill. Without this
+          wrapper it takes the whole column height regardless of the live-glance card above it, and
+          the overflow pushes the composer off the bottom of the screen. */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ChatInterface
+          workspaceId={workspaceId}
+          overseer={overseer}
+          selectedChatId={chatId}
+          onNavigateToChat={() => {}}
+          hideChatHeader
+          conversationView
+          showWork={showWork}
+          conversationEvents={conversationEvents}
+          onOpenPath={onOpenPath}
+          constrainChatWidth
+          pendingConsoleLogCount={0}
+          consoleLogPreview=""
+          consoleLogSeverity="info"
+          onConsumeConsoleLogs={() => ''}
+          onDiscardConsoleLogs={() => {}}
+          onOpenGadget={() => {}}
+          outputOfWorkpiece={() => undefined}
+        />
+      </div>
     </div>
   )
 }
