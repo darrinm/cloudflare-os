@@ -222,6 +222,15 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [showWork, setShowWork] = useState<boolean>(() => { try { return localStorage.getItem('bots:showWork') === '1' } catch { return false } })
   const toggleShowWork = useCallback(() => setShowWork((v) => { try { localStorage.setItem('bots:showWork', v ? '0' : '1') } catch { /* ignore */ } return !v }), [])
 
+  // A gatekeeper card's `open.path` is a plain href ("/gatekeepers/browser?profile=x&takeover=1").
+  // The router's `to` is a route matcher, not an href parser, so a raw string with a query on it
+  // does not navigate -- the query has to be handed over separately as `search`.
+  const openPath = useCallback((path: string) => {
+    const [to, query] = path.split('?')
+    const search = Object.fromEntries(new URLSearchParams(query ?? ''))
+    navigate({ to, search } as never)
+  }, [navigate])
+
   // A hub is a gadget created by copying the "Bots" blueprint, so a deployment that ships a newer
   // hub never reaches hubs that already exist. This takes the update in place: storage (Bots,
   // memory, routines, groups, costs), bindings and the workpiece id are kept.
@@ -491,7 +500,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 <Info size={14} />
               </WorkshopIconButton>
             </header>
-            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} hub={hubState.hub} updates={hubState.updates} onOpenPath={(path) => navigate({ to: path as string })} />
+            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} hub={hubState.hub} updates={hubState.updates} onOpenPath={openPath} />
           </section>
           <BotDetails
             key={selected.id}
