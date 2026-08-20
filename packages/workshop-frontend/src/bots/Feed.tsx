@@ -121,7 +121,9 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_L
   const pendingRef = useRef<BotEvent[]>([])
   const seenSeqRef = useRef(0)
   const load = useCallback(async () => {
-    if (!hub) return
+    // No hub means the view is closed (or not yet connected): drop what it held rather than keep
+    // a window nobody is reading up to date.
+    if (!hub) { setEvents(null); pendingRef.current = []; return }
     try {
       const snapshot = await hub.activity(null, { limit })
       // Fold in anything that arrived while the snapshot was in flight, dropping what it already has.
@@ -136,6 +138,7 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_L
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
+    if (!hub) return
     const incoming = drainNew(updates, seenSeqRef, (u) => (u.type === 'event' ? u.event : null))
     if (!incoming.length) return
     setEvents((prev) => {
@@ -147,7 +150,7 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_L
       if (!fresh.length) return prev
       return [...prev, ...fresh].slice(-limit)
     })
-  }, [updates, limit])
+  }, [hub, updates, limit])
 
   return { events, error }
 }
@@ -189,26 +192,28 @@ export function Feed({ bots, events, error, onOpenBot, header }: {
     return all.sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
   }, [events, names])
 
-  if (error) return <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
-  if (events === null) {
-    return (
-      <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading activity">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col gap-1.5">
-            <span className="h-3 w-3/4 animate-pulse rounded bg-kumo-tint" />
-            <span className="h-2.5 w-24 animate-pulse rounded bg-kumo-tint" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-  if (!lines.length) {
+  // The header is part of the screen whatever the lines are doing: a first-run card must not
+  // vanish because the snapshot is slow or failed.
+  if (error || events === null || !lines.length) {
     return (
       <div className="flex min-h-0 flex-col overflow-y-auto">
         {header}
-        <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
-          Nothing yet.
-        </div>
+        {error ? (
+          <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
+        ) : events === null ? (
+          <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading activity">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex flex-col gap-1.5">
+                <span className="h-3 w-3/4 animate-pulse rounded bg-kumo-tint" />
+                <span className="h-2.5 w-24 animate-pulse rounded bg-kumo-tint" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
+            Nothing yet.
+          </div>
+        )}
       </div>
     )
   }

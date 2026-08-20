@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@cloudflare/kumo'
+import { triggerBlobDownload } from '../fileTransfers'
+import { fmtTime } from './GroupView'
 import type { Bot, BotEvent } from './types'
 
 /**
@@ -11,6 +13,8 @@ import type { Bot, BotEvent } from './types'
 export type AuditRow = {
   id: number
   ts: number
+  /** The Bot's id is what filters and links key on; names are not unique. */
+  botId: string | null
   bot: string
   type: string
   text: string
@@ -24,7 +28,7 @@ export function auditRows(events: BotEvent[], names: Map<string, string>): Audit
   return events.map((e) => {
     const data = (e.data ?? {}) as { state?: string; autoApproved?: boolean }
     const row: AuditRow = {
-      id: e.id, ts: e.ts, type: e.type,
+      id: e.id, ts: e.ts, type: e.type, botId: e.botId,
       bot: e.botId ? names.get(e.botId) ?? 'Deleted Bot' : '',
       text: String(e.text ?? '').replace(/\s+/g, ' ').trim(),
     }
@@ -35,9 +39,10 @@ export function auditRows(events: BotEvent[], names: Map<string, string>): Audit
   }).toReversed()
 }
 
+/** `bot` is a Bot id. */
 export function filterRows(rows: AuditRow[], f: { bot: string; type: string; q: string }): AuditRow[] {
   const q = f.q.trim().toLowerCase()
-  return rows.filter((r) => (!f.bot || r.bot === f.bot) && (!f.type || r.type === f.type) && (!q || r.text.toLowerCase().includes(q) || r.bot.toLowerCase().includes(q)))
+  return rows.filter((r) => (!f.bot || r.botId === f.bot) && (!f.type || r.type === f.type) && (!q || r.text.toLowerCase().includes(q) || r.bot.toLowerCase().includes(q)))
 }
 
 export function eventsCsv(events: BotEvent[], names: Map<string, string>): string {
@@ -46,23 +51,13 @@ export function eventsCsv(events: BotEvent[], names: Map<string, string>): strin
   return [header, ...events.map((e) => [e.id, new Date(e.ts).toISOString(), e.botId ? names.get(e.botId) ?? e.botId : '', e.type, e.text, JSON.stringify(e.data)].map(esc).join(','))].join('\n')
 }
 
-export function downloadFile(name: string, blob: Blob) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.append(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-
-const fmt = (ts: number) => {
-  const d = new Date(ts)
-  const sameDay = d.toDateString() === new Date().toDateString()
-  return sameDay ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+/** Saves events as a file named `<base>-<timestamp>.<format>`; the JSON carries `envelope` around the events. */
+export function exportEvents(base: string, format: 'json' | 'csv', events: BotEvent[], names: Map<string, string>, envelope: Record<string, unknown>) {
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+  const blob = format === 'json'
+    ? new Blob([JSON.stringify({ ...envelope, exported: new Date().toISOString(), events }, null, 2)], { type: 'application/json' })
+    : new Blob([eventsCsv(events, names)], { type: 'text/csv' })
+  triggerBlobDownload(blob, `${base}-${stamp}.${format}`)
 }
 
 export function Audit({ bots, events, error, onOpenBot }: {
@@ -72,7 +67,6 @@ export function Audit({ bots, events, error, onOpenBot }: {
   onOpenBot: (botId: string) => void
 }) {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
-  const byName = useMemo(() => new Map(bots.map((b) => [b.name, b.id])), [bots])
   const [bot, setBot] = useState('')
   const [type, setType] = useState('')
   const [q, setQ] = useState('')
@@ -81,13 +75,8 @@ export function Audit({ bots, events, error, onOpenBot }: {
   const shown = useMemo(() => filterRows(rows, { bot, type, q }), [rows, bot, type, q])
   const shownIds = useMemo(() => new Set(shown.map((r) => r.id)), [shown])
 
-  const exportAs = (format: 'json' | 'csv') => {
-    const picked = (events ?? []).filter((e) => shownIds.has(e.id))
-    const blob = format === 'json'
-      ? new Blob([JSON.stringify({ exported: new Date().toISOString(), bots: bots.map((b) => ({ id: b.id, name: b.name, role: b.role })), events: picked }, null, 2)], { type: 'application/json' })
-      : new Blob([eventsCsv(picked, names)], { type: 'text/csv' })
-    downloadFile(`bots-audit-${stamp()}.${format}`, blob)
-  }
+  const exportAs = (format: 'json' | 'csv') =>
+    exportEvents('bots-audit', format, (events ?? []).filter((e) => shownIds.has(e.id)), names, { bots: bots.map((b) => ({ id: b.id, name: b.name, role: b.role })) })
 
   const select = 'rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[14px] md:text-[13px] text-kumo-default'
   return (
@@ -95,7 +84,7 @@ export function Audit({ bots, events, error, onOpenBot }: {
       <div className="flex flex-none flex-wrap items-center gap-2 border-b border-kumo-line px-3 py-2">
         <select className={select} value={bot} onChange={(e) => setBot(e.target.value)} aria-label="Bot">
           <option value="">All Bots</option>
-          {bots.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+          {bots.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
         <select className={select} value={type} onChange={(e) => setType(e.target.value)} aria-label="Kind">
           <option value="">All kinds</option>
@@ -112,9 +101,9 @@ export function Audit({ bots, events, error, onOpenBot }: {
         {shown.map((r) => (
           <li key={r.id} className="border-b border-kumo-line px-3 py-2 text-[13px] md:text-[12px]">
             <div className="flex flex-wrap items-baseline gap-x-2 text-kumo-subtle">
-              <span className="tabular-nums">{fmt(r.ts)}</span>
+              <span className="tabular-nums">{fmtTime(r.ts)}</span>
               {r.bot && (
-                <button type="button" className="font-medium text-kumo-default hover:underline" onClick={() => { const id = byName.get(r.bot); if (id) onOpenBot(id) }}>{r.bot}</button>
+                <button type="button" className="font-medium text-kumo-default hover:underline" onClick={() => { if (r.botId) onOpenBot(r.botId) }}>{r.bot}</button>
               )}
               <span className="uppercase tracking-wide">{r.type}</span>
               {r.decision && (

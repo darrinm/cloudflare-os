@@ -13,7 +13,7 @@ import type {
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
 import Feed, { useFeed } from './Feed'
-import Audit, { AUDIT_LIMIT, downloadFile, eventsCsv } from './Audit'
+import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import TryTakeoverCard, { TRY_TAKEOVER_TASK, pickTakeoverBot } from './TryTakeoverCard'
 import LiveGlance from './LiveGlance'
 import { useAuthenticatedApi } from '../AuthContext'
@@ -189,7 +189,23 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // a phone and a laptop agree), and started through the real path -- the Bot asks which site,
   // opens it and requests the takeover; nothing here imitates that flow.
   const [takeoverOffer, setTakeoverOffer] = useState<'unknown' | 'show' | 'hide'>('unknown')
-  const takeoverBot = useMemo(() => pickTakeoverBot(hubState.bots), [hubState.bots])
+  // Which Bots have a browser is in the hub's bindings (BROWSER_<bot>), re-read when the roster
+  // changes -- seeding grants Scout its browser after the Bots appear.
+  const [bindingNames, setBindingNames] = useState<Set<string> | null>(null)
+  useEffect(() => {
+    if (!overseer || !hubState.hub) return
+    let cancelled = false
+    const client = overseer.stub.getGadget(workpieceId)
+    client.listBindings()
+      .then((list) => { if (!cancelled) setBindingNames(new Set(list.map((b) => b.name))) })
+      .catch(() => { if (!cancelled) setBindingNames(new Set()) })
+      .finally(() => client[Symbol.dispose]())
+    return () => { cancelled = true }
+  }, [overseer, workpieceId, hubState.hub, hubState.version])
+  const takeoverBot = useMemo(
+    () => (bindingNames ? pickTakeoverBot(hubState.bots, (id) => bindingNames.has(computerBindingNameFor(id, 'browser'))) : null),
+    [hubState.bots, bindingNames],
+  )
   useEffect(() => {
     const hub = hubState.hub
     if (!hub || !takeoverBot || takeoverOffer !== 'unknown') return
@@ -212,7 +228,9 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     const hub = hubState.hub
     if (!hub || !takeoverBot) return
     try {
-      await hub.send(takeoverBot.id, TRY_TAKEOVER_TASK, { type: 'user', name: currentUser?.name || 'You' })
+      // The offer is spent only once the Bot has the task: an undelivered send (no agent yet) keeps it.
+      const sent = await hub.send(takeoverBot.id, TRY_TAKEOVER_TASK, { type: 'user', name: currentUser?.name || 'You' })
+      if (!sent.delivered) throw new Error(`${takeoverBot.name} isn’t running yet; try again in a moment.`)
       void settleTakeoverOffer(true)
       openBot(takeoverBot.id)
     } catch (err) {
@@ -936,11 +954,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 /** Audit export: the Bot's full hub activity (messages, deliveries, outcomes, memory, approvals) as a file. */
 async function exportActivity(hub: HubStub, bot: Bot, format: 'json' | 'csv') {
   const events = await hub.activity(bot.id, { limit: AUDIT_LIMIT })
-  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-  const blob = format === 'json'
-    ? new Blob([JSON.stringify({ bot: { id: bot.id, name: bot.name, role: bot.role }, exported: new Date().toISOString(), events }, null, 2)], { type: 'application/json' })
-    : new Blob([eventsCsv(events, new Map([[bot.id, bot.name]]))], { type: 'text/csv' })
-  downloadFile(`bot-${bot.id}-activity-${stamp}.${format}`, blob)
+  exportEvents(`bot-${bot.id}-activity`, format, events, new Map([[bot.id, bot.name]]), { bot: { id: bot.id, name: bot.name, role: bot.role } })
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

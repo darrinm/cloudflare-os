@@ -7,8 +7,14 @@ import type { Bot } from './types'
  * which site, opens it, requests the takeover, and the usual card and Browser app do the rest.
  */
 
-/** Scout by preference (it is the example Bot with a browser), else whoever is first. */
-export const pickTakeoverBot = (bots: Bot[]): Bot | null => bots.find((b) => b.name === 'Scout') ?? bots[0] ?? null
+/**
+ * Among the Bots that have a browser (the walk-through is pointless without one): Scout by
+ * preference, as the example Bot set up for it, else whoever is first. Null means no card.
+ */
+export function pickTakeoverBot(bots: Bot[], hasBrowser: (botId: string) => boolean): Bot | null {
+  const able = bots.filter((b) => hasBrowser(b.id))
+  return able.find((b) => b.name === 'Scout') ?? able[0] ?? null
+}
 
 export const TRY_TAKEOVER_TASK =
   "Let's try a takeover. Ask me, in one line, which site you should sign in to for me, then wait for my answer. " +
