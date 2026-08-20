@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatRelativeTime } from '../Activity'
-import type { SeqUpdate } from './useBotsHub'
+import { drainNew, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotEvent, HubApi } from './types'
 
 /**
@@ -37,11 +37,13 @@ export function summarise(event: BotEvent, botName: string | null, byId?: Map<nu
   const who = botName ?? 'A Bot'
   const text = trim(event.text)
   const say = (tone: FeedLine['tone'], line: string): FeedLine => ({ id: event.id, botId: event.botId, ts: event.ts, tone, line })
-  const data = (event.data ?? {}) as { state?: string; eventId?: number; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
-  // The message this event answers, when it is a reply to a delivery.
+  const data = (event.data ?? {}) as { state?: string; eventId?: number; groupId?: string; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
+  // Whether this event belongs to a group turn: the hub stamps `groupId` on the outcome (rev 10+);
+  // older hubs only marked the triggering delivery, so fall back to looking that up -- fragile
+  // when the trigger has scrolled out of the window, which is why the stamp exists.
   const trigger = data.eventId !== undefined ? byId?.get(data.eventId) : undefined
   const triggerData = (trigger?.data ?? {}) as { extra?: { group?: { name?: string } }; from?: { groupId?: string } }
-  const inGroup = triggerData.extra?.group ?? (triggerData.from?.groupId ? { name: undefined } : undefined)
+  const inGroup = Boolean(data.groupId || triggerData.extra?.group || triggerData.from?.groupId)
   switch (event.type) {
     case 'needsUser':
       return say('needs', text ? `${who} needs you: ${text}` : `${who} needs you.`)
@@ -83,15 +85,17 @@ export function summarise(event: BotEvent, botName: string | null, byId?: Map<nu
     }
     case 'groupPost': {
       // A post to a group, by a person or a Bot: the one line the fan-out machinery exists to carry.
-      const d = data as { fromType?: string; fromName?: string; groupName?: string }
+      const d = data as { fromType?: string; fromName?: string; groupName?: string; text?: string }
       const poster = d.fromType === 'user' ? 'You' : (d.fromName || who)
-      const body = text.replace(/^[^:]{1,60}: /, '')
+      // The hub carries the raw post in the data (rev 10+); the prefix-strip serves older hubs.
+      const body = d.text ?? text.replace(/^[^:]{1,60}: /, '')
       return say(d.fromType === 'user' ? 'quiet' : 'done', `${poster} in ${d.groupName || 'the group'}: ${body}`)
     }
     case 'group':
       // Group bookkeeping (created, updated, deleted) is housekeeping like a Bot being created; a
-      // post that was held back is the one thing here worth a glance.
-      return /not delivered/i.test(text) ? say('failed', text) : null
+      // post that was held back is the one thing here worth a glance. The hub marks it in the data
+      // (rev 10+); the prose match serves older hubs, whose wording this must not depend on.
+      return ((data as { held?: string }).held || /not delivered/i.test(text)) ? say('failed', text) : null
     default:
       // created / updated / deleted / agent / skill / delivered: true, but not news.
       return null
@@ -132,14 +136,7 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
-    // Drain every update newer than the last one handled: a single "latest" slot would coalesce
-    // a burst (two events in one render batch) and silently lose the earlier event.
-    const incoming: BotEvent[] = []
-    for (const { seq, update } of updates) {
-      if (seq <= seenSeqRef.current) continue
-      seenSeqRef.current = seq
-      if (update.type === 'event') incoming.push(update.event)
-    }
+    const incoming = drainNew(updates, seenSeqRef, (u) => (u.type === 'event' ? u.event : null))
     if (!incoming.length) return
     setEvents((prev) => {
       // Before the first snapshot lands, events are held rather than dropped: the snapshot may

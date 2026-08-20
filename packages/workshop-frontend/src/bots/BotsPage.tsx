@@ -244,7 +244,13 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     const run = (async () => {
       const models = await overseer.stub.listModels()
       const modelId = getStoredSelectedModel(models)
-      const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding, afterSeed })
+      const bots = await seedExampleBots({ api: authenticatedApi, overseer: overseer.stub, hub, hubWorkpieceId: workpieceId, modelId, onProgress: setSeeding, afterSeed: async (live, made) => {
+        if (afterSeed) await afterSeed(live, made)
+        // Stamped last, once, for every seeding path: a hub that was ever seeded is never
+        // auto-reseeded, and a caller's step that failed leaves it unstamped to retry next load.
+        // Best-effort -- a hub older than the flags feature simply doesn't have setMeta.
+        try { await live.setMeta('firstRun', new Date().toISOString()) } catch { /* pre-flags hub */ }
+      } })
       await hubState.refreshBots()
       return bots
     })()
@@ -256,12 +262,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     if (!hubState.hub) return
     setSeeding('Starting…')
     try {
-      // Mark the hub welcomed on this path too: examples seeded by hand must not leave the hub
-      // looking never-welcomed, or emptying the roster later would auto-reseed it. Best-effort --
-      // a hub older than the flags feature simply doesn't have setMeta.
-      const bots = await seedExamples(async (live) => {
-        try { await live.setMeta('firstRun', new Date().toISOString()) } catch { /* pre-flags hub */ }
-      })
+      const bots = await seedExamples()
       toasts.add({ title: `${bots.length} example Bots ready`, description: 'Scout reads the web, Fixer runs code, Ledger reports (and emails), Concierge coordinates.', variant: 'success' })
       if (bots[0]) navigate({ to: '/bots/$id', params: { id: bots[0].id } })
     } catch (err) {
@@ -312,9 +313,6 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
             await live.send(scout.id, FIRST_TASK, { type: 'user', name: 'Welcome' })
             sent = true
           }
-          // Recorded after the send: a welcome that failed leaves the flag unset, so a hub that is
-          // still empty tries again next load instead of being marked welcomed with nothing to show.
-          await live.setMeta('firstRun', new Date().toISOString())
           scoutId = scout.id
         })
         if (scoutId) go({ to: '/bots/$id', params: { id: scoutId } })

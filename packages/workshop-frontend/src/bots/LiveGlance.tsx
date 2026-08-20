@@ -9,20 +9,19 @@ import type { Bot } from './types'
  * open, nothing at all otherwise. The point is noticing -- a Bot stuck on a login wall is visible
  * without opening anything -- not watching; the full live view and takeover are one tap away.
  *
- * Costs are respected: nothing is fetched unless the profile is already live (a sleeping session is
- * never woken for a thumbnail), the poll stops when the tab is hidden, and one screenshot every few
- * seconds is a glance, not a stream.
+ * Costs are respected end to end: `glance()` on the gatekeeper never launches a browser session
+ * and stamps no activity (so watching cannot keep a session alive the Bot has left), the poll
+ * stops when the tab is hidden, and it asks about the Bot's own profile rather than fanning out
+ * over every profile that exists.
  */
 
-type ProfileRow = { name: string; live: boolean; url: string | null; takeover: boolean }
-type BrowserUi = {
-  listProfiles(): Promise<ProfileRow[]>
-  screenshot(name: string): Promise<{ dataUrl?: string; data?: string } | string>
-  [Symbol.dispose]?: () => void
-}
+type Glance = { live: boolean; url: string | null; takeover: boolean; frame: string | null }
+type BrowserUi = { glance(name: string): Promise<Glance>; [Symbol.dispose]?: () => void }
 
-const PROFILE_POLL_MS = 15_000
 const FRAME_POLL_MS = 8_000
+const PROFILE_POLL_MS = 15_000
+/** No browser gatekeeper granted: look again rarely, in case one appears. */
+const NO_APP_POLL_MS = 60_000
 
 export function LiveGlance({ bot }: { bot: Bot }) {
   const { authenticatedApi } = useAuthenticatedApi()
@@ -31,6 +30,7 @@ export function LiveGlance({ bot }: { bot: Bot }) {
   const [state, setState] = useState<{ name: string; url: string | null; takeover: boolean } | null>(null)
   const uiRef = useRef<BrowserUi | null>(null)
   const failsRef = useRef(0)
+  const delayRef = useRef(PROFILE_POLL_MS)
 
   const ownName = computerNameFor(bot)
 
@@ -45,29 +45,31 @@ export function LiveGlance({ bot }: { bot: Bot }) {
     try {
       if (!uiRef.current) {
         const app = await authenticatedApi.getGatekeeperApp('browser')
-        if (!app) return
+        if (!app) { delayRef.current = NO_APP_POLL_MS; return }
         uiRef.current = app.ui as unknown as BrowserUi
       }
-      const profiles = await uiRef.current.listProfiles()
+      let name = ownName
+      let g = await uiRef.current.glance(name)
+      if (!g.live) { name = HOUSEHOLD_PROFILE; g = await uiRef.current.glance(name) }
       failsRef.current = 0
-      const mine = profiles.find((p) => p.name === ownName) ?? profiles.find((p) => p.name === HOUSEHOLD_PROFILE)
-      if (!mine || !mine.live) { setState(null); setFrame(null); return }
-      setState({ name: mine.name, url: mine.url, takeover: mine.takeover })
-      const shot = await uiRef.current.screenshot(mine.name)
-      const dataUrl = typeof shot === 'string' ? `data:image/jpeg;base64,${shot}`
-        : shot?.dataUrl ?? (shot?.data ? `data:image/jpeg;base64,${shot.data}` : null)
-      if (dataUrl) setFrame(dataUrl)
+      if (!g.live || !g.frame) {
+        setState(null); setFrame(null)
+        delayRef.current = PROFILE_POLL_MS
+        return
+      }
+      setState({ name, url: g.url, takeover: g.takeover })
+      setFrame(g.frame)
+      delayRef.current = FRAME_POLL_MS
     } catch {
       // A restart or a missing grant is not news here; the glance just stays absent. One failure
-      // may be a blip (keep the last frame); a second in a row means the session is gone, and a
-      // stale thumbnail with a pulsing "Browsing" dot would be a lie.
-      disposeUi()
-      if (++failsRef.current >= 2) { setState(null); setFrame(null) }
+      // may be a blip (keep the last frame and the stub); a second in a row means the session is
+      // gone, and a stale thumbnail with a pulsing "Browsing" dot would be a lie.
+      if (++failsRef.current >= 2) { disposeUi(); setState(null); setFrame(null) }
+      delayRef.current = PROFILE_POLL_MS
     }
   }, [authenticatedApi, ownName, disposeUi])
 
-  // Dispose the held stub on unmount (the polling effect below re-runs to change cadence, so the
-  // stub's lifetime is the component's, not the effect's).
+  // Dispose the held stub on unmount; the poll loop's lifetime is the component's.
   useEffect(() => disposeUi, [disposeUi])
 
   useEffect(() => {
@@ -77,13 +79,12 @@ export function LiveGlance({ bot }: { bot: Bot }) {
       if (!alive) return
       await poll()
       if (!alive) return
-      // Poll faster while a page is actually open, slower while just checking for one.
-      timer = setTimeout(tick, state ? FRAME_POLL_MS : PROFILE_POLL_MS)
+      // poll() sets its own cadence: faster while a page is open, slower while checking for one.
+      timer = setTimeout(tick, delayRef.current)
     }
     void tick()
     return () => { alive = false; if (timer) clearTimeout(timer) }
-    // `state` flips the cadence; poll identity changes with the bot.
-  }, [poll, state !== null])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [poll])
 
   if (!state || !frame) return null
 

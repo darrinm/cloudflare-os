@@ -32,7 +32,7 @@ const EXPORT_DOCUMENT_CSP = "default-src 'none'; frame-src 'none'; script-src da
   "font-src data:; object-src 'none'; base-uri 'none'; form-action 'none'; " +
   "connect-src 'none'; sandbox allow-scripts;";
 
-function createDeadline(ms: number, message: string) {
+export function createDeadline(ms: number, message: string) {
   let expired = Promise.withResolvers<never>();
   let timer = setTimeout(() => expired.reject(new Error(message)), ms);
   expired.promise.catch(() => {});
