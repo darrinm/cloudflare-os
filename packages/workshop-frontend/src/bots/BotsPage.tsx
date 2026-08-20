@@ -9,14 +9,12 @@ import type {
   GadgetBindingInfo,
   GadgetClient,
   GatekeeperClient,
-  OutputSummary,
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
 import Feed, { useFeed } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import { useTryTakeoverCard } from './TryTakeoverCard'
-import { bringBotsHere } from './bringHere'
 import LiveGlance from './LiveGlance'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
@@ -77,7 +75,7 @@ const FIRST_TASK = "Introduce yourself in one line, then do this now: read https
 
 export function BotsPageContent({ botId, groupId = null }: { botId: string | null; groupId?: string | null }) {
   const { authenticatedApi } = useAuthenticatedApi()
-  const { state, create, refresh } = useBotsWorkspace(authenticatedApi)
+  const { state, create } = useBotsWorkspace(authenticatedApi)
   useDocumentTitle('Bots')
 
   if (state.status === 'loading') {
@@ -89,7 +87,7 @@ export function BotsPageContent({ botId, groupId = null }: { botId: string | nul
   if (state.status === 'missing') {
     return <CreateHubPanel authenticatedApi={authenticatedApi} onCreate={create} />
   }
-  return <BotsWorkspace workspaceId={state.ref.workspaceId} workpieceId={state.ref.workpieceId} botId={botId} groupId={groupId} strays={state.strays} outputs={state.outputs} onHubsChanged={refresh} />
+  return <BotsWorkspace workspaceId={state.ref.workspaceId} workpieceId={state.ref.workpieceId} botId={botId} groupId={groupId} />
 }
 
 function CenteredNote({ children }: { children: React.ReactNode }) {
@@ -163,13 +161,7 @@ function CreateHubPanel({
 const VIEW_LABEL = { feed: 'Activity', roster: 'Bots', audit: 'Audit' } as const
 type View = keyof typeof VIEW_LABEL
 
-function BotsWorkspace({ workspaceId, workpieceId, botId, groupId, strays, outputs, onHubsChanged }: {
-  workspaceId: string; workpieceId: number; botId: string | null; groupId: string | null
-  /** The person's other Bots hubs, if any; their Bots are invisible until brought here. */
-  strays: OutputSummary[]
-  outputs: OutputSummary[]
-  onHubsChanged: () => void
-}) {
+function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspaceId: string; workpieceId: number; botId: string | null; groupId: string | null }) {
   const { authenticatedApi, currentUser } = useAuthenticatedApi()
   const navigate = useNavigate()
   const toasts = useKumoToastManager()
@@ -203,27 +195,6 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId, strays, outpu
     hub: hubState.hub, overseer: overseer?.stub ?? null, workpieceId, bots: hubState.bots,
     userName: currentUser?.name || 'You', onOpen: openBot, onError: onCardError,
   })
-
-  // A second hub's Bots are invisible from here. The server no longer makes second hubs; this
-  // moves the Bots of one that already exists and removes it.
-  const [bringing, setBringing] = useState<string | null>(null)
-  const bringHere = useCallback(async () => {
-    const stray = strays[0]
-    if (!overseer || !stray) return
-    setBringing('Starting…')
-    try {
-      const { moved } = await bringBotsHere({
-        api: authenticatedApi, overseer: overseer.stub, workpieceId, stray,
-        strayIsSoleOutput: outputs.filter((o) => o.workspaceId === stray.workspaceId).length === 1,
-        onProgress: setBringing,
-      })
-      toasts.add({ title: `${moved} ${moved === 1 ? 'Bot' : 'Bots'} moved here`, description: 'Their memory came along. Grants and schedules are set up fresh: Details → Grants.', variant: 'success' })
-      await hubState.refreshBots()
-      onHubsChanged()
-    } catch (err) {
-      toasts.add({ title: 'Couldn’t move the Bots', description: String(err instanceof Error ? err.message : err), variant: 'error' })
-    } finally { setBringing(null) }
-  }, [strays, outputs, overseer, authenticatedApi, workpieceId, toasts, hubState, onHubsChanged])
 
   const feed = hubState.hub
     ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={openBot} header={takeoverCard} />
@@ -416,15 +387,6 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId, strays, outpu
       {hubState.info && !hubState.info.hasSpawner && (
         <div className="m-2 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[13px] md:text-[12px] text-kumo-default">
           No agent spawner is bound to the hub yet, so Bots can’t run. Give a Bot grants (Details → Grants) or assign AGENT_SPAWNER in the workspace’s Connections.
-        </div>
-      )}
-      {strays.length > 0 && (
-        <div className="m-2 flex flex-col gap-1.5 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[13px] md:text-[12px] text-kumo-default" role="note" aria-label="Another Bots hub">
-          <div>{strays.length === 1 ? 'Another Bots hub exists' : `${strays.length} other Bots hubs exist`} — its Bots don’t show here.</div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => { void bringHere() }} loading={bringing !== null} disabled={!hubState.hub}>Bring them here</Button>
-            {bringing && <span className="text-kumo-subtle">{bringing}</span>}
-          </div>
         </div>
       )}
       {view === 'feed' && <div className="min-h-0 flex-1 overflow-y-auto md:hidden flex flex-col">{feed}</div>}
@@ -992,6 +954,10 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
   const [sharedBrowser, setSharedBrowser] = useState(false)
   const [sandboxMode, setSandboxMode] = useState<'read-only' | 'approve' | 'write'>('approve')
   const { authenticatedApi } = useAuthenticatedApi()
+  // The toast manager is not a stable identity; as an effect dependency it re-ran this load on
+  // every render, which reset the checkboxes as fast as they were ticked.
+  const toastsRef = useRef(toasts)
+  toastsRef.current = toasts
 
   useEffect(() => {
     if (!open) return
@@ -1018,13 +984,13 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
         setWantSandbox(!!mine.sandbox)
         setReplaceComputer(new Set())
       } catch (err) {
-        if (!cancelled) toasts.add({ title: 'Couldn’t load connections', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+        if (!cancelled) toastsRef.current.add({ title: 'Couldn’t load connections', description: String(err instanceof Error ? err.message : err), variant: 'error' })
       } finally {
         client?.[Symbol.dispose]()
       }
     })()
     return () => { cancelled = true }
-  }, [open, overseer, hubWorkpieceId, toasts, bot.id])
+  }, [open, overseer, hubWorkpieceId, bot.id])
 
   const apply = useCallback(async () => {
     if (!bindings) return

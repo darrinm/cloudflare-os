@@ -8,8 +8,7 @@ export type BotsWorkspaceRef = { workspaceId: string; workpieceId: number }
 
 export type BotsWorkspaceState =
   | { status: 'loading' }
-  /** `strays`: the person's other Bots hubs, if any -- a roster nobody sees until it is moved here. */
-  | { status: 'ready'; ref: BotsWorkspaceRef; strays: OutputSummary[]; outputs: OutputSummary[] }
+  | { status: 'ready'; ref: BotsWorkspaceRef }
   | { status: 'missing' }
   | { status: 'error'; message: string }
 
@@ -43,12 +42,6 @@ export function pickBotsOutput(outputs: OutputSummary[]): OutputSummary | null {
   const byAge = (a: OutputSummary, b: OutputSummary) => new Date(a.created).getTime() - new Date(b.created).getTime()
   return outputs.filter((o) => o.output?.id === BOTS_OUTPUT_ID && !!o.owner).toSorted(byAge)[0] ?? null
 }
-
-/** The person's own Bots hubs other than the one /bots shows: each holds Bots nobody can see. */
-export function strayBotsOutputs(outputs: OutputSummary[], picked: OutputSummary | null): OutputSummary[] {
-  return outputs.filter((o) => o.output?.id === BOTS_OUTPUT_ID && !o.owner && o !== picked && (o.workspaceId !== picked?.workspaceId || o.workpieceId !== picked?.workpieceId))
-}
-
 /**
  * Locates the user's Bots hub workspace (an output created from the bundled "Bots" blueprint), or
  * reports it missing so the page can offer to create it. Cached in localStorage; the workspace is
@@ -57,7 +50,7 @@ export function strayBotsOutputs(outputs: OutputSummary[], picked: OutputSummary
 export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
   const [state, setState] = useState<BotsWorkspaceState>(() => {
     const cached = readCache()
-    return cached ? { status: 'ready', ref: cached, strays: [], outputs: [] } : { status: 'loading' }
+    return cached ? { status: 'ready', ref: cached } : { status: 'loading' }
   })
   const [nonce, setNonce] = useState(0)
   const creatingRef = useRef(false)
@@ -74,7 +67,7 @@ export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
           if (found) {
             const ref = { workspaceId: found.workspaceId, workpieceId: found.workpieceId }
             writeCache(ref)
-            setState({ status: 'ready', ref, strays: strayBotsOutputs(outputs, found), outputs })
+            setState({ status: 'ready', ref })
             return
           }
           if (!catchingUp) break
@@ -107,15 +100,12 @@ export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
       try {
         const metadata = await overseer.getMetadata()
         let ref = { workspaceId: metadata.id, workpieceId: metadata.defaultGadgetId ?? 0 }
-        let strays: OutputSummary[] = []
-        let outputs: OutputSummary[] = []
         try {
-          outputs = (await authenticatedApi.listOutputs()).outputs
-          const found = pickBotsOutput(outputs)
-          if (found) { ref = { workspaceId: found.workspaceId, workpieceId: found.workpieceId }; strays = strayBotsOutputs(outputs, found) }
+          const found = pickBotsOutput((await authenticatedApi.listOutputs()).outputs)
+          if (found) ref = { workspaceId: found.workspaceId, workpieceId: found.workpieceId }
         } catch { /* the index catches up later; the metadata is right for a hub made just now */ }
         writeCache(ref)
-        setState({ status: 'ready', ref, strays, outputs })
+        setState({ status: 'ready', ref })
         return ref
       } finally {
         overseer.then((s) => s[Symbol.dispose]()).catch(() => {})

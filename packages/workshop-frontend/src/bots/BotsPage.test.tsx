@@ -4,7 +4,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pickBotsOutput, strayBotsOutputs } from "./useBotsWorkspace";
+import { pickBotsOutput } from "./useBotsWorkspace";
 
 const testState = vi.hoisted(() => {
   const listModels = vi.fn<() => Promise<Array<{ type: string; id: string; name: string }>>>(async () => [{ type: "agent", id: "m1", name: "Model One" }]);
@@ -80,21 +80,6 @@ async function render(botId: string | null, groupId: string | null = null) {
   // Let the async workspace lookup settle.
   await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 }
-
-describe("strayBotsOutputs", () => {
-  it("names the person's other hubs, not the picked one or anyone else's", () => {
-    const outputs = [
-      { workspaceId: "main", workpieceId: 0, output: { id: "bots" }, created: new Date(1) },
-      { workspaceId: "agent-made", workpieceId: 4, output: { id: "bots" }, created: new Date(5) },
-      { workspaceId: "agent-made", workpieceId: 1, output: { id: "document" }, created: new Date(5) },
-      { workspaceId: "theirs", workpieceId: 0, output: { id: "bots" }, created: new Date(2), owner: { id: "x" } },
-    ] as unknown as Parameters<typeof pickBotsOutput>[0];
-    const picked = pickBotsOutput(outputs);
-    expect(picked?.workspaceId).toBe("main");
-    expect(strayBotsOutputs(outputs, picked).map((o) => `${o.workspaceId}/${o.workpieceId}`)).toEqual(["agent-made/4"]);
-    expect(strayBotsOutputs(outputs.slice(0, 1), picked)).toEqual([]);
-  });
-});
 
 describe("pickBotsOutput", () => {
   it("chooses the user's oldest owned Bots output and ignores others", () => {
@@ -218,27 +203,6 @@ describe("BotsPageContent", () => {
     expect(container!.textContent).toContain("Export CSV");
     expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
   });
-  it("points out a second hub and offers to bring its Bots here", async () => {
-    testState.listOutputs.mockResolvedValue({
-      outputs: [
-        { workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) },
-        { workspaceId: "ws2", workpieceId: 3, output: { id: "bots" }, created: new Date(2) },
-      ] as never,
-      catchingUp: false,
-    });
-    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
-    testState.hub.hub = { getMeta: async () => "seen", setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
-    testState.hub.bots = [];
-
-    await render(null);
-    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
-    const note = container!.querySelector('[aria-label="Another Bots hub"]');
-    expect(note?.textContent).toContain("Another Bots hub exists");
-    expect([...note!.querySelectorAll("button")].some((b) => b.textContent === "Bring them here")).toBe(true);
-    // /bots still shows the oldest hub; the newer one is the stray.
-    expect(localStorage.getItem("bots:workspace")).toContain("ws1");
-  });
-
   it("offers the takeover walk-through once, to a Bot with a browser, and starts it through the Bot", async () => {
     testState.listOutputs.mockResolvedValue({
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
@@ -297,6 +261,40 @@ describe("BotsPageContent", () => {
     expect(container!.querySelector('[aria-label="Try a takeover"]')).toBeNull();
     // Nothing was spent: the flag is untouched, so the card appears once a Bot gets a browser.
     expect(hub.setMeta).not.toHaveBeenCalled();
+  });
+
+  it("keeps a ticked grant ticked while the page re-renders", async () => {
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    const listBindings = vi.fn<() => Promise<Array<{ name: string; target: number; resourceTitle: string }>>>(async () => []);
+    testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings, [Symbol.dispose]() {} }) } };
+    const bot = {
+      id: "abc12345", name: "Researcher", role: "Digs", instructions: "", avatar: "", color: "",
+      chatTitle: "Bot: Researcher [abc12345]", created: 1, updated: 1, lastActivity: null,
+      agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
+    };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 0, totalTokens: 0, turns: 0, chats: 0, todayUsd: 0, dailyCapUsd: null }) };
+    testState.hub.bots = [bot];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
+
+    await render("abc12345");
+    const openGrants = [...container!.querySelectorAll("button")].find((b) => b.textContent === "Change what it can use…")!;
+    await act(async () => { openGrants.click(); });
+    // The dialog renders in a portal, outside the test container.
+    const findBrowserBox = () => [...document.querySelectorAll('input[type="checkbox"]')].find((i) => i.parentElement?.textContent?.includes("BROWSER")) as HTMLInputElement | undefined;
+    await vi.waitFor(() => expect(findBrowserBox()).toBeDefined());
+    const browserBox = findBrowserBox()!;
+    expect(browserBox.checked).toBe(false);
+    await act(async () => { browserBox.click(); });
+    expect(browserBox.checked).toBe(true);
+    // Anything that re-renders the page (a hub event, a toast) used to re-run the dialog's load
+    // and put the boxes back the way they were.
+    const loads = listBindings.mock.calls.length;
+    await act(async () => { root!.render(<BotsPageContent botId="abc12345" />); await new Promise((r) => setTimeout(r, 30)); });
+    expect(browserBox.checked).toBe(true);
+    expect(listBindings).toHaveBeenCalledTimes(loads);
   });
 
   it("renders a group's shared transcript with a composer", async () => {
