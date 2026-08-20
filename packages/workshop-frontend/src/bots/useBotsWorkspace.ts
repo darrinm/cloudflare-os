@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RpcStub } from 'capnweb'
 import type { AuthenticatedApi, OutputSummary } from '@gadgets/workshop-shared/api'
+import { ownedOutput } from '@gadgets/workshop-shared/api'
 import { BOTS_BLUEPRINT_ID, BOTS_OUTPUT_ID } from './types'
 
 export type BotsWorkspaceRef = { workspaceId: string; workpieceId: number }
 
 export type BotsWorkspaceState =
   | { status: 'loading' }
-  | { status: 'ready'; ref: BotsWorkspaceRef }
+  /** `strays`: the person's other Bots hubs, if any -- a roster nobody sees until it is moved here. */
+  | { status: 'ready'; ref: BotsWorkspaceRef; strays: OutputSummary[]; outputs: OutputSummary[] }
   | { status: 'missing' }
   | { status: 'error'; message: string }
 
@@ -36,12 +38,15 @@ function writeCache(ref: BotsWorkspaceRef | null) {
  * hub someone shared with them (a teammate's roster, or one seeded by an operator), oldest first.
  */
 export function pickBotsOutput(outputs: OutputSummary[]): OutputSummary | null {
+  const mine = ownedOutput(outputs, BOTS_OUTPUT_ID)
+  if (mine) return mine
   const byAge = (a: OutputSummary, b: OutputSummary) => new Date(a.created).getTime() - new Date(b.created).getTime()
-  const hubs = outputs.filter((o) => o.output?.id === BOTS_OUTPUT_ID)
-  const mine = hubs.filter((o) => !o.owner).toSorted(byAge)
-  if (mine[0]) return mine[0]
-  const shared = hubs.filter((o) => !!o.owner).toSorted(byAge)
-  return shared[0] ?? null
+  return outputs.filter((o) => o.output?.id === BOTS_OUTPUT_ID && !!o.owner).toSorted(byAge)[0] ?? null
+}
+
+/** The person's own Bots hubs other than the one /bots shows: each holds Bots nobody can see. */
+export function strayBotsOutputs(outputs: OutputSummary[], picked: OutputSummary | null): OutputSummary[] {
+  return outputs.filter((o) => o.output?.id === BOTS_OUTPUT_ID && !o.owner && o !== picked && (o.workspaceId !== picked?.workspaceId || o.workpieceId !== picked?.workpieceId))
 }
 
 /**
@@ -52,7 +57,7 @@ export function pickBotsOutput(outputs: OutputSummary[]): OutputSummary | null {
 export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
   const [state, setState] = useState<BotsWorkspaceState>(() => {
     const cached = readCache()
-    return cached ? { status: 'ready', ref: cached } : { status: 'loading' }
+    return cached ? { status: 'ready', ref: cached, strays: [], outputs: [] } : { status: 'loading' }
   })
   const [nonce, setNonce] = useState(0)
   const creatingRef = useRef(false)
@@ -69,7 +74,7 @@ export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
           if (found) {
             const ref = { workspaceId: found.workspaceId, workpieceId: found.workpieceId }
             writeCache(ref)
-            setState({ status: 'ready', ref })
+            setState({ status: 'ready', ref, strays: strayBotsOutputs(outputs, found), outputs })
             return
           }
           if (!catchingUp) break
@@ -88,7 +93,9 @@ export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
 
   /**
    * Creates the hub from the bundled blueprint. `modelId` is the agent spawner's model; null means
-   * Bots exist but cannot run until a spawner is assigned in Connections.
+   * Bots exist but cannot run until a spawner is assigned in Connections. The server hands back
+   * the hub the person already has when there is one (a person keeps one), so the outputs list,
+   * not the returned workspace's default gadget, says which workpiece the hub is.
    */
   const create = useCallback(async (modelId: string | null): Promise<BotsWorkspaceRef> => {
     if (creatingRef.current) throw new Error('Already creating the Bots hub.')
@@ -99,9 +106,16 @@ export function useBotsWorkspace(authenticatedApi: RpcStub<AuthenticatedApi>) {
       })
       try {
         const metadata = await overseer.getMetadata()
-        const ref = { workspaceId: metadata.id, workpieceId: metadata.defaultGadgetId ?? 0 }
+        let ref = { workspaceId: metadata.id, workpieceId: metadata.defaultGadgetId ?? 0 }
+        let strays: OutputSummary[] = []
+        let outputs: OutputSummary[] = []
+        try {
+          outputs = (await authenticatedApi.listOutputs()).outputs
+          const found = pickBotsOutput(outputs)
+          if (found) { ref = { workspaceId: found.workspaceId, workpieceId: found.workpieceId }; strays = strayBotsOutputs(outputs, found) }
+        } catch { /* the index catches up later; the metadata is right for a hub made just now */ }
         writeCache(ref)
-        setState({ status: 'ready', ref })
+        setState({ status: 'ready', ref, strays, outputs })
         return ref
       } finally {
         overseer.then((s) => s[Symbol.dispose]()).catch(() => {})

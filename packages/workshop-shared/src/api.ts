@@ -1479,6 +1479,22 @@ export type OutputSummary = {
 }
 
 /**
+ * Output ids of which a person keeps exactly one. A second Bots hub splits the roster between two
+ * places nobody can see at once (an agent asked to "create a Bot" once minted one), so creating
+ * from such a blueprint returns the hub the person already has.
+ */
+export const ONE_PER_PERSON_OUTPUT_IDS: ReadonlySet<string> = new Set(["bots"]);
+
+/**
+ * The caller's own oldest output of this kind, or null. Ones shared by someone else (`owner` set)
+ * do not count: they are not the caller's to fill.
+ */
+export function ownedOutput(outputs: OutputSummary[], outputId: string): OutputSummary | null {
+  return outputs.filter((o) => !o.owner && o.output?.id === outputId)
+    .toSorted((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime())[0] ?? null;
+}
+
+/**
  * Describes the client-side UI code for a Gadget. Such code is intended to run inside an iframe
  * sandbox with no access to the outside world except through an RPC interface to the Workshop
  * and to the Gadget's server.

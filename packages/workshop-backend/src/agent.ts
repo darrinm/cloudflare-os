@@ -1,4 +1,4 @@
-import { AiChatMessage, AiChatAuthorInfo, AiToolCall, AiChatMessageBody, AgentSpawnerConfig, AiChatStreamEvent, BlueprintOutput, WorkpieceId, type AiModelConfig, isTextLikeAttachmentMimeType, validateBindingName } from '@gadgets/workshop-shared/api';
+import { AiChatMessage, AiChatAuthorInfo, AiToolCall, AiChatMessageBody, AgentSpawnerConfig, AiChatStreamEvent, BlueprintOutput, WorkpieceId, type AiModelConfig, isTextLikeAttachmentMimeType, validateBindingName, ONE_PER_PERSON_OUTPUT_IDS } from '@gadgets/workshop-shared/api';
 import { PDF_MIME_TYPE, modelApiSupportsPdfAttachments } from './chat-attachment-pdf';
 import { AgentCatalog, ObservationDescription } from '@gadgets/workshop-shared/gatekeeper';
 import { createWorkshopLogger } from "./observability";
@@ -441,6 +441,12 @@ export interface AgentHooks {
    */
   fetchBlueprint(blueprintId: string)
       : Promise<{files: Record<string, string>, notes: string, output?: BlueprintOutput}>;
+
+  /**
+   * The workspace holding the initiator's own output of this kind, or null. For outputs a person
+   * keeps one of (ONE_PER_PERSON_OUTPUT_IDS), createGadget refuses to make a second.
+   */
+  ownedOutputWorkspace(initiator: AiChatAuthorInfo, outputId: string): Promise<string | null>;
 }
 
 // =======================================================================================
@@ -2672,6 +2678,17 @@ export async function runAgent(
           // cleanly without leaving an empty gadget behind.
           let blueprint = blueprintId !== undefined
               ? await hooks.fetchBlueprint(blueprintId) : undefined;
+
+          // A person keeps one Bots hub: a second one would hold Bots nobody can see. Asked to
+          // "create a Bot", an agent used to mint a hub of its own and put the Bot there.
+          if (blueprint?.output && ONE_PER_PERSON_OUTPUT_IDS.has(blueprint.output.id)) {
+            let existing = await hooks.ownedOutputWorkspace(initiator, blueprint.output.id);
+            if (existing) {
+              throw new Error(`The user already has a ${blueprint.output.noun} (workspace ` +
+                  `${existing}), and a person keeps one. Do not create another: work with the ` +
+                  `existing one, or tell the user to open it.`);
+            }
+          }
 
           // Flush edits captured so far into their own "changes" message before creating the
           // gadget, so the creation cleanly separates change batches: a revert from this creation

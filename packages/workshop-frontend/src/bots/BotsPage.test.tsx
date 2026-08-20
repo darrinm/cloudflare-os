@@ -4,7 +4,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pickBotsOutput } from "./useBotsWorkspace";
+import { pickBotsOutput, strayBotsOutputs } from "./useBotsWorkspace";
 
 const testState = vi.hoisted(() => {
   const listModels = vi.fn<() => Promise<Array<{ type: string; id: string; name: string }>>>(async () => [{ type: "agent", id: "m1", name: "Model One" }]);
@@ -80,6 +80,21 @@ async function render(botId: string | null, groupId: string | null = null) {
   // Let the async workspace lookup settle.
   await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 }
+
+describe("strayBotsOutputs", () => {
+  it("names the person's other hubs, not the picked one or anyone else's", () => {
+    const outputs = [
+      { workspaceId: "main", workpieceId: 0, output: { id: "bots" }, created: new Date(1) },
+      { workspaceId: "agent-made", workpieceId: 4, output: { id: "bots" }, created: new Date(5) },
+      { workspaceId: "agent-made", workpieceId: 1, output: { id: "document" }, created: new Date(5) },
+      { workspaceId: "theirs", workpieceId: 0, output: { id: "bots" }, created: new Date(2), owner: { id: "x" } },
+    ] as unknown as Parameters<typeof pickBotsOutput>[0];
+    const picked = pickBotsOutput(outputs);
+    expect(picked?.workspaceId).toBe("main");
+    expect(strayBotsOutputs(outputs, picked).map((o) => `${o.workspaceId}/${o.workpieceId}`)).toEqual(["agent-made/4"]);
+    expect(strayBotsOutputs(outputs.slice(0, 1), picked)).toEqual([]);
+  });
+});
 
 describe("pickBotsOutput", () => {
   it("chooses the user's oldest owned Bots output and ignores others", () => {
@@ -203,6 +218,27 @@ describe("BotsPageContent", () => {
     expect(container!.textContent).toContain("Export CSV");
     expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
   });
+  it("points out a second hub and offers to bring its Bots here", async () => {
+    testState.listOutputs.mockResolvedValue({
+      outputs: [
+        { workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) },
+        { workspaceId: "ws2", workpieceId: 3, output: { id: "bots" }, created: new Date(2) },
+      ] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    testState.hub.hub = { getMeta: async () => "seen", setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    testState.hub.bots = [];
+
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    const note = container!.querySelector('[aria-label="Another Bots hub"]');
+    expect(note?.textContent).toContain("Another Bots hub exists");
+    expect([...note!.querySelectorAll("button")].some((b) => b.textContent === "Bring them here")).toBe(true);
+    // /bots still shows the oldest hub; the newer one is the stray.
+    expect(localStorage.getItem("bots:workspace")).toContain("ws1");
+  });
+
   it("offers the takeover walk-through once, to a Bot with a browser, and starts it through the Bot", async () => {
     testState.listOutputs.mockResolvedValue({
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
