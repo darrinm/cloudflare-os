@@ -15,7 +15,7 @@ import type { Bot } from './types'
  * over every profile that exists.
  */
 
-type Glance = { live: boolean; url: string | null; takeover: boolean; frame: string | null }
+type Glance = { live: boolean; url: string | null; takeover: boolean; takeoverReason: string | null; frame: string | null }
 type BrowserUi = { glance(name: string): Promise<Glance>; [Symbol.dispose]?: () => void }
 
 const FRAME_POLL_MS = 8_000
@@ -27,7 +27,7 @@ export function LiveGlance({ bot }: { bot: Bot }) {
   const { authenticatedApi } = useAuthenticatedApi()
   const navigate = useNavigate()
   const [frame, setFrame] = useState<string | null>(null)
-  const [state, setState] = useState<{ name: string; url: string | null; takeover: boolean } | null>(null)
+  const [state, setState] = useState<{ name: string; url: string | null; takeover: boolean; takeoverReason: string | null } | null>(null)
   const uiRef = useRef<BrowserUi | null>(null)
   const failsRef = useRef(0)
   const delayRef = useRef(PROFILE_POLL_MS)
@@ -57,7 +57,7 @@ export function LiveGlance({ bot }: { bot: Bot }) {
         delayRef.current = PROFILE_POLL_MS
         return
       }
-      setState({ name, url: g.url, takeover: g.takeover })
+      setState({ name, url: g.url, takeover: g.takeover, takeoverReason: g.takeoverReason })
       setFrame(g.frame)
       delayRef.current = FRAME_POLL_MS
     } catch {
@@ -89,20 +89,29 @@ export function LiveGlance({ bot }: { bot: Bot }) {
   if (!state || !frame) return null
 
   const host = state.url ? state.url.replace(/^https?:\/\//, '').split('/')[0] : ''
+  // In takeover the session is already yours, so the label is not "take control" -- it says the
+  // ball is in your court, and the Bot's own reason (why it handed off) is the subtitle so you know
+  // what to do. Tapping deep-links straight to that profile's live view with the control sheet up,
+  // where you can actually drive the page; otherwise it just opens the live view to watch.
+  const subtitle = state.takeover ? (state.takeoverReason || host) : host
   return (
     <button
       type="button"
-      onClick={() => navigate({ to: '/gatekeepers/$appId', params: { appId: 'browser' } })}
+      onClick={() => navigate({
+        to: '/gatekeepers/$appId',
+        params: { appId: 'browser' },
+        search: state.takeover ? { profile: state.name, takeover: '1' } : { profile: state.name },
+      })}
       className="mx-3 mt-2 flex flex-none items-center gap-3 rounded-lg border border-kumo-line bg-kumo-base p-1.5 text-left hover:bg-kumo-tint"
-      aria-label={`Open the live view of ${state.name}`}
+      aria-label={state.takeover ? `Take over ${state.name}'s browser` : `Open the live view of ${state.name}`}
     >
       <img src={frame} alt="" className="h-14 w-24 flex-none rounded object-cover object-top bg-black" />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[13px] md:text-[12px] font-medium text-kumo-default">
           <span className="h-1.5 w-1.5 flex-none animate-pulse rounded-full bg-kumo-brand" />
-          {state.takeover ? 'You have control' : 'Browsing'}
+          {state.takeover ? 'Waiting for you' : 'Browsing'}
         </span>
-        {host && <span className="block truncate text-[12px] md:text-[11px] text-kumo-subtle">{host}</span>}
+        {subtitle && <span className="block truncate text-[12px] md:text-[11px] text-kumo-subtle">{subtitle}</span>}
       </span>
     </button>
   )
