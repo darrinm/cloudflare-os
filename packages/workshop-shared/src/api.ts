@@ -713,7 +713,7 @@ export interface AuthenticatedApi extends RpcTarget {
    * gatekeeper id, or null if there is no such UI-providing gatekeeper. The Workshop hosts the HTML
    * in a sandboxed iframe and exposes `ui` to it over a MessagePort RPC session.
    */
-  getGatekeeperApp(id: string): Promise<GatekeeperUiFrame | null>;
+  getGatekeeperApp(id: string, params?: Record<string, string>): Promise<GatekeeperUiFrame | null>;
 
   // --- Deployment admin ---
 

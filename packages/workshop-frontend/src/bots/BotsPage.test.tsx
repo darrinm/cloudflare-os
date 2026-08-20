@@ -225,13 +225,22 @@ describe("BotsPageContent", () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
     const card = container!.querySelector('[aria-label="Try a takeover"]');
     expect(card).not.toBeNull();
-    expect(card!.textContent).toContain("Scout will open a site you sign in to");
+    expect(card!.textContent).toContain("Scout opens it and asks for the page");
 
-    const tryIt = [...card!.querySelectorAll("button")].find((b) => b.textContent === "Try it")!;
+    const tryIt = [...card!.querySelectorAll("button")].find((b) => b.textContent === "Try it") as HTMLButtonElement;
+    // Nothing to try until a site is named; a URL is fine, the host is what travels.
+    expect(tryIt.disabled).toBe(true);
+    const siteInput = card!.querySelector('input[aria-label="Site"]') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(siteInput, "https://github.com/login");
+      siteInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(tryIt.disabled).toBe(false);
     await act(async () => { tryIt.click(); await new Promise((r) => setTimeout(r, 30)); });
     // The real loop: Scout is asked to open a site and request the takeover; the person lands in
     // its conversation; the hub remembers the offer was taken.
     expect(hub.send.mock.calls[0]?.[0]).toBe("scout1");
+    expect(String(hub.send.mock.calls[0]?.[1])).toMatch(/^Let's try a takeover on github\.com\./);
     expect(String(hub.send.mock.calls[0]?.[1])).toMatch(/requestTakeover/);
     expect(testState.navigate).toHaveBeenCalledWith({ to: "/bots/$id", params: { id: "scout1" } });
     expect(meta.get("tryTakeover")).toMatch(/^tried /);

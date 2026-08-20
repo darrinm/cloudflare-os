@@ -23,7 +23,7 @@ import WorkspaceOpenErrorPage from '../components/WorkspaceOpenErrorPage'
 import { WorkshopIconButton } from '../components/WorkshopControls'
 import { useActions } from '../useActions'
 import { getStoredSelectedModel } from '../modelSelection'
-import { useBotsHub, type HubStub } from './useBotsHub'
+import { useBotsHub, type HubStub, type SeqUpdate } from './useBotsHub'
 import { useBotsWorkspace } from './useBotsWorkspace'
 import type { Bot, BotCosts, BotEvent, BotMemory, BotRoutine } from './types'
 import { GroupDialog, GroupView } from './GroupView'
@@ -474,7 +474,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 <Info size={14} />
               </WorkshopIconButton>
             </header>
-            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} />
+            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} hub={hubState.hub} updates={hubState.updates} onOpenPath={(path) => navigate({ to: path as string })} />
           </section>
           <BotDetails
             key={selected.id}
@@ -555,9 +555,20 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
  * by its unique title. Rendered with the full ChatInterface, so approvals, streaming and slash
  * commands behave exactly as elsewhere. Human messages typed here go straight into that chat.
  */
-function BotTranscript({ overseer, bot, workspaceId, showWork }: { overseer: RpcStub<Overseer>; bot: Bot; workspaceId: string; showWork: boolean }) {
+function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onOpenPath }: {
+  overseer: RpcStub<Overseer>; bot: Bot; workspaceId: string; showWork: boolean
+  hub: HubStub; updates: SeqUpdate[]; onOpenPath: (path: string) => void
+}) {
   const [chatId, setChatId] = useState<number | null>(null)
   const [looked, setLooked] = useState(false)
+  // The Bot's own hub events, shown in the transcript where they happened: a delivery is a
+  // callback and its answer the callback's return, so without these the chat shows a hand-off and
+  // nothing said.
+  const { events } = useFeed(hub, updates, 200, bot.id)
+  const conversationEvents = useMemo(
+    () => (events ?? []).map((e) => ({ id: e.id, ts: e.ts, type: e.type, text: e.text, from: (e.data as { from?: { type?: string; name?: string } } | undefined)?.from })),
+    [events],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -598,6 +609,8 @@ function BotTranscript({ overseer, bot, workspaceId, showWork }: { overseer: Rpc
         hideChatHeader
         conversationView
         showWork={showWork}
+        conversationEvents={conversationEvents}
+        onOpenPath={onOpenPath}
         constrainChatWidth
         pendingConsoleLogCount={0}
         consoleLogPreview=""

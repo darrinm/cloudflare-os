@@ -609,7 +609,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
         }));
   }
 
-  async getGatekeeperApp(id: string): Promise<GatekeeperUiFrame | null> {
+  async getGatekeeperApp(id: string, params?: Record<string, string>): Promise<GatekeeperUiFrame | null> {
     // Self-sufficient: listProvidedAccounts provisions auto-provisioned accounts first (idempotent),
     // so a direct URL load of /gatekeepers/$id works without racing the Header's listGatekeeperApps.
     let user = this.#user;  // one stub for both calls
@@ -617,7 +617,7 @@ class AuthenticatedApiImpl extends RpcTarget implements AuthenticatedApi {
     let app = accounts.find((account: (typeof accounts)[number]) => account.vendorId === id && account.description.providesUi);
     if (!app) return null;
     // isAdmin is supplied fresh per open so admin-gated features reflect the user's current status.
-    return user.startAccountAppUi(app.accountId, { isAdmin: this.#isAdmin() });
+    return user.startAccountAppUi(app.accountId, { isAdmin: this.#isAdmin(), ...(params ? { params } : {}) });
   }
 
   // --- Deployment admin ---

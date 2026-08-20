@@ -3722,7 +3722,50 @@ type ChatDisplayEntry =
       type: "botWork";
       key: string;
       counts: { code: number; callbacks: number; gadget: number; observations: number };
+    }
+  | {
+      // Conversation view only: a hub event shown where it happened -- work that arrived for the
+      // Bot (from its person, a teammate, a routine, an email) and the Bot's answer to it. Neither
+      // is a chat message: a delivery is an agent callback and its answer the callback's return, so
+      // without these the transcript shows a hand-off and nothing said. See toConversationEntries.
+      type: "botNote";
+      key: string;
+      ts: number;
+      side: "person" | "other" | "bot";
+      tone: "said" | "failed" | "needs";
+      text: string;
     };
+
+/** A Bots hub event as the conversation view needs it (the hub's `activity()` rows, narrowed). */
+export type BotConversationEvent = {
+  id: number;
+  ts: number;
+  type: string;
+  text: string;
+  from?: { type?: string; name?: string };
+};
+
+function noteForEvent(e: BotConversationEvent): Extract<ChatDisplayEntry, { type: "botNote" }> | null {
+  const text = String(e.text ?? "").trim();
+  const note = (side: "person" | "other" | "bot", tone: "said" | "failed" | "needs", body: string) =>
+    ({ type: "botNote" as const, key: `hub-${e.id}`, ts: e.ts, side, tone, text: body });
+  switch (e.type) {
+    case "message": {
+      const from = e.from ?? {};
+      // The hub's own nudges ("your human approved …") are plumbing, not something anyone said.
+      if (from.type === "system" || !text) return null;
+      if (from.type === "bot") return note("other", "said", `${from.name || "A Bot"}: ${text}`);
+      if (from.type === "routine") return note("other", "said", `Routine: ${text}`);
+      if (from.type === "email") return note("other", "said", `Email${from.name ? ` from ${from.name}` : ""}: ${text}`);
+      return note("person", "said", text);
+    }
+    case "completed": return text ? note("bot", "said", text) : null;
+    case "failed": return note("bot", "failed", text || "Couldn’t finish.");
+    case "needsUser": return note("bot", "needs", text ? `Needs you: ${text}` : "Needs you.");
+    case "capped": return note("bot", "failed", "Stopped for today: the spending limit you set was reached.");
+    default: return null;
+  }
+}
 
 function isObservationActionMessage(msg: AiChatMessage): msg is ObservationChatMessage {
   return msg.type === "action" && msg.actionLog?.type === "observation";
@@ -4127,7 +4170,7 @@ function isUserMessageEntry(entry: ChatDisplayEntry): boolean {
  * tool-call groups attached to agent messages, so what remains is what people said, what the Bot
  * said, approvals and errors. Agent messages left with no text disappear with their work.
  */
-export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boolean): ChatDisplayEntry[] {
+export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boolean, events?: BotConversationEvent[]): ChatDisplayEntry[] {
   const out: ChatDisplayEntry[] = [];
   let first = true;
   let folded = { code: 0, callbacks: 0, gadget: 0, observations: 0 };
@@ -4142,7 +4185,21 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
     folded[kind] += n;
     foldedKey ||= key;
   };
+  // Hub events slot in by time: a delivery lands just before the callback it caused, an answer
+  // just after the turn that produced it. Rows without a timestamp of their own (work) sit with
+  // the message before them.
+  const notes = (events ?? []).map(noteForEvent).filter((n): n is NonNullable<typeof n> => n !== null).sort((a, b) => a.ts - b.ts);
+  let next = 0;
+  let lastTs = 0;
+  const notesUpTo = (ts: number) => {
+    while (next < notes.length && notes[next].ts <= ts) { flush(); out.push(notes[next++]); }
+  };
   for (const entry of entries) {
+    if (entry.type === "message") {
+      const t = new Date(entry.message.timestamp).getTime();
+      if (Number.isFinite(t)) lastTs = t;
+    }
+    notesUpTo(lastTs);
     // The persona is the chat's first message, sent by whoever spawned the agent: a person (author
     // "user") or, for a Bot the hub created, the hub itself (author "gadget"). Anything the agent
     // said cannot be it; anything before the first message (a work row) is not it either.
@@ -4155,7 +4212,9 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
     if (entry.type === "message") {
       const m = entry.message;
       if (m.type === "useGadget") { fold(entry.key, "gadget"); continue; }
-      if (m.type === "agentCallback") { fold(entry.key, "callbacks"); continue; }
+      // With the hub's events in view the delivery is already shown as what was asked; counting
+      // it as a hand-off too would name the same thing twice.
+      if (m.type === "agentCallback") { if (!events) fold(entry.key, "callbacks"); continue; }
       if (m.type === "merge" || m.type === "revert") continue;
       if (m.type === "action" && m.actionLog?.type === "observation") { fold(entry.key, "observations"); continue; }
       if (m.type === "message" && m.author.type !== "user") {
@@ -4171,6 +4230,7 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
     out.push(entry);
   }
   flush();
+  notesUpTo(Number.POSITIVE_INFINITY);
   return out;
 }
 
@@ -4191,7 +4251,7 @@ const EARLIER_PAGE_PREFETCH_PX = 600;
 function isPureWorkRowEntry(entry: ChatDisplayEntry): boolean {
   if (entry.type === "workRun" || entry.type === "botWork") return true;
   if (entry.type === "modelChange" || entry.type === "compactionBoundary" ||
-      entry.type === "compactionCut") return false;
+      entry.type === "compactionCut" || entry.type === "botNote") return false;
   const m = entry.message;
   return (
     m.type === "action" ||
@@ -4379,6 +4439,16 @@ interface ChatInterfaceProps {
   conversationView?: boolean;
   /** With `conversationView`: also show the tool activity ("Ran code", callbacks, gadget use). */
   showWork?: boolean;
+  /**
+   * With `conversationView`: the Bot's hub events, shown in the transcript where they happened --
+   * what arrived for it and what it answered, which are callbacks rather than chat messages.
+   */
+  conversationEvents?: BotConversationEvent[];
+  /**
+   * Opens an in-app path named by an action card (ActionDescription.open) without leaving the
+   * page. Without it the card falls back to a plain link.
+   */
+  onOpenPath?: (path: string) => void;
   onOpenGadget: (gadgetId: WorkpieceId) => void;
 
   // The output format a workpiece was built as, so a created-app card can name and draw it as the
@@ -4567,6 +4637,8 @@ function ChatInterface({
   hideChatHeader = false,
   conversationView = false,
   showWork = false,
+  conversationEvents,
+  onOpenPath,
   onOpenGadget,
   outputOfWorkpiece,
 }: ChatInterfaceProps) {
@@ -4941,9 +5013,9 @@ function ChatInterface({
       // edit that actually created it.
       const entries = buildChatDisplayEntries(
           currentMessages, messageStates.changeStatus, currentCompactions, resolveToolOutput);
-      return conversationView ? toConversationEntries(entries, showWork) : entries;
+      return conversationView ? toConversationEntries(entries, showWork, conversationEvents) : entries;
     },
-    [currentMessages, messageStates, currentCompactions, resolveToolOutput, conversationView, showWork],
+    [currentMessages, messageStates, currentCompactions, resolveToolOutput, conversationView, showWork, conversationEvents],
   );
 
   const entryTopClasses = useMemo(() => {
@@ -6732,6 +6804,26 @@ function ChatInterface({
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1 sm:ml-3 sm:flex-shrink-0 sm:self-center">
+                {isPending && log.description.open && (
+                  // Where to go to act on this (a browser takeover opens the Browser app on the
+                  // profile). The decision still happens here, once that is done.
+                  onOpenPath ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenPath(log.description.open!.path)}
+                      className="cursor-pointer rounded-md bg-kumo-brand px-3 py-1 text-[14px] md:text-[13px] font-medium leading-4 text-white transition-[opacity,transform] duration-150 ease-out hover:opacity-90 focus-visible:outline-none active:scale-[0.98]"
+                    >
+                      {log.description.open.label}
+                    </button>
+                  ) : (
+                    <a
+                      href={log.description.open.path}
+                      className="rounded-md bg-kumo-brand px-3 py-1 text-[14px] md:text-[13px] font-medium leading-4 text-white no-underline hover:opacity-90"
+                    >
+                      {log.description.open.label}
+                    </a>
+                  )
+                )}
                 {actionControls}
               </div>
             </div>
@@ -7364,6 +7456,26 @@ function ChatInterface({
                             <div className="flex items-center gap-1.5 py-0.5 text-[13px] md:text-[12px] md:text-[11px] text-kumo-subtle">
                               <span className="h-px w-4 bg-kumo-line" aria-hidden />
                               <span>{describeBotWork(entry.counts)}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (entry.type === "botNote") {
+                        // What arrived for the Bot reads like the person's own message; what the
+                        // Bot answered reads like its own; a need or a failure stands out.
+                        const fromBot = entry.side === "bot";
+                        const look = !fromBot
+                          ? `rounded-2xl px-4 py-2.5 text-kumo-default ${entry.side === "person" ? "bg-kumo-tint" : "border border-kumo-line"}`
+                          : entry.tone === "needs" ? "rounded-2xl border border-kumo-brand/40 bg-kumo-brand/10 px-4 py-3 text-kumo-default"
+                          : entry.tone === "failed" ? "text-kumo-danger"
+                          : "text-kumo-default";
+                        return (
+                          <div key={entry.key} className={entryTopClass} data-testid="bot-note" data-side={entry.side}>
+                            <div className={`flex ${fromBot ? "justify-start" : "justify-end"}`}>
+                              <div className={`max-w-[860px] whitespace-pre-wrap break-words text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] ${look}`}>
+                                {entry.text}
+                              </div>
                             </div>
                           </div>
                         );

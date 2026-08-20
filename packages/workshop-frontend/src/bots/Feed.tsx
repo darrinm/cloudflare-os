@@ -114,7 +114,7 @@ const TONE: Record<FeedLine['tone'], string> = {
  * the whole event row, so keeping up costs no RPC at all -- it used to re-read the newest 120 rows
  * on every update, from two mounted copies.
  */
-export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_LIMIT) {
+export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_LIMIT, botId: string | null = null) {
   const [events, setEvents] = useState<BotEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -125,7 +125,7 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_L
     // a window nobody is reading up to date.
     if (!hub) { setEvents(null); pendingRef.current = []; return }
     try {
-      const snapshot = await hub.activity(null, { limit })
+      const snapshot = await hub.activity(botId, { limit })
       // Fold in anything that arrived while the snapshot was in flight, dropping what it already has.
       const held = pendingRef.current.splice(0)
       const seen = new Set(snapshot.map((e) => e.id))
@@ -134,7 +134,7 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_L
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
     }
-  }, [hub, limit])
+  }, [hub, limit, botId])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
