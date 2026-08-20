@@ -1743,6 +1743,14 @@ export interface Overseer extends RpcTarget {
       : Promise<RpcStub<GadgetClient>>;
 
   /**
+   * The revision this deployment ships for a bundled format blueprint, or null if it bundles none
+   * with that id. A gadget created from an older copy reports a lower revision (its frozen code),
+   * so comparing the two is how the UI knows an in-place update (updateFromBlueprint) has something
+   * to apply -- and, just as importantly, when it does not, so "update" is not offered needlessly.
+   */
+  bundledBlueprintRevision(blueprintId: string): Promise<number | null>;
+
+  /**
    * Get the gadget with the given workpiece ID. To allow for pipelining, this throws an
    * exception if there is no such gadget.
    */

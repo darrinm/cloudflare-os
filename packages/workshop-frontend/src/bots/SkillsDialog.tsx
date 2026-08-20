@@ -10,7 +10,7 @@ import type { HubSkill } from './types'
  * with `$ARGUMENT` where the invocation's args go. Agent Skills from the Context Library work too
  * (through the conversation's `/` menu); these are the hub-local kind that needs no collection.
  */
-export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples, onUpdateHub, hubRevision }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null; onUpdateHub?: () => void; hubRevision?: number }) {
+export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples, onUpdateHub, updating, updateAvailable, targetRevision }: { open: boolean; onClose: () => void; hub: HubStub; onAddExamples?: () => void; addingExamples?: string | null; onUpdateHub?: () => void; updating?: string | null; updateAvailable?: boolean; targetRevision?: number }) {
   const toasts = useKumoToastManager()
   const [skills, setSkills] = useState<HubSkill[] | null>(null)
   const [editing, setEditing] = useState<{ name: string; description: string; body: string } | null>(null)
@@ -30,7 +30,7 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
             <div>
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">Skills</Dialog.Title>
               <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">
-                Reusable instructions any Bot can be given by name. Write <code>$ARGUMENT</code> where the request’s details go.
+                Reusable instructions any Bot can be given by name.
               </Dialog.Description>
             </div>
             <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
@@ -48,7 +48,7 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
               <Input label="Name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="weekly-report" required />
               <Input label="Description" value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} placeholder="What it does, in one line" />
               <label className="flex flex-col gap-1 text-[13px] md:text-[12px] text-kumo-subtle">
-                Instructions
+                <span>Instructions <span className="text-kumo-subtle/70">— write <code>$ARGUMENT</code> where the request’s details go</span></span>
                 <textarea className="min-h-[180px] rounded-md border border-kumo-line bg-kumo-base px-2 py-1.5 font-mono text-[13px] md:text-[12px] text-kumo-default" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} placeholder={'Write a weekly report about $ARGUMENT.\nKeep it under 200 words.'} required />
               </label>
               <div className="flex justify-end gap-2">
@@ -74,17 +74,17 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 text-[12px] md:text-[11px] text-kumo-subtle">
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex min-w-0 flex-col items-start gap-2">
                   {onAddExamples && (
                     <Button variant="secondary" size="sm" onClick={onAddExamples} loading={!!addingExamples}>Add example Bots</Button>
                   )}
-                  {onUpdateHub && (
-                    <Button variant="secondary" size="sm" onClick={onUpdateHub} loading={!!addingExamples} title="Bring this hub up to the deployment's current version; your Bots, memory and routines are kept">
-                      {hubRevision ? `Update Bots (v${hubRevision})` : 'Update Bots'}
+                  {onUpdateHub && updateAvailable && (
+                    <Button variant="secondary" size="sm" onClick={onUpdateHub} loading={!!updating} title="Bring this hub up to the deployment's current version; your Bots, memory and routines are kept">
+                      {targetRevision ? `Update Bots (v${targetRevision})` : 'Update Bots'}
                     </Button>
                   )}
-                  {addingExamples && <span className="ml-2">{addingExamples}</span>}
+                  {(updating || addingExamples) && <span className="text-[12px] md:text-[11px] text-kumo-subtle">{updating || addingExamples}</span>}
                 </div>
                 <Button variant="primary" onClick={() => setEditing({ name: '', description: '', body: '' })}>New skill</Button>
               </div>

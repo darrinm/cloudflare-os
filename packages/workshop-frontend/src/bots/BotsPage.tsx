@@ -178,6 +178,21 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const [showSkills, setShowSkills] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [seeding, setSeeding] = useState<string | null>(null)
+  // Updating the hub in place is its own action, tracked apart from seeding so only the button that
+  // started it shows a spinner (they sit side by side in the Skills dialog).
+  const [updating, setUpdating] = useState<string | null>(null)
+  // The revision this deployment ships for the hub blueprint. Compared against the hub's own
+  // reported revision to decide whether "Update Bots" has anything to do; null until fetched (or on
+  // deployments that bundle no hub, where an update can never be offered).
+  const [bundledRevision, setBundledRevision] = useState<number | null>(null)
+  useEffect(() => {
+    if (!overseer) return
+    let live = true
+    overseer.stub.bundledBlueprintRevision(BOTS_BLUEPRINT_ID)
+      .then((r) => { if (live) setBundledRevision(r) })
+      .catch(() => { /* leave null: no update offered, which is the safe default */ })
+    return () => { live = false }
+  }, [overseer])
   // What you see with nothing selected. The feed answers "what happened?", which is the daily
   // question; the roster answers "who have I got?", which you ask far less often; the audit is
   // the full record for the rare day you need it.
@@ -212,7 +227,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // memory, routines, groups, costs), bindings and the workpiece id are kept.
   const updateHub = useCallback(async () => {
     if (!overseer) return
-    setSeeding('Updating your Bots…')
+    setUpdating("Updating your Bots…")
     const client = overseer.stub.getGadget(workpieceId)
     let changed: string[] | null = null
     try {
@@ -224,14 +239,14 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
         toasts.add({ title: 'Couldn’t update your Bots', description: msg, variant: 'error' })
         client[Symbol.dispose]()
-        setSeeding(null)
+        setUpdating(null)
         return
       }
     } finally {
       client[Symbol.dispose]()
     }
     // Read the revision back from the restarted hub, so the toast states what actually happened.
-    setSeeding('Reconnecting…')
+    setUpdating('Reconnecting…')
     let revision: number | undefined
     try {
       const fresh = overseer.stub.getGadget(workpieceId)
@@ -246,8 +261,10 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
       description: `${revision ? `Now running revision ${revision}. ` : ''}Your Bots, memory, routines and costs are untouched.`,
       variant: 'success',
     })
+    // refreshBots re-reads getInfo(), so the hub's now-current revision flows back into hubState
+    // and the update button, having done its job, drops itself.
     await hubState.refreshBots()
-    setSeeding(null)
+    setUpdating(null)
   }, [overseer, workpieceId, hubState, toasts])
 
   // The seeding core: pick the model, create and grant the example Bots, refresh the roster. Both
@@ -543,7 +560,10 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
           navigate({ to: '/bots/group/$groupId', params: { groupId: g.id } })
         }}
       />
-      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding} onUpdateHub={updateHub} hubRevision={hubState.info?.revision} />}
+      {hubState.hub && <SkillsDialog open={showSkills} onClose={() => setShowSkills(false)} hub={hubState.hub} onAddExamples={addExamples} addingExamples={seeding}
+        onUpdateHub={updateHub} updating={updating}
+        updateAvailable={bundledRevision !== null && bundledRevision > (hubState.info?.revision ?? 0)}
+        targetRevision={bundledRevision ?? undefined} />}
     </div>
   )
 }

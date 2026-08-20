@@ -48,6 +48,7 @@ import {
   validateChatAttachmentUpload,
 } from "./chat-attachment-validation";
 import { renderGadgetPdf } from "./browser-export";
+import { FORMAT_BLUEPRINTS } from "./generated/format-blueprints.js";
 
 const logger = createWorkshopLogger("workshop.overseer");
 export const AGENT_RUNNING_ERROR_MESSAGE = "Agent is running, wait for it to finish.";
@@ -8909,6 +8910,10 @@ class OverseerClientInterface extends RpcTarget implements Overseer {
 
   // --- Blueprint management ---
 
+  async bundledBlueprintRevision(blueprintId: string): Promise<number | null> {
+    return FORMAT_BLUEPRINTS.find(b => b.blueprintId === blueprintId)?.revision ?? null;
+  }
+
   async listBlueprints(): Promise<BlueprintGadgetSummary[]> {
     let result: BlueprintGadgetSummary[] = [];
     for (let record of this.impl.storage.blueprints.list()) {
@@ -9366,6 +9371,7 @@ class UseOverseerInterface extends RpcTarget implements Overseer {
       [Symbol.dispose]() {}
     });
   }
+  async bundledBlueprintRevision(_blueprintId: string): Promise<number | null> { this.#deny(); }
   async listBlueprints(): Promise<BlueprintGadgetSummary[]> { this.#deny(); }
   async updateBlueprint(_blueprintId: string, _options: {
     title?: string;
