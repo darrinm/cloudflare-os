@@ -263,6 +263,40 @@ describe("BotsPageContent", () => {
     expect(hub.setMeta).not.toHaveBeenCalled();
   });
 
+  it("keeps a ticked grant ticked while the page re-renders", async () => {
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    const listBindings = vi.fn<() => Promise<Array<{ name: string; target: number; resourceTitle: string }>>>(async () => []);
+    testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings, [Symbol.dispose]() {} }) } };
+    const bot = {
+      id: "abc12345", name: "Researcher", role: "Digs", instructions: "", avatar: "", color: "",
+      chatTitle: "Bot: Researcher [abc12345]", created: 1, updated: 1, lastActivity: null,
+      agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
+    };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 0, totalTokens: 0, turns: 0, chats: 0, todayUsd: 0, dailyCapUsd: null }) };
+    testState.hub.bots = [bot];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
+
+    await render("abc12345");
+    const openGrants = [...container!.querySelectorAll("button")].find((b) => b.textContent === "Change what it can use…")!;
+    await act(async () => { openGrants.click(); });
+    // The dialog renders in a portal, outside the test container.
+    const findBrowserBox = () => [...document.querySelectorAll('input[type="checkbox"]')].find((i) => i.parentElement?.textContent?.includes("BROWSER")) as HTMLInputElement | undefined;
+    await vi.waitFor(() => expect(findBrowserBox()).toBeDefined());
+    const browserBox = findBrowserBox()!;
+    expect(browserBox.checked).toBe(false);
+    await act(async () => { browserBox.click(); });
+    expect(browserBox.checked).toBe(true);
+    // Anything that re-renders the page (a hub event, a toast) used to re-run the dialog's load
+    // and put the boxes back the way they were.
+    const loads = listBindings.mock.calls.length;
+    await act(async () => { root!.render(<BotsPageContent botId="abc12345" />); await new Promise((r) => setTimeout(r, 30)); });
+    expect(browserBox.checked).toBe(true);
+    expect(listBindings).toHaveBeenCalledTimes(loads);
+  });
+
   it("renders a group's shared transcript with a composer", async () => {
     testState.listOutputs.mockResolvedValueOnce({
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,

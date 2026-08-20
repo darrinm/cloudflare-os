@@ -954,6 +954,10 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
   const [sharedBrowser, setSharedBrowser] = useState(false)
   const [sandboxMode, setSandboxMode] = useState<'read-only' | 'approve' | 'write'>('approve')
   const { authenticatedApi } = useAuthenticatedApi()
+  // The toast manager is not a stable identity; as an effect dependency it re-ran this load on
+  // every render, which reset the checkboxes as fast as they were ticked.
+  const toastsRef = useRef(toasts)
+  toastsRef.current = toasts
 
   useEffect(() => {
     if (!open) return
@@ -980,13 +984,13 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
         setWantSandbox(!!mine.sandbox)
         setReplaceComputer(new Set())
       } catch (err) {
-        if (!cancelled) toasts.add({ title: 'Couldn’t load connections', description: String(err instanceof Error ? err.message : err), variant: 'error' })
+        if (!cancelled) toastsRef.current.add({ title: 'Couldn’t load connections', description: String(err instanceof Error ? err.message : err), variant: 'error' })
       } finally {
         client?.[Symbol.dispose]()
       }
     })()
     return () => { cancelled = true }
-  }, [open, overseer, hubWorkpieceId, toasts, bot.id])
+  }, [open, overseer, hubWorkpieceId, bot.id])
 
   const apply = useCallback(async () => {
     if (!bindings) return
