@@ -13,18 +13,22 @@ function disposeFrame(frame: GatekeeperUiFrame | null) {
  * Renders a gatekeeper's full-page management app (a sandboxed SPA the gatekeeper serves).
  * Fetches the app frame (iframe HTML + `ui` capability) from the backend and hosts it.
  */
-export default function GatekeeperAppPage({ appId }: { appId: string }) {
+export default function GatekeeperAppPage({ appId, params }: { appId: string; params?: Record<string, string> }) {
   const { authenticatedApi } = useAuthenticatedApi()
   // Wrap the frame in an object: it holds a `ui` RPC stub, and we never want useState's setter to
   // treat a stored value as an updater function.
   const [state, setState] = useState<{ frame: GatekeeperUiFrame } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The params travel with the frame (the app reads them over its `ui`), so a link to a different
+  // place in the same app fetches a fresh frame.
+  const paramsKey = JSON.stringify(params ?? {})
 
   useEffect(() => {
     let cancelled = false
     let acquired: GatekeeperUiFrame | null = null
+    const params = JSON.parse(paramsKey) as Record<string, string>
     authenticatedApi
-      .getGatekeeperApp(appId)
+      .getGatekeeperApp(appId, Object.keys(params).length ? params : undefined)
       .then((frame) => {
         if (!frame) {
           if (!cancelled) setError('This app is not available on this deployment.')
@@ -48,7 +52,7 @@ export default function GatekeeperAppPage({ appId }: { appId: string }) {
       cancelled = true
       disposeFrame(acquired)
     }
-  }, [authenticatedApi, appId])
+  }, [authenticatedApi, appId, paramsKey])
 
   if (error) {
     return (

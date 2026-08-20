@@ -45,7 +45,17 @@ export default {
     // callbacks.
 
     if (env.ASSETS) {
-      return env.ASSETS.fetch(req);
+      const res = await env.ASSETS.fetch(req);
+      // The shell (index.html, unhashed) names this deploy's hashed bundles. Served cacheable it
+      // outlives the deploy -- the edge answered a plain reload with the previous shell, so the old
+      // app ran against the new backend until a hard reload. The bundles themselves are hashed and
+      // keep their long cache; only the document must be fetched each time.
+      if ((res.headers.get("content-type") ?? "").startsWith("text/html")) {
+        const fresh = new Response(res.body, res);
+        fresh.headers.set("cache-control", "no-store");
+        return fresh;
+      }
+      return res;
     }
 
     // Dev only: with no assets binding here, everything else goes to the backend.

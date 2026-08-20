@@ -73,6 +73,21 @@ describe('router fetch', () => {
     expect(await route(env, '/gatekeeper/not-installed')).toBe('assets');
   });
 
+  it('serves the HTML shell uncacheable and leaves hashed assets alone', async () => {
+    // What Workers Assets answers: a cacheable shell, and an immutable hashed bundle.
+    const assets = {
+      fetch: async (req: Request) => new URL(req.url).pathname.endsWith('.js')
+        ? new Response('js', { headers: { 'content-type': 'text/javascript', 'cache-control': 'public, max-age=31536000, immutable' } })
+        : new Response('<html>', { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=0, must-revalidate', etag: '"abc"' } }),
+    } as unknown as Fetcher;
+    const env = makeEnv({ ASSETS: assets });
+    const shell = await router.fetch!(new Request('https://example.com/bots'), env, {} as ExecutionContext);
+    expect(shell.headers.get('cache-control')).toBe('no-store');
+    expect(await shell.text()).toBe('<html>');
+    const bundle = await router.fetch!(new Request('https://example.com/assets/index-abc.js'), env, {} as ExecutionContext);
+    expect(bundle.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+  });
+
   // Dev has no ASSETS binding: the backend serves the frontend from its own assets binding in
   // `run-local` mode, and in normal dev mode you open the Vite server on :3000 directly.
   it('falls through to the backend when ASSETS is absent', async () => {
@@ -110,13 +125,10 @@ describe('router email', () => {
 describe('wrangler.jsonc contract', () => {
   const config = parse(wranglerConfigText);
 
-  it('runs the worker first for API, screenshot, and gatekeeper prefixes', () => {
-    const first: string[] = config.assets.run_worker_first;
-    expect(first).toContain('/api');
-    expect(first).toContain('/api/*');
-    expect(first).toContain('/blueprint-screenshot');
-    expect(first).toContain('/blueprint-screenshot/*');
-    expect(first).toContain('/gatekeeper/*');
+  it('runs the worker first for everything but the hashed bundles', () => {
+    // Documents (the shell it serves uncacheable), API, screenshots and gatekeeper prefixes all go
+    // through the worker; only /assets/* is served straight from static assets.
+    expect(config.assets.run_worker_first).toEqual(['/*', '!/assets/*']);
   });
 
   it('serves the frontend as a single-page application', () => {

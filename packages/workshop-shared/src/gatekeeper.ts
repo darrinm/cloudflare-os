@@ -84,6 +84,12 @@ export type VendorDescription = {
  */
 export type AppUiContext = {
   isAdmin: boolean;
+  /**
+   * The URL's search parameters, when the app was opened from a link that names a place in it
+   * (e.g. `?profile=scout-2de82282&takeover=1` on the Browser app). Untrusted strings: the app
+   * decides what, if anything, they mean.
+   */
+  params?: Record<string, string>;
 }
 
 // The agent catalog is bounded discovery metadata a gatekeeper exposes via
@@ -1203,6 +1209,13 @@ export type ActionDescription = {
    * approval rules and the future policy engine key on; `actionKind.label` is shown in the UI.
    */
   actionKind?: ActionKind;
+
+  /**
+   * Somewhere in the Workshop the person should go to act on this -- a browser takeover opens
+   * the Browser app on that profile with the controls ready. An in-app path (no origin), shown as
+   * a button next to approve/deny; the decision itself still happens on the card.
+   */
+  open?: { path: string; label: string };
 }
 
 /**

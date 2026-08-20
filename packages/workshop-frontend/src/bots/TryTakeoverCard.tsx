@@ -18,10 +18,16 @@ export function pickTakeoverBot(bots: Bot[], hasBrowser: (botId: string) => bool
   return able.find((b) => b.name === 'Scout') ?? able[0] ?? null
 }
 
-export const TRY_TAKEOVER_TASK =
-  "Let's try a takeover. Ask me, in one line, which site you should sign in to for me, then wait for my answer. " +
-  "When I answer: open the site, get to its sign-in page, and call requestTakeover with a one-line reason so I can sign in myself. " +
-  "Never type credentials. After I hand the browser back, take a snapshot and tell me in one line what you can see."
+/** The one message the card sends: no round-trip, the site is already chosen. */
+export const tryTakeoverTask = (site: string) =>
+  `Let's try a takeover on ${site}. Open it, get to its sign-in page, then call requestTakeover with a one-line reason so I can sign in myself. ` +
+  "Never type credentials. After I hand the browser back, take a snapshot and tell me in one line who I am signed in as."
+
+/** A bare host, or null when the text is not one. */
+export function normalizeSite(text: string): string | null {
+  const t = text.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(t) ? t : null
+}
 
 /** What the offer needs from the hub's gadget client: its bindings, once. */
 type HubGadget = { getGadget(workpieceId: number): { listBindings(): Promise<Array<{ name: string }>>; [Symbol.dispose](): void } }
@@ -69,11 +75,11 @@ export function useTryTakeoverCard({ hub, overseer, workpieceId, bots, userName,
     setBindings(null)
     try { await hub?.setMeta('tryTakeover', `${tried ? 'tried' : 'dismissed'} ${new Date().toISOString()}`) } catch { /* pre-flags hub */ }
   }, [hub])
-  const tryIt = useCallback(async () => {
+  const tryIt = useCallback(async (site: string) => {
     if (!hub || !bot) return
     try {
       // The offer is spent only once the Bot has the task: an undelivered send (no agent yet) keeps it.
-      const sent = await hub.send(bot.id, TRY_TAKEOVER_TASK, { type: 'user', name: userName })
+      const sent = await hub.send(bot.id, tryTakeoverTask(site), { type: 'user', name: userName })
       if (!sent.delivered) throw new Error(`${bot.name} isn’t running yet; try again in a moment.`)
       void settle(true)
       onOpen(bot.id)
@@ -82,21 +88,32 @@ export function useTryTakeoverCard({ hub, overseer, workpieceId, bots, userName,
     }
   }, [hub, bot, userName, settle, onOpen, onError])
 
-  return bot ? <TryTakeoverCard bot={bot} onTry={() => { void tryIt() }} onDismiss={() => { void settle(false) }} /> : undefined
+  return bot ? <TryTakeoverCard bot={bot} onTry={(site) => { void tryIt(site) }} onDismiss={() => { void settle(false) }} /> : undefined
 }
 
-export function TryTakeoverCard({ bot, onTry, onDismiss }: { bot: Bot; onTry: () => void; onDismiss: () => void }) {
+export function TryTakeoverCard({ bot, onTry, onDismiss }: { bot: Bot; onTry: (site: string) => void; onDismiss: () => void }) {
+  const [site, setSite] = useState('')
+  const host = normalizeSite(site)
   return (
-    <div className="m-3 flex flex-col gap-2 rounded-lg border border-kumo-line bg-kumo-tint/40 px-3 py-2.5" role="note" aria-label="Try a takeover">
+    <form
+      className="m-3 flex flex-col gap-2 rounded-lg border border-kumo-line bg-kumo-tint/40 px-3 py-2.5"
+      role="note" aria-label="Try a takeover"
+      onSubmit={(e) => { e.preventDefault(); if (host) onTry(host) }}
+    >
       <div className="text-[14px] md:text-[13px] font-medium text-kumo-default">Try a takeover</div>
       <div className="text-[14px] md:text-[13px] leading-snug text-kumo-subtle">
-        {bot.name} will open a site you sign in to and ask for the page. Take control, sign in, hand it back — it keeps the session.
+        Name a site you sign in to. {bot.name} opens it and asks for the page; take control, sign in, hand it back — it keeps the session.
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={onTry}>Try it</Button>
-        <Button size="sm" variant="secondary" onClick={onDismiss}>Not now</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          className="min-w-0 flex-1 rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[16px] md:text-[13px] text-kumo-default"
+          value={site} onChange={(e) => setSite(e.target.value)} placeholder="github.com" aria-label="Site"
+          autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url"
+        />
+        <Button size="sm" type="submit" disabled={!host}>Try it</Button>
+        <Button size="sm" variant="secondary" type="button" onClick={onDismiss}>Not now</Button>
       </div>
-    </div>
+    </form>
   )
 }
 
