@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@cloudflare/kumo'
-import { triggerBlobDownload } from '../fileTransfers'
+import { saveStreamToFile } from '../fileTransfers'
 import { fmtTime } from './GroupView'
 import type { Bot, BotEvent } from './types'
 
@@ -11,6 +11,8 @@ import type { Bot, BotEvent } from './types'
  */
 
 export type AuditRow = {
+  /** The row as the hub stored it, for export. */
+  event: BotEvent
   id: number
   ts: number
   /** The Bot's id is what filters and links key on; names are not unique. */
@@ -28,7 +30,7 @@ export function auditRows(events: BotEvent[], names: Map<string, string>): Audit
   return events.map((e) => {
     const data = (e.data ?? {}) as { state?: string; autoApproved?: boolean }
     const row: AuditRow = {
-      id: e.id, ts: e.ts, type: e.type, botId: e.botId,
+      event: e, id: e.id, ts: e.ts, type: e.type, botId: e.botId,
       bot: e.botId ? names.get(e.botId) ?? 'Deleted Bot' : '',
       text: String(e.text ?? '').replace(/\s+/g, ' ').trim(),
     }
@@ -51,13 +53,16 @@ export function eventsCsv(events: BotEvent[], names: Map<string, string>): strin
   return [header, ...events.map((e) => [e.id, new Date(e.ts).toISOString(), e.botId ? names.get(e.botId) ?? e.botId : '', e.type, e.text, JSON.stringify(e.data)].map(esc).join(','))].join('\n')
 }
 
-/** Saves events as a file named `<base>-<timestamp>.<format>`; the JSON carries `envelope` around the events. */
-export function exportEvents(base: string, format: 'json' | 'csv', events: BotEvent[], names: Map<string, string>, envelope: Record<string, unknown>) {
+const FILE_TYPES = {
+  json: { description: 'JSON', contentType: 'application/json', extension: '.json' },
+  csv: { description: 'CSV', contentType: 'text/csv', extension: '.csv' },
+} as const
+
+/** Saves events as `<base>-<timestamp>.<format>` the way every other export does (save dialog where there is one); the JSON carries `envelope` around the events. */
+export async function exportEvents(base: string, format: keyof typeof FILE_TYPES, events: BotEvent[], names: Map<string, string>, envelope: Record<string, unknown>): Promise<void> {
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-  const blob = format === 'json'
-    ? new Blob([JSON.stringify({ ...envelope, exported: new Date().toISOString(), events }, null, 2)], { type: 'application/json' })
-    : new Blob([eventsCsv(events, names)], { type: 'text/csv' })
-  triggerBlobDownload(blob, `${base}-${stamp}.${format}`)
+  const body = format === 'json' ? JSON.stringify({ ...envelope, exported: new Date().toISOString(), events }, null, 2) : eventsCsv(events, names)
+  await saveStreamToFile(async () => new Blob([body], { type: FILE_TYPES[format].contentType }).stream(), `${base}-${stamp}.${format}`, FILE_TYPES[format])
 }
 
 export function Audit({ bots, events, error, onOpenBot }: {
@@ -73,10 +78,9 @@ export function Audit({ bots, events, error, onOpenBot }: {
   const rows = useMemo(() => auditRows(events ?? [], names), [events, names])
   const types = useMemo(() => [...new Set(rows.map((r) => r.type))].sort(), [rows])
   const shown = useMemo(() => filterRows(rows, { bot, type, q }), [rows, bot, type, q])
-  const shownIds = useMemo(() => new Set(shown.map((r) => r.id)), [shown])
 
   const exportAs = (format: 'json' | 'csv') =>
-    exportEvents('bots-audit', format, (events ?? []).filter((e) => shownIds.has(e.id)), names, { bots: bots.map((b) => ({ id: b.id, name: b.name, role: b.role })) })
+    void exportEvents('bots-audit', format, shown.map((r) => r.event), names, { bots: bots.map((b) => ({ id: b.id, name: b.name, role: b.role })) })
 
   const select = 'rounded-md border border-kumo-line bg-kumo-base px-2 py-1 text-[14px] md:text-[13px] text-kumo-default'
   return (

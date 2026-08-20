@@ -14,7 +14,7 @@ import type {
 import ChatInterface from '../ChatInterface'
 import Feed, { useFeed } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
-import TryTakeoverCard, { TRY_TAKEOVER_TASK, pickTakeoverBot } from './TryTakeoverCard'
+import { useTryTakeoverCard } from './TryTakeoverCard'
 import LiveGlance from './LiveGlance'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
@@ -157,6 +157,10 @@ function CreateHubPanel({
 
 // -------------------------------------------------------------------------------------------------
 
+// What you see with nothing selected, on a phone (tabs) or a desktop (the pane beside the roster).
+const VIEW_LABEL = { feed: 'Activity', roster: 'Bots', audit: 'Audit' } as const
+type View = keyof typeof VIEW_LABEL
+
 function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspaceId: string; workpieceId: number; botId: string | null; groupId: string | null }) {
   const { authenticatedApi, currentUser } = useAuthenticatedApi()
   const navigate = useNavigate()
@@ -177,69 +181,20 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // What you see with nothing selected. The feed answers "what happened?", which is the daily
   // question; the roster answers "who have I got?", which you ask far less often; the audit is
   // the full record for the rare day you need it.
-  const [view, setView] = useState<'feed' | 'roster' | 'audit'>('feed')
+  const [view, setView] = useState<View>('feed')
   // One subscription to the feed's data, shared by the phone tab and the desktop pane: mounting
-  // the component twice used to fetch twice, on every event. The audit reads a deeper window, and
-  // only while it is open.
+  // the component twice used to fetch twice, on every event. The audit reads a deeper window once
+  // it has been opened, then keeps it current from the same live stream.
   const feedData = useFeed(hubState.hub, hubState.updates)
-  const auditData = useFeed(view === 'audit' ? hubState.hub : null, hubState.updates, AUDIT_LIMIT)
+  const auditOpened = useRef(false)
+  if (view === 'audit') auditOpened.current = true
+  const auditData = useFeed(auditOpened.current ? hubState.hub : null, hubState.updates, AUDIT_LIMIT)
   const openBot = useCallback((id: string) => navigate({ to: '/bots/$id', params: { id } }), [navigate])
-
-  // The takeover walk-through: offered once per hub (the flag lives on the hub, like firstRun, so
-  // a phone and a laptop agree), and started through the real path -- the Bot asks which site,
-  // opens it and requests the takeover; nothing here imitates that flow.
-  const [takeoverOffer, setTakeoverOffer] = useState<'unknown' | 'show' | 'hide'>('unknown')
-  // Which Bots have a browser is in the hub's bindings (BROWSER_<bot>), re-read when the roster
-  // changes -- seeding grants Scout its browser after the Bots appear.
-  const [bindingNames, setBindingNames] = useState<Set<string> | null>(null)
-  useEffect(() => {
-    if (!overseer || !hubState.hub) return
-    let cancelled = false
-    const client = overseer.stub.getGadget(workpieceId)
-    client.listBindings()
-      .then((list) => { if (!cancelled) setBindingNames(new Set(list.map((b) => b.name))) })
-      .catch(() => { if (!cancelled) setBindingNames(new Set()) })
-      .finally(() => client[Symbol.dispose]())
-    return () => { cancelled = true }
-  }, [overseer, workpieceId, hubState.hub, hubState.version])
-  const takeoverBot = useMemo(
-    () => (bindingNames ? pickTakeoverBot(hubState.bots, (id) => bindingNames.has(computerBindingNameFor(id, 'browser'))) : null),
-    [hubState.bots, bindingNames],
-  )
-  useEffect(() => {
-    const hub = hubState.hub
-    if (!hub || !takeoverBot || takeoverOffer !== 'unknown') return
-    let cancelled = false
-    void (async () => {
-      // A hub older than the flags feature has no getMeta: no flag, no offer.
-      let seen: string | null = 'unsupported'
-      try { seen = await hub.getMeta('tryTakeover') } catch { /* pre-flags hub */ }
-      if (!cancelled) setTakeoverOffer(seen ? 'hide' : 'show')
-    })()
-    return () => { cancelled = true }
-  }, [hubState.hub, takeoverBot, takeoverOffer])
-  const settleTakeoverOffer = useCallback(async (tried: boolean) => {
-    setTakeoverOffer('hide')
-    const hub = hubState.hub
-    if (!hub) return
-    try { await hub.setMeta('tryTakeover', `${tried ? 'tried' : 'dismissed'} ${new Date().toISOString()}`) } catch { /* pre-flags hub */ }
-  }, [hubState.hub])
-  const tryTakeover = useCallback(async () => {
-    const hub = hubState.hub
-    if (!hub || !takeoverBot) return
-    try {
-      // The offer is spent only once the Bot has the task: an undelivered send (no agent yet) keeps it.
-      const sent = await hub.send(takeoverBot.id, TRY_TAKEOVER_TASK, { type: 'user', name: currentUser?.name || 'You' })
-      if (!sent.delivered) throw new Error(`${takeoverBot.name} isn’t running yet; try again in a moment.`)
-      void settleTakeoverOffer(true)
-      openBot(takeoverBot.id)
-    } catch (err) {
-      toasts.add({ title: `Couldn’t reach ${takeoverBot.name}`, description: String(err instanceof Error ? err.message : err), variant: 'error' })
-    }
-  }, [hubState.hub, takeoverBot, currentUser?.name, settleTakeoverOffer, openBot, toasts])
-  const takeoverCard = takeoverOffer === 'show' && takeoverBot
-    ? <TryTakeoverCard bot={takeoverBot} onTry={() => { void tryTakeover() }} onDismiss={() => { void settleTakeoverOffer(false) }} />
-    : undefined
+  const onCardError = useCallback((title: string, description: string) => toasts.add({ title, description, variant: 'error' }), [toasts])
+  const takeoverCard = useTryTakeoverCard({
+    hub: hubState.hub, overseer: overseer?.stub ?? null, workpieceId, bots: hubState.bots,
+    userName: currentUser?.name || 'You', onOpen: openBot, onError: onCardError,
+  })
 
   const feed = hubState.hub
     ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={openBot} header={takeoverCard} />
@@ -406,7 +361,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         <div className="flex min-w-0 items-center gap-1">
           <h1 className="hidden md:block text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
           <div className="flex md:hidden items-center gap-1" role="tablist" aria-label="View">
-            {(['feed', 'roster', 'audit'] as const).map((v) => (
+            {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
               <button
                 key={v}
                 type="button"
@@ -415,7 +370,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 onClick={() => setView(v)}
                 className={`rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
               >
-                {v === 'feed' ? 'Activity' : v === 'roster' ? 'Bots' : 'Audit'}
+                {VIEW_LABEL[v]}
               </button>
             ))}
           </div>
@@ -954,7 +909,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 /** Audit export: the Bot's full hub activity (messages, deliveries, outcomes, memory, approvals) as a file. */
 async function exportActivity(hub: HubStub, bot: Bot, format: 'json' | 'csv') {
   const events = await hub.activity(bot.id, { limit: AUDIT_LIMIT })
-  exportEvents(`bot-${bot.id}-activity`, format, events, new Map([[bot.id, bot.name]]), { bot: { id: bot.id, name: bot.name, role: bot.role } })
+  await exportEvents(`bot-${bot.id}-activity`, format, events, new Map([[bot.id, bot.name]]), { bot: { id: bot.id, name: bot.name, role: bot.role } })
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

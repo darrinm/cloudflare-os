@@ -194,34 +194,26 @@ export function Feed({ bots, events, error, onOpenBot, header }: {
 
   // The header is part of the screen whatever the lines are doing: a first-run card must not
   // vanish because the snapshot is slow or failed.
-  if (error || events === null || !lines.length) {
-    return (
-      <div className="flex min-h-0 flex-col overflow-y-auto">
-        {header}
-        {error ? (
-          <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
-        ) : events === null ? (
-          <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading activity">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex flex-col gap-1.5">
-                <span className="h-3 w-3/4 animate-pulse rounded bg-kumo-tint" />
-                <span className="h-2.5 w-24 animate-pulse rounded bg-kumo-tint" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
-            Nothing yet.
-          </div>
-        )}
-      </div>
-    )
-  }
+  const notice = error ? (
+    <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
+  ) : events === null ? (
+    <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading activity">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex flex-col gap-1.5">
+          <span className="h-3 w-3/4 animate-pulse rounded bg-kumo-tint" />
+          <span className="h-2.5 w-24 animate-pulse rounded bg-kumo-tint" />
+        </div>
+      ))}
+    </div>
+  ) : !lines.length ? (
+    <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">Nothing yet.</div>
+  ) : null
 
   return (
     <ul className="flex min-h-0 flex-col overflow-y-auto" aria-label="What your Bots have been doing">
       {header && <li>{header}</li>}
-      {lines.map((l) => (
+      {notice && <li>{notice}</li>}
+      {!notice && lines.map((l) => (
         <li key={l.id}>
           <button
             type="button"

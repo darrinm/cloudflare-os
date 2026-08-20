@@ -27,7 +27,7 @@ type SaveFilePicker = (options: {
   }>
 }) => Promise<SaveFileHandle>
 
-export function triggerBlobDownload(blob: Blob, filename: string): void {
+function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
 
   try {
