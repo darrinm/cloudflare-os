@@ -143,6 +143,7 @@ export interface HubApi {
   groupTranscript(groupId: string, options?: { limit?: number; sinceId?: number }): Promise<GroupPost[]>
   groupPost(groupId: string, text: string, from: { type: string; name?: string; botId?: string; hops?: number }): Promise<{ postId: number; deliveredTo: string[]; held: string | null }>
   listMemories(botId: string, options?: { limit?: number }): Promise<BotMemory[]>
+  remember(botId: string, kind: BotMemory['kind'], text: string, source?: string): Promise<BotMemory>
   forget(memoryId: string): Promise<boolean>
   newRoutine(botId: string, input: { title: string; instructions: string; schedule?: string }): Promise<{ id: string }>
   listRoutines(botId?: string): Promise<BotRoutine[]>
