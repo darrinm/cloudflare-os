@@ -6443,36 +6443,40 @@ function ChatInterface({
     return (
       <div className="group/work max-w-[860px] text-[15px] md:text-[14px] leading-5 tracking-[-0.25px] text-kumo-subtle">
         <div className="rounded-2xl border border-kumo-line bg-kumo-base px-4 py-3">
-          <div className="flex items-start gap-3">
-            <GatekeeperIcon
-              vendorId={msg.vendorId}
-              logoUrl={msg.vendorLogoUrl}
-              className="h-9 w-9 flex-shrink-0 rounded-lg"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="font-medium text-kumo-default">
-                  Connect {msg.vendorName}
-                </span>
-                {scope && (
-                  <span className="rounded-full bg-kumo-tint px-2 py-0.5 text-[12px] md:text-[11px] leading-4 text-kumo-subtle">
-                    {scope}
+          {/* Same shape as the blocking approval callout: on a phone the buttons go under the
+              text, full width for the words; beside it only where there is room. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <GatekeeperIcon
+                vendorId={msg.vendorId}
+                logoUrl={msg.vendorLogoUrl}
+                className="h-9 w-9 flex-shrink-0 rounded-lg"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="font-medium text-kumo-default">
+                    Connect {msg.vendorName}
                   </span>
-                )}
-                {stateLabel && (
-                  <span className={`text-[13px] md:text-[12px] font-medium ${stateLabelCls}`}>
-                    {stateLabel}
-                  </span>
+                  {scope && (
+                    <span className="rounded-full bg-kumo-tint px-2 py-0.5 text-[12px] md:text-[11px] leading-4 text-kumo-subtle">
+                      {scope}
+                    </span>
+                  )}
+                  {stateLabel && (
+                    <span className={`text-[13px] md:text-[12px] font-medium ${stateLabelCls}`}>
+                      {stateLabel}
+                    </span>
+                  )}
+                </div>
+                {msg.reason && (
+                  <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
+                    {msg.reason}
+                  </p>
                 )}
               </div>
-              {msg.reason && (
-                <p className="mt-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle">
-                  {msg.reason}
-                </p>
-              )}
             </div>
             {isPending && (
-              <div className="ml-3 flex flex-shrink-0 items-center gap-2 self-center text-[14px] md:text-[13px] leading-4">
+              <div className="flex items-center justify-end gap-2 text-[14px] md:text-[13px] leading-4 sm:ml-3 sm:flex-shrink-0 sm:self-center">
                 <button
                   type="button"
                   onClick={() => handleDenyConnection(msg.requestId)}
