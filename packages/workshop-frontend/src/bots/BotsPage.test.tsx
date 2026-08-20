@@ -203,12 +203,72 @@ describe("BotsPageContent", () => {
     expect(container!.textContent).toContain("Export CSV");
     expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
   });
+  it("offers the takeover walk-through once, to a Bot with a browser, and starts it through the Bot", async () => {
+    testState.listOutputs.mockResolvedValue({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    // Scout has a browser (the hub's BROWSER_SCOUT1 binding); that is what makes it the one to ask.
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [{ name: "BROWSER_SCOUT1", target: 7, resourceTitle: "Browser profile: household" }], [Symbol.dispose]() {} }) } };
+    const scout = { id: "scout1", name: "Scout", role: "Reads the web", instructions: "", avatar: "", color: "", chatTitle: "Bot: Scout", created: 1, updated: 1, lastActivity: null, agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1 };
+    const meta = new Map<string, string>();
+    const hub = {
+      getMeta: vi.fn(async (k: string) => meta.get(k) ?? null),
+      setMeta: vi.fn(async (k: string, v: string) => { meta.set(k, v); return v; }),
+      send: vi.fn<(botId: string, text: string, from: unknown) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 9, delivered: true })),
+      activity: async () => [],
+    };
+    testState.hub.hub = hub;
+    testState.hub.bots = [scout];
+
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    const card = container!.querySelector('[aria-label="Try a takeover"]');
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain("Scout will open a site you sign in to");
+
+    const tryIt = [...card!.querySelectorAll("button")].find((b) => b.textContent === "Try it")!;
+    await act(async () => { tryIt.click(); await new Promise((r) => setTimeout(r, 30)); });
+    // The real loop: Scout is asked to open a site and request the takeover; the person lands in
+    // its conversation; the hub remembers the offer was taken.
+    expect(hub.send.mock.calls[0]?.[0]).toBe("scout1");
+    expect(String(hub.send.mock.calls[0]?.[1])).toMatch(/requestTakeover/);
+    expect(testState.navigate).toHaveBeenCalledWith({ to: "/bots/$id", params: { id: "scout1" } });
+    expect(meta.get("tryTakeover")).toMatch(/^tried /);
+    expect(container!.querySelector('[aria-label="Try a takeover"]')).toBeNull();
+
+    // Seen once is seen everywhere: a fresh page on the same hub does not offer it again.
+    await act(async () => root!.unmount());
+    root = null;
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(container!.querySelector('[aria-label="Try a takeover"]')).toBeNull();
+    expect(hub.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer the takeover walk-through when no Bot has a browser", async () => {
+    testState.listOutputs.mockResolvedValue({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    const hub = { getMeta: vi.fn(async () => null), setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    testState.hub.hub = hub;
+    testState.hub.bots = [{ id: "fixer1", name: "Fixer", role: "Fixes", instructions: "", avatar: "", color: "", chatTitle: "Bot: Fixer", created: 1, updated: 1, lastActivity: null, agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1 }];
+
+    await render(null);
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(container!.querySelector('[aria-label="Try a takeover"]')).toBeNull();
+    // Nothing was spent: the flag is untouched, so the card appears once a Bot gets a browser.
+    expect(hub.setMeta).not.toHaveBeenCalled();
+  });
+
   it("renders a group's shared transcript with a composer", async () => {
     testState.listOutputs.mockResolvedValueOnce({
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
       catchingUp: false,
     });
-    testState.workspaceOpen.overseer = { stub: {} };
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
     const groupTranscript = vi.fn<() => Promise<unknown[]>>(async () => [
       { id: 1, groupId: "g1", ts: 1, from: { type: "user", name: "Darrin", botId: null }, hops: 0, text: "Status please", deliveredTo: ["abc12345"] },
       { id: 2, groupId: "g1", ts: 2, from: { type: "bot", name: "Inbox Manager", botId: "abc12345" }, hops: 1, text: "All green", deliveredTo: [] },

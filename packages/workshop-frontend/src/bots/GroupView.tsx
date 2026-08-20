@@ -5,7 +5,7 @@ import { WorkshopIconButton } from '../components/WorkshopControls'
 import { drainNew, type HubStub, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotGroup, GroupPost } from './types'
 
-function fmtTime(ts: number): string {
+export function fmtTime(ts: number): string {
   const d = new Date(ts)
   const today = new Date().toDateString() === d.toDateString()
   return today ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })

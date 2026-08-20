@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../Activity'
 import { drainNew, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotEvent, HubApi } from './types'
@@ -114,28 +114,31 @@ const TONE: Record<FeedLine['tone'], string> = {
  * the whole event row, so keeping up costs no RPC at all -- it used to re-read the newest 120 rows
  * on every update, from two mounted copies.
  */
-export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
+export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_LIMIT) {
   const [events, setEvents] = useState<BotEvent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const pendingRef = useRef<BotEvent[]>([])
   const seenSeqRef = useRef(0)
   const load = useCallback(async () => {
-    if (!hub) return
+    // No hub means the view is closed (or not yet connected): drop what it held rather than keep
+    // a window nobody is reading up to date.
+    if (!hub) { setEvents(null); pendingRef.current = []; return }
     try {
-      const snapshot = await hub.activity(null, { limit: FEED_LIMIT })
+      const snapshot = await hub.activity(null, { limit })
       // Fold in anything that arrived while the snapshot was in flight, dropping what it already has.
       const held = pendingRef.current.splice(0)
       const seen = new Set(snapshot.map((e) => e.id))
-      setEvents([...snapshot, ...held.filter((e) => !seen.has(e.id))].slice(-FEED_LIMIT))
+      setEvents([...snapshot, ...held.filter((e) => !seen.has(e.id))].slice(-limit))
       setError(null)
     } catch (err) {
       setError(String(err instanceof Error ? err.message : err))
     }
-  }, [hub])
+  }, [hub, limit])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
+    if (!hub) return
     const incoming = drainNew(updates, seenSeqRef, (u) => (u.type === 'event' ? u.event : null))
     if (!incoming.length) return
     setEvents((prev) => {
@@ -145,18 +148,20 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[]) {
       const seen = new Set(prev.map((e) => e.id))
       const fresh = incoming.filter((e) => !seen.has(e.id))
       if (!fresh.length) return prev
-      return [...prev, ...fresh].slice(-FEED_LIMIT)
+      return [...prev, ...fresh].slice(-limit)
     })
-  }, [updates])
+  }, [hub, updates, limit])
 
   return { events, error }
 }
 
-export function Feed({ bots, events, error, onOpenBot }: {
+export function Feed({ bots, events, error, onOpenBot, header }: {
   bots: Bot[]
   events: BotEvent[] | null
   error: string | null
   onOpenBot: (botId: string) => void
+  /** Shown above the lines, inside the same scroll: a first-run card, for instance. */
+  header?: ReactNode
 }) {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
 
@@ -187,30 +192,28 @@ export function Feed({ bots, events, error, onOpenBot }: {
     return all.sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
   }, [events, names])
 
-  if (error) return <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
-  if (events === null) {
-    return (
-      <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading activity">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="flex flex-col gap-1.5">
-            <span className="h-3 w-3/4 animate-pulse rounded bg-kumo-tint" />
-            <span className="h-2.5 w-24 animate-pulse rounded bg-kumo-tint" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-  if (!lines.length) {
-    return (
-      <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">
-        Nothing yet.
-      </div>
-    )
-  }
+  // The header is part of the screen whatever the lines are doing: a first-run card must not
+  // vanish because the snapshot is slow or failed.
+  const notice = error ? (
+    <div className="p-4 text-[13px] md:text-[12px] text-kumo-danger">Couldn’t load what your Bots have been doing: {error}</div>
+  ) : events === null ? (
+    <div className="flex flex-col gap-3 p-4" aria-busy="true" aria-label="Loading activity">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="flex flex-col gap-1.5">
+          <span className="h-3 w-3/4 animate-pulse rounded bg-kumo-tint" />
+          <span className="h-2.5 w-24 animate-pulse rounded bg-kumo-tint" />
+        </div>
+      ))}
+    </div>
+  ) : !lines.length ? (
+    <div className="p-6 text-center text-[14px] md:text-[13px] text-kumo-subtle">Nothing yet.</div>
+  ) : null
 
   return (
     <ul className="flex min-h-0 flex-col overflow-y-auto" aria-label="What your Bots have been doing">
-      {lines.map((l) => (
+      {header && <li>{header}</li>}
+      {notice && <li>{notice}</li>}
+      {!notice && lines.map((l) => (
         <li key={l.id}>
           <button
             type="button"
