@@ -12,6 +12,7 @@ import type {
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
+import BotAvatar, { Facepile } from './BotAvatar'
 import Feed, { useFeed, type FeedLine } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import { useTryTakeoverCard } from './TryTakeoverCard'
@@ -35,36 +36,12 @@ import {
   parseSites, provisionComputer, sandboxResourceUrl, type ComputerKind,
 } from './computer'
 
-const AVATAR_COLORS = ['#5b4bc4', '#1f7a5c', '#b23a48', '#9a6300', '#2f6fb0', '#7a3fa0', '#0f766e']
-
-function botColor(bot: Bot): string {
-  if (bot.color) return bot.color
-  let h = 0
-  for (const c of bot.id) h = (h * 31 + c.charCodeAt(0)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
-function botInitials(bot: Bot): string {
-  if (bot.avatar) return bot.avatar
-  return bot.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-}
 function fmtTime(ts: number | null | undefined): string {
   return ts ? new Date(ts).toLocaleString() : ''
 }
 /** The hub gadget binding name for a Bot's own agent spawner. */
 export function spawnerBindingNameFor(botId: string): string {
   return `SPAWNER_${botId.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
-}
-
-export function BotAvatar({ bot, size = 32 }: { bot: Bot; size?: number }) {
-  return (
-    <span
-      className="inline-grid flex-none place-items-center rounded-full font-semibold text-white"
-      style={{ width: size, height: size, background: botColor(bot), fontSize: Math.round(size * 0.4) }}
-      aria-hidden
-    >
-      {botInitials(bot)}
-    </span>
-  )
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -399,6 +376,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   }, [hub, overseer, hubIsEmpty])
 
   const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
+  const botsById = useMemo(() => new Map(hubState.bots.map((b) => [b.id, b])), [hubState.bots])
   const selectedGroup = useMemo(() => hubState.groups.find((g) => g.id === groupId) ?? null, [hubState.groups, groupId])
   // One poll of the open Bot's browser, read by both the header chip and the preview on its request
   // card -- two components each polling would double the RPC for the same picture.
@@ -527,7 +505,14 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
             <span className="inline-grid h-8 w-8 flex-none place-items-center rounded-full bg-kumo-tint text-kumo-default" aria-hidden><UsersThree size={16} /></span>
             <span className="min-w-0">
               <span className="block truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{g.name}</span>
-              <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">{g.members.length ? g.members.map((m) => m.name).join(', ') : 'No members'}</span>
+              {/* Who is in it, as faces rather than a truncated list of names -- a group is
+                  recognised by its members, and three names is all a phone row fits. The names stay
+                  for anyone not looking at the faces. */}
+              {g.members.length ? (
+                <span className="block pt-0.5"><Facepile members={g.members} botsById={botsById} max={5} size={18} /></span>
+              ) : (
+                <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">No members</span>
+              )}
             </span>
           </button>
         ))}
@@ -684,6 +669,9 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
       </CenteredNote>
     )
   }
+  // One element, not a fresh one per render: ChatInterface renders it at every agent message, and
+  // a new identity each time denies React the bailout for all of them on every streaming frame.
+  const authorAvatar = useMemo(() => <BotAvatar bot={bot} size={24} />, [bot])
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ChatInterface sizes itself with h-full, so it needs a bounded box to fill: on its own it
@@ -701,6 +689,7 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
           conversationEvents={conversationEvents}
           onOpenPath={onOpenPath}
           actionPreview={actionPreview}
+          authorAvatar={authorAvatar}
           constrainChatWidth
           pendingConsoleLogCount={0}
           consoleLogPreview=""
@@ -845,8 +834,13 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
   const body = (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
       <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
-        <span className="text-[14px] md:text-[13px] font-medium text-kumo-default">Details</span>
-        <span className="text-[12px] md:text-[11px] text-kumo-subtle">{bot.id}</span>
+        {/* Whose details. The panel can outlive the conversation behind it on a phone, and an id
+            is not something anyone recognises their teammate by. */}
+        <span className="flex min-w-0 items-center gap-2">
+          <BotAvatar bot={bot} size={22} />
+          <span className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{bot.name}</span>
+        </span>
+        <span className="truncate text-[12px] md:text-[11px] text-kumo-subtle">{bot.id}</span>
         <WorkshopIconButton onClick={onClose} className="!h-8 !w-8 lg:hidden" aria-label="Close details"><X size={14} /></WorkshopIconButton>
       </div>
 
@@ -866,7 +860,9 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
               catch (err) { toasts.add({ title: 'Couldn’t delete', description: String(err instanceof Error ? err.message : err), variant: 'error' }) }
             }}
           >
-            {armDelete ? 'Confirm delete' : 'Delete'}
+            {/* Naming the Bot on the confirming press: a two-tap destructive control that never
+                says what it destroys is one mis-tap away from deleting the wrong teammate. */}
+            {armDelete ? `Delete ${bot.name}?` : 'Delete'}
           </Button>
           <Button
             variant="primary"
@@ -1164,11 +1160,14 @@ function GrantsDialog({ open, onClose, bot, hub, overseer, hubWorkpieceId }: {
       <Dialog size="base" className="!w-[min(560px,calc(100vw-32px))] bg-kumo-base p-0">
         <div className="flex flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="flex min-w-0 items-start gap-2.5">
+              <BotAvatar bot={bot} size={30} />
+              <div className="min-w-0">
               <Dialog.Title className="text-[18px] font-medium tracking-[-0.4px] text-kumo-default">What {bot.name} can use</Dialog.Title>
               <Dialog.Description className="mt-1 text-[14px] md:text-[13px] text-kumo-subtle">
                 Pick which of the hub’s connections this Bot may use, and its model. Applying re-creates the Bot’s agent; its memory carries over.
               </Dialog.Description>
+              </div>
             </div>
             <Dialog.Close render={(props) => <WorkshopIconButton {...props} aria-label="Close"><X size={16} /></WorkshopIconButton>} />
           </div>

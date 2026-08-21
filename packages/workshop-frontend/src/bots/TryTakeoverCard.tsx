@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@cloudflare/kumo'
+import BotAvatar from './BotAvatar'
 import { computerBindingNameFor } from './computer'
 import type { Bot, HubApi } from './types'
 
@@ -101,8 +102,12 @@ export function TryTakeoverCard({ bot, onTry, onDismiss }: { bot: Bot; onTry: (s
       onSubmit={(e) => { e.preventDefault(); if (host) onTry(host) }}
     >
       <div className="text-[14px] md:text-[13px] font-medium text-kumo-default">Try a takeover</div>
-      <div className="text-[14px] md:text-[13px] leading-snug text-kumo-subtle">
-        Name a site you sign in to. {bot.name} opens it and asks for the page; take control, sign in, hand it back — it keeps the session.
+      {/* The card is an introduction to a specific teammate, so it shows the one it is about. */}
+      <div className="flex items-start gap-2.5">
+        <BotAvatar bot={bot} size={28} />
+        <div className="text-[14px] md:text-[13px] leading-snug text-kumo-subtle">
+          Name a site you sign in to. {bot.name} opens it and asks for the page; take control, sign in, hand it back — it keeps the session.
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input

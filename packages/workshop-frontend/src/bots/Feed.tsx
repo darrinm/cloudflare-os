@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../Activity'
+import BotAvatar from './BotAvatar'
 import { drainNew, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotEvent, HubApi } from './types'
 
@@ -169,7 +170,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
    */
   extraLines?: FeedLine[]
 }) {
-  const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
+  const byBot = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
 
   const lines = useMemo(() => {
     const byId = new Map((events ?? []).map((e) => [e.id, e]))
@@ -188,8 +189,8 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
       // A Bot that no longer exists cannot need anything, and its line would otherwise sit pinned
       // at the top as "A Bot needs you" with a tap that opens nothing -- the audit log keeps the
       // event, but the feed is for what is live.
-      .filter((e) => !e.botId || names.has(e.botId) || e.type !== 'needsUser')
-      .map((e) => summarise(e, e.botId ? names.get(e.botId) ?? null : null, byId))
+      .filter((e) => !e.botId || byBot.has(e.botId) || e.type !== 'needsUser')
+      .map((e) => summarise(e, e.botId ? byBot.get(e.botId)?.name ?? null : null, byId))
       .filter((l): l is FeedLine => l !== null)
       // An answered ask stays in the story, but as context, not as a demand.
       .map((l) => (l.tone === 'needs' && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts
@@ -197,7 +198,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
     return [...all, ...(extraLines ?? [])]
       .sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
-  }, [events, names, extraLines])
+  }, [events, byBot, extraLines])
 
   // The header is part of the screen whatever the lines are doing: a first-run card must not
   // vanish because the snapshot is slow or failed.
@@ -220,21 +221,29 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
     <ul className="flex min-h-0 flex-col overflow-y-auto" aria-label="What your Bots have been doing">
       {header && <li>{header}</li>}
       {notice && <li>{notice}</li>}
-      {!notice && lines.map((l) => (
+      {!notice && lines.map((l) => {
+        const bot = l.botId ? byBot.get(l.botId) : undefined
+        return (
         <li key={l.id}>
           <button
             type="button"
             onClick={() => l.botId && onOpenBot(l.botId)}
             disabled={!l.botId}
-            className={`flex w-full flex-col items-start gap-1 border-b border-kumo-line px-4 py-3 text-left hover:bg-kumo-tint disabled:hover:bg-transparent ${TONE[l.tone]}`}
+            className={`flex w-full items-start gap-3 border-b border-kumo-line px-4 py-3 text-left hover:bg-kumo-tint disabled:hover:bg-transparent ${TONE[l.tone]}`}
           >
-            <span className="text-[15px] md:text-[14px] leading-snug text-kumo-default">{l.line}</span>
-            <span className="text-[13px] md:text-[12px] text-kumo-subtle">
-              {l.tone === 'needs' ? 'Waiting for you · ' : ''}{formatRelativeTime(new Date(l.ts))}
+            {/* Whose line this is, before you read a word of it. Lines with no Bot behind them keep
+                the same indent so the column of text stays straight. */}
+            {bot ? <BotAvatar bot={bot} size={28} /> : <span className="h-7 w-7 flex-none" aria-hidden />}
+            <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+              <span className="text-[15px] md:text-[14px] leading-snug text-kumo-default">{l.line}</span>
+              <span className="text-[13px] md:text-[12px] text-kumo-subtle">
+                {l.tone === 'needs' ? 'Waiting for you · ' : ''}{formatRelativeTime(new Date(l.ts))}
+              </span>
             </span>
           </button>
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }
