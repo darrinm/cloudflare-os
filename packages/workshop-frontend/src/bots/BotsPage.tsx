@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Blobatar } from '@blobatar/react'
 import { useNavigate } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
@@ -43,10 +44,6 @@ function botColor(bot: Bot): string {
   for (const c of bot.id) h = (h * 31 + c.charCodeAt(0)) >>> 0
   return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
-function botInitials(bot: Bot): string {
-  if (bot.avatar) return bot.avatar
-  return bot.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-}
 function fmtTime(ts: number | null | undefined): string {
   return ts ? new Date(ts).toLocaleString() : ''
 }
@@ -55,15 +52,36 @@ export function spawnerBindingNameFor(botId: string): string {
   return `SPAWNER_${botId.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
 }
 
+/**
+ * A Bot's face. Decorative in every place it appears -- the name is always beside it -- so it is
+ * hidden from assistive tech rather than described twice.
+ *
+ * A person's own choice wins. Otherwise a blobatar: a small geometric creature derived from the
+ * Bot's id, so a roster of teammates is scannable by face rather than by reading names, without
+ * anyone having to pick anything. Seeded on the id, not the name, so renaming a Bot does not hand
+ * it a new face; drawn in the browser, so there is no image to fetch or store per Bot.
+ */
 export function BotAvatar({ bot, size = 32 }: { bot: Bot; size?: number }) {
+  if (bot.avatar) {
+    return (
+      <span
+        className="inline-grid flex-none place-items-center rounded-full font-semibold text-white"
+        style={{ width: size, height: size, background: botColor(bot), fontSize: Math.round(size * 0.4) }}
+        aria-hidden
+      >
+        {bot.avatar}
+      </span>
+    )
+  }
   return (
-    <span
-      className="inline-grid flex-none place-items-center rounded-full font-semibold text-white"
-      style={{ width: size, height: size, background: botColor(bot), fontSize: Math.round(size * 0.4) }}
+    <Blobatar
+      name={bot.id}
+      size={size}
+      className="inline-block flex-none rounded-full"
+      style={{ width: size, height: size }}
+      alt=""
       aria-hidden
-    >
-      {botInitials(bot)}
-    </span>
+    />
   )
 }
 
