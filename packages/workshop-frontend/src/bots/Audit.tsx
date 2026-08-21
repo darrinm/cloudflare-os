@@ -111,7 +111,7 @@ export function Audit({ bots, events, error, onOpenBot }: {
               {r.bot && (
                 <button type="button" className="inline-flex items-center gap-1.5 font-medium text-kumo-default hover:underline" onClick={() => { if (r.botId) onOpenBot(r.botId) }}>
                   {/* A dense multi-Bot log: the face is what lets you follow one Bot down the page. */}
-                  {byBot.get(r.botId ?? '') && <BotAvatar bot={byBot.get(r.botId ?? '')!} size={16} />}
+                  {r.botId && byBot.get(r.botId) && <BotAvatar bot={byBot.get(r.botId)!} size={16} />}
                   {r.bot}
                 </button>
               )}

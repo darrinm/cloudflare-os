@@ -7661,7 +7661,7 @@ function ChatInterface({
                           // tool groups together -- rather than beside the prose alone, which would
                           // leave the copy button under the avatar instead of under what it copies.
                           // Only the teammate view opts in; ordinary workspace chats are unchanged.
-                          <div className={`min-w-0 w-full max-w-[860px] space-y-2${authorAvatar ? ' relative ps-[34px]' : ''}`}>
+                          <div className={`min-w-0 w-full max-w-[860px] space-y-2 relative ${authorAvatar ? 'ps-[34px]' : ''}`}>
                             {authorAvatar && <span className="absolute left-0 top-0">{authorAvatar}</span>}
                             <div className="group/agentMessage relative space-y-1.5">
                               {showReasoning && (

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { CaretLeft, PaperPlaneRight, PencilSimple, X } from '@phosphor-icons/react'
 import { WorkshopIconButton } from '../components/WorkshopControls'
-import BotAvatar from './BotAvatar'
+import BotAvatar, { Facepile } from './BotAvatar'
 import { drainNew, type HubStub, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotGroup, GroupPost } from './types'
 
@@ -82,19 +82,9 @@ export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenB
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{group.name}</div>
           <div className="flex items-center gap-1 truncate text-[12px] md:text-[11px] text-kumo-subtle">
-            {group.members.length ? (
-              <>
-                <span className="sr-only">{group.members.map((m) => m.name).join(', ')}</span>
-                {/* The roster entry when there is one (it carries a chosen emoji or colour), else
-                    the member record itself -- a member the roster cannot resolve, because it was
-                    deleted or has not loaded, still gets a face rather than a gap that makes the
-                    overflow count lie. */}
-                {group.members.slice(0, 6).map((m) => (
-                  <BotAvatar key={m.id} bot={botsById.get(m.id) ?? m} size={16} />
-                ))}
-                {group.members.length > 6 && <span>+{group.members.length - 6}</span>}
-              </>
-            ) : 'No members yet'}
+            {group.members.length
+              ? <Facepile members={group.members} botsById={botsById} max={6} size={16} />
+              : 'No members yet'}
             {group.purpose ? <span className="truncate"> · {group.purpose}</span> : null}
           </div>
         </div>

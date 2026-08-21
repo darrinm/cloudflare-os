@@ -12,7 +12,7 @@ import type {
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
-import BotAvatar from './BotAvatar'
+import BotAvatar, { Facepile } from './BotAvatar'
 import Feed, { useFeed, type FeedLine } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import { useTryTakeoverCard } from './TryTakeoverCard'
@@ -509,15 +509,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                   recognised by its members, and three names is all a phone row fits. The names stay
                   for anyone not looking at the faces. */}
               {g.members.length ? (
-                <span className="flex items-center gap-1 pt-0.5">
-                  <span className="sr-only">{g.members.map((m) => m.name).join(', ')}</span>
-                  {/* Falls back to the member record so an unresolved member still has a face and
-                      the overflow count stays honest (see GroupView's header). */}
-                  {g.members.slice(0, 5).map((m) => (
-                    <BotAvatar key={m.id} bot={botsById.get(m.id) ?? m} size={18} />
-                  ))}
-                  {g.members.length > 5 && <span className="text-[12px] md:text-[11px] text-kumo-subtle">+{g.members.length - 5}</span>}
-                </span>
+                <span className="block pt-0.5"><Facepile members={g.members} botsById={botsById} max={5} size={18} /></span>
               ) : (
                 <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">No members</span>
               )}
@@ -677,6 +669,9 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
       </CenteredNote>
     )
   }
+  // One element, not a fresh one per render: ChatInterface renders it at every agent message, and
+  // a new identity each time denies React the bailout for all of them on every streaming frame.
+  const authorAvatar = useMemo(() => <BotAvatar bot={bot} size={24} />, [bot])
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ChatInterface sizes itself with h-full, so it needs a bounded box to fill: on its own it
@@ -694,7 +689,7 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
           conversationEvents={conversationEvents}
           onOpenPath={onOpenPath}
           actionPreview={actionPreview}
-          authorAvatar={<BotAvatar bot={bot} size={24} />}
+          authorAvatar={authorAvatar}
           constrainChatWidth
           pendingConsoleLogCount={0}
           consoleLogPreview=""
