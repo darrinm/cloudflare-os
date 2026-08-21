@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { CaretLeft, PaperPlaneRight, PencilSimple, X } from '@phosphor-icons/react'
 import { WorkshopIconButton } from '../components/WorkshopControls'
+import { BotAvatar } from './BotsPage'
 import { drainNew, type HubStub, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotGroup, GroupPost } from './types'
 
@@ -80,8 +81,18 @@ export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenB
         <WorkshopIconButton onClick={onBack} className="!h-8 !w-8 md:hidden" aria-label="Back to Bots" title="Back to Bots"><CaretLeft size={14} /></WorkshopIconButton>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{group.name}</div>
-          <div className="truncate text-[12px] md:text-[11px] text-kumo-subtle">
-            {group.members.length ? group.members.map((m) => m.name).join(', ') : 'No members yet'}{group.purpose ? ` · ${group.purpose}` : ''}
+          <div className="flex items-center gap-1 truncate text-[12px] md:text-[11px] text-kumo-subtle">
+            {group.members.length ? (
+              <>
+                <span className="sr-only">{group.members.map((m) => m.name).join(', ')}</span>
+                {group.members.slice(0, 6).map((m) => {
+                  const member = botsById.get(m.id)
+                  return member ? <BotAvatar key={m.id} bot={member} size={16} /> : null
+                })}
+                {group.members.length > 6 && <span>+{group.members.length - 6}</span>}
+              </>
+            ) : 'No members yet'}
+            {group.purpose ? <span className="truncate"> · {group.purpose}</span> : null}
           </div>
         </div>
         <WorkshopIconButton onClick={() => setEditOpen(true)} className="!h-8 !w-8" aria-label="Edit group" title="Edit group"><PencilSimple size={14} /></WorkshopIconButton>
@@ -101,6 +112,9 @@ export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenB
             return (
               <li key={p.id} className={`flex flex-col gap-0.5 ${mine ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-1.5 text-[12px] md:text-[11px] text-kumo-subtle">
+                  {/* Several Bots talking in one thread is the place a face earns its keep most:
+                      it says who is speaking before the name is read. */}
+                  {bot && <BotAvatar bot={bot} size={18} />}
                   {bot ? (
                     <button type="button" className="font-medium text-kumo-default hover:underline" onClick={() => onOpenBot(bot.id)}>{p.from.name}</button>
                   ) : <span className="font-medium text-kumo-default">{p.from.name}</span>}
@@ -190,6 +204,7 @@ export function GroupDialog({ open, onClose, bots, group, onSave, onDelete }: {
               <li key={b.id}>
                 <label className="flex items-center gap-2 text-[14px] md:text-[13px] text-kumo-default">
                   <input type="checkbox" checked={members.has(b.id)} onChange={(e) => setMembers((prev) => { const next = new Set(prev); if (e.target.checked) next.add(b.id); else next.delete(b.id); return next })} />
+                  <BotAvatar bot={b} size={22} />
                   <span className="font-medium">{b.name}</span>
                   <span className="truncate text-kumo-subtle">{b.role}</span>
                 </label>

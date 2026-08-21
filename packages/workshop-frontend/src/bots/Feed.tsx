@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../Activity'
+import { BotAvatar } from './BotsPage'
 import { drainNew, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotEvent, HubApi } from './types'
 
@@ -170,6 +171,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
   extraLines?: FeedLine[]
 }) {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
+  const byBot = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
 
   const lines = useMemo(() => {
     const byId = new Map((events ?? []).map((e) => [e.id, e]))
@@ -226,11 +228,18 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
             type="button"
             onClick={() => l.botId && onOpenBot(l.botId)}
             disabled={!l.botId}
-            className={`flex w-full flex-col items-start gap-1 border-b border-kumo-line px-4 py-3 text-left hover:bg-kumo-tint disabled:hover:bg-transparent ${TONE[l.tone]}`}
+            className={`flex w-full items-start gap-3 border-b border-kumo-line px-4 py-3 text-left hover:bg-kumo-tint disabled:hover:bg-transparent ${TONE[l.tone]}`}
           >
-            <span className="text-[15px] md:text-[14px] leading-snug text-kumo-default">{l.line}</span>
-            <span className="text-[13px] md:text-[12px] text-kumo-subtle">
-              {l.tone === 'needs' ? 'Waiting for you · ' : ''}{formatRelativeTime(new Date(l.ts))}
+            {/* Whose line this is, before you read a word of it. Lines with no Bot behind them keep
+                the same indent so the column of text stays straight. */}
+            {byBot.get(l.botId ?? '')
+              ? <BotAvatar bot={byBot.get(l.botId ?? '')!} size={28} />
+              : <span className="h-7 w-7 flex-none" aria-hidden />}
+            <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
+              <span className="text-[15px] md:text-[14px] leading-snug text-kumo-default">{l.line}</span>
+              <span className="text-[13px] md:text-[12px] text-kumo-subtle">
+                {l.tone === 'needs' ? 'Waiting for you · ' : ''}{formatRelativeTime(new Date(l.ts))}
+              </span>
             </span>
           </button>
         </li>

@@ -4457,6 +4457,12 @@ interface ChatInterfaceProps {
    * on.
    */
   actionPreview?: ReactNode;
+  /**
+   * Rendered beside each agent message in `conversationView`: the Bot's face. In a teammate
+   * transcript the agent speaks with no name and no bubble, so this is the only thing on screen
+   * saying who is talking. Ordinary workspace chats leave it unset and are unchanged.
+   */
+  authorAvatar?: ReactNode;
   onOpenGadget: (gadgetId: WorkpieceId) => void;
 
   // The output format a workpiece was built as, so a created-app card can name and draw it as the
@@ -4648,6 +4654,7 @@ function ChatInterface({
   conversationEvents,
   onOpenPath,
   actionPreview,
+  authorAvatar,
   onOpenGadget,
   outputOfWorkpiece,
 }: ChatInterfaceProps) {
@@ -7655,12 +7662,18 @@ function ChatInterface({
                               )}
 
                               {hasMessageText && (
-                                <div className={`text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
-                                  <MarkdownMessage
-                                    message={msg.message}
-                                    capsules={msg.capsules}
-                                    formats={msg.formats}
-                                  />
+                                // In a Bot conversation the agent speaks with no name and no bubble,
+                                // so without a face nothing on screen says who is talking. Only the
+                                // teammate view opts in; ordinary workspace chats are unchanged.
+                                <div className={authorAvatar ? "flex items-start gap-2.5" : undefined}>
+                                  {authorAvatar}
+                                  <div className={`min-w-0 flex-1 text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
+                                    <MarkdownMessage
+                                      message={msg.message}
+                                      capsules={msg.capsules}
+                                      formats={msg.formats}
+                                    />
+                                  </div>
                                 </div>
                               )}
 

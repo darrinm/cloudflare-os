@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@cloudflare/kumo'
 import { saveStreamToFile } from '../fileTransfers'
+import { BotAvatar } from './BotsPage'
 import { fmtTime } from './GroupView'
 import type { Bot, BotEvent } from './types'
 
@@ -72,6 +73,7 @@ export function Audit({ bots, events, error, onOpenBot }: {
   onOpenBot: (botId: string) => void
 }) {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
+  const byBot = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
   const [bot, setBot] = useState('')
   const [type, setType] = useState('')
   const [q, setQ] = useState('')
@@ -107,7 +109,11 @@ export function Audit({ bots, events, error, onOpenBot }: {
             <div className="flex flex-wrap items-baseline gap-x-2 text-kumo-subtle">
               <span className="tabular-nums">{fmtTime(r.ts)}</span>
               {r.bot && (
-                <button type="button" className="font-medium text-kumo-default hover:underline" onClick={() => { if (r.botId) onOpenBot(r.botId) }}>{r.bot}</button>
+                <button type="button" className="inline-flex items-center gap-1.5 font-medium text-kumo-default hover:underline" onClick={() => { if (r.botId) onOpenBot(r.botId) }}>
+                  {/* A dense multi-Bot log: the face is what lets you follow one Bot down the page. */}
+                  {byBot.get(r.botId ?? '') && <BotAvatar bot={byBot.get(r.botId ?? '')!} size={16} />}
+                  {r.bot}
+                </button>
               )}
               <span className="uppercase tracking-wide">{r.type}</span>
               {r.decision && (
