@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
@@ -15,7 +15,7 @@ import ChatInterface from '../ChatInterface'
 import Feed, { useFeed } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import { useTryTakeoverCard } from './TryTakeoverCard'
-import LiveGlance from './LiveGlance'
+import { GlanceChip, GlancePreview, useGlance } from './LiveGlance'
 import { useAuthenticatedApi } from '../AuthContext'
 import { useWorkspaceOpen } from '../useWorkspaceOpen'
 import { useDocumentTitle } from '../useDocumentTitle'
@@ -188,9 +188,14 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   useEffect(() => {
     if (!overseer) return
     let live = true
-    overseer.stub.bundledBlueprintRevision(BOTS_BLUEPRINT_ID)
-      .then((r) => { if (live) setBundledRevision(r) })
-      .catch(() => { /* leave null: no update offered, which is the safe default */ })
+    // Wrapped, not just .catch()'d: on a deployment whose backend predates this method the call
+    // throws synchronously rather than rejecting, which no catch on the promise would see.
+    void (async () => {
+      try {
+        const r = await overseer.stub.bundledBlueprintRevision(BOTS_BLUEPRINT_ID)
+        if (live) setBundledRevision(r)
+      } catch { /* leave null: no update offered, which is the safe default */ }
+    })()
     return () => { live = false }
   }, [overseer])
   // What you see with nothing selected. The feed answers "what happened?", which is the daily
@@ -372,6 +377,9 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
 
   const selected = useMemo(() => hubState.bots.find((b) => b.id === botId) ?? null, [hubState.bots, botId])
   const selectedGroup = useMemo(() => hubState.groups.find((g) => g.id === groupId) ?? null, [hubState.groups, groupId])
+  // One poll of the open Bot's browser, read by both the header chip and the preview on its request
+  // card -- two components each polling would double the RPC for the same picture.
+  const glance = useGlance(selected)
   const anySelected = selected !== null || selectedGroup !== null
 
   if (error) {
@@ -493,6 +501,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{selected.name}</div>
                 <div className="truncate text-[12px] md:text-[11px] text-kumo-subtle">{selected.role || 'Bot'}</div>
               </div>
+              <GlanceChip live={glance.live} onOpen={glance.open} />
               <WorkshopIconButton onClick={toggleShowWork} className={`!h-8 !w-8 ${showWork ? 'text-kumo-brand' : ''}`} aria-label={showWork ? 'Hide the Bot’s work' : 'Show the Bot’s work'} title={showWork ? 'Hide work (code runs, callbacks)' : 'Show work (code runs, callbacks)'} aria-pressed={showWork}>
                 <Wrench size={14} />
               </WorkshopIconButton>
@@ -500,7 +509,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 <Info size={14} />
               </WorkshopIconButton>
             </header>
-            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} hub={hubState.hub} updates={hubState.updates} onOpenPath={openPath} />
+            <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} hub={hubState.hub} updates={hubState.updates} onOpenPath={openPath} actionPreview={<GlancePreview live={glance.live} />} />
           </section>
           <BotDetails
             key={selected.id}
@@ -583,9 +592,9 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
  * by its unique title. Rendered with the full ChatInterface, so approvals, streaming and slash
  * commands behave exactly as elsewhere. Human messages typed here go straight into that chat.
  */
-function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onOpenPath }: {
+function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onOpenPath, actionPreview }: {
   overseer: RpcStub<Overseer>; bot: Bot; workspaceId: string; showWork: boolean
-  hub: HubStub; updates: SeqUpdate[]; onOpenPath: (path: string) => void
+  hub: HubStub; updates: SeqUpdate[]; onOpenPath: (path: string) => void; actionPreview?: ReactNode
 }) {
   const [chatId, setChatId] = useState<number | null>(null)
   const [looked, setLooked] = useState(false)
@@ -628,10 +637,9 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <LiveGlance bot={bot} />
-      {/* ChatInterface sizes itself with h-full, so it needs a bounded box to fill. Without this
-          wrapper it takes the whole column height regardless of the live-glance card above it, and
-          the overflow pushes the composer off the bottom of the screen. */}
+      {/* ChatInterface sizes itself with h-full, so it needs a bounded box to fill: on its own it
+          takes the whole column height regardless of anything beside it, and the overflow pushes
+          the composer off the bottom of the screen. */}
       <div className="flex min-h-0 flex-1 flex-col">
         <ChatInterface
           workspaceId={workspaceId}
@@ -643,6 +651,7 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
           showWork={showWork}
           conversationEvents={conversationEvents}
           onOpenPath={onOpenPath}
+          actionPreview={actionPreview}
           constrainChatWidth
           pendingConsoleLogCount={0}
           consoleLogPreview=""

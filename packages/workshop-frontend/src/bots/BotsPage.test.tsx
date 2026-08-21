@@ -14,7 +14,13 @@ const testState = vi.hoisted(() => {
     navigate: vi.fn<(options: unknown) => void>(),
     listModels,
     listOutputs,
-    authenticatedApi: { listModels, listOutputs, newGadgetFromBlueprint: vi.fn<() => unknown>() },
+    // The live glance polls the Browser gatekeeper app; null means "no browser granted", which is
+    // what most of these tests want. `glance` is swapped in by the tests that care.
+    glance: vi.fn<(name: string) => Promise<unknown>>(async () => ({ live: false, url: null, takeover: false, takeoverReason: null, frame: null })),
+    authenticatedApi: {
+      listModels, listOutputs, newGadgetFromBlueprint: vi.fn<() => unknown>(),
+      getGatekeeperApp: async () => ({ ui: { glance: (n: string) => testState.glance(n) } }),
+    },
     workspaceOpen: { overseer: null as null | { stub: unknown }, error: null, retry: vi.fn<() => void>() },
     liveHub: { setMeta: vi.fn<(k: string, v: string) => Promise<string>>(async (_k, v) => v), send: vi.fn<(botId: string, text: string) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 1, delivered: true })) },
     seedExampleBots: vi.fn<(deps: { afterSeed?: (hub: unknown, bots: Array<{ id: string; name: string }>) => Promise<void> }) => Promise<Array<{ id: string; name: string }>>>(async (deps) => {
@@ -203,6 +209,41 @@ describe("BotsPageContent", () => {
     expect(container!.textContent).toContain("Export CSV");
     expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
   });
+
+  it("shows the live browser as a header chip, not as an entry in the transcript", async () => {
+    // The page a Bot has open is state, not an event: it has no timestamp, so it belongs beside the
+    // Bot's name and not among the messages, where it read as something that had just happened and
+    // competed with the Bot's own request for the same tap.
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    testState.glance = vi.fn(async () => ({
+      live: true, url: "https://www.amazon.com/ap/signin", takeover: true,
+      takeoverReason: "Sign in to Amazon", frame: "data:image/jpeg;base64,x",
+    }));
+    const bot = {
+      id: "abc12345", name: "Scout", role: "Reads the web", instructions: "", avatar: "", color: "",
+      chatTitle: "Bot: Scout [abc12345]", created: 1, updated: 1, lastActivity: null,
+      agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
+    };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 0, totalTokens: 0, turns: 0, chats: 0, todayUsd: 0, dailyCapUsd: null }) };
+    testState.hub.bots = [bot];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
+
+    await render("abc12345");
+    const chip = await vi.waitFor(() => {
+      const el = container!.querySelector('[aria-label^="Take over"]');
+      if (!el) throw new Error("no glance chip");
+      return el;
+    });
+    // In the header, beside the Bot's name -- and the takeover reason is what it reports.
+    expect(chip.closest("header")).not.toBeNull();
+    expect(chip.textContent).toContain("Waiting for you");
+    expect(chip.getAttribute("title")).toContain("Sign in to Amazon");
+  });
+
   it("offers the takeover walk-through once, to a Bot with a browser, and starts it through the Bot", async () => {
     testState.listOutputs.mockResolvedValue({
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,

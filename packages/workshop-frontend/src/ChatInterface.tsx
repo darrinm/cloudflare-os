@@ -4449,6 +4449,14 @@ interface ChatInterfaceProps {
    * page. Without it the card falls back to a plain link.
    */
   onOpenPath?: (path: string) => void;
+  /**
+   * Shown inside a blocking action card while it is still pending: the thing the card is asking
+   * about, as it looks right now (for a browser takeover, the live page). The card asks you to act
+   * on something, so that something belongs on the card -- a preview on a separate row above splits
+   * one request into two things to look at, and the row with the picture is the one you cannot act
+   * on.
+   */
+  actionPreview?: ReactNode;
   onOpenGadget: (gadgetId: WorkpieceId) => void;
 
   // The output format a workpiece was built as, so a created-app card can name and draw it as the
@@ -4639,6 +4647,7 @@ function ChatInterface({
   showWork = false,
   conversationEvents,
   onOpenPath,
+  actionPreview,
   onOpenGadget,
   outputOfWorkpiece,
 }: ChatInterfaceProps) {
@@ -6801,6 +6810,7 @@ function ChatInterface({
                   <div className={`chat-panel mt-1 max-h-[200px] overflow-y-auto overflow-x-hidden break-words pr-1 text-[14px] md:text-[13px] leading-[18px] text-kumo-subtle ${styles.markdownContent}`}>
                     <MarkdownMessage message={log.description.description} />
                   </div>
+                  {isPending && actionPreview}
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1 sm:ml-3 sm:flex-shrink-0 sm:self-center">
