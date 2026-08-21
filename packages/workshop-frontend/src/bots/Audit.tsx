@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@cloudflare/kumo'
 import { saveStreamToFile } from '../fileTransfers'
-import { BotAvatar } from './BotsPage'
+import BotAvatar from './BotAvatar'
 import { fmtTime } from './GroupView'
 import type { Bot, BotEvent } from './types'
 

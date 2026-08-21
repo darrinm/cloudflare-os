@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../Activity'
-import { BotAvatar } from './BotsPage'
+import BotAvatar from './BotAvatar'
 import { drainNew, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotEvent, HubApi } from './types'
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Button } from '@cloudflare/kumo'
-import { BotAvatar } from './BotsPage'
+import BotAvatar from './BotAvatar'
 import { computerBindingNameFor } from './computer'
 import type { Bot, HubApi } from './types'
 

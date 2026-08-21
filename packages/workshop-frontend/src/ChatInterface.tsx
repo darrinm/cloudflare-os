@@ -7655,25 +7655,26 @@ function ChatInterface({
                               ? messageToolGroups.length - 1
                               : -1;
                             return (
-                          <div className="min-w-0 w-full max-w-[860px] space-y-2">
+                          // In a Bot conversation the agent speaks with no name and no bubble, so
+                          // without a face nothing on screen says who is talking. The face sits in a
+                          // gutter the whole message is indented into -- text, the action row and any
+                          // tool groups together -- rather than beside the prose alone, which would
+                          // leave the copy button under the avatar instead of under what it copies.
+                          // Only the teammate view opts in; ordinary workspace chats are unchanged.
+                          <div className={`min-w-0 w-full max-w-[860px] space-y-2${authorAvatar ? ' relative ps-[34px]' : ''}`}>
+                            {authorAvatar && <span className="absolute left-0 top-0">{authorAvatar}</span>}
                             <div className="group/agentMessage relative space-y-1.5">
                               {showReasoning && (
                                 <ThinkingTraceRow reasoning={msg.reasoning!} />
                               )}
 
                               {hasMessageText && (
-                                // In a Bot conversation the agent speaks with no name and no bubble,
-                                // so without a face nothing on screen says who is talking. Only the
-                                // teammate view opts in; ordinary workspace chats are unchanged.
-                                <div className={authorAvatar ? "flex items-start gap-2.5" : undefined}>
-                                  {authorAvatar}
-                                  <div className={`min-w-0 flex-1 text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
-                                    <MarkdownMessage
-                                      message={msg.message}
-                                      capsules={msg.capsules}
-                                      formats={msg.formats}
-                                    />
-                                  </div>
+                                <div className={`text-[15px] md:text-[14px] leading-[22px] tracking-[-0.25px] text-kumo-default ${styles.markdownContent}`}>
+                                  <MarkdownMessage
+                                    message={msg.message}
+                                    capsules={msg.capsules}
+                                    formats={msg.formats}
+                                  />
                                 </div>
                               )}
 

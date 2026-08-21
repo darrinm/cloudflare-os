@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Blobatar } from '@blobatar/react'
 import { useNavigate } from '@tanstack/react-router'
 import { RpcStub } from 'capnweb'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
@@ -13,6 +12,7 @@ import type {
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
+import BotAvatar from './BotAvatar'
 import Feed, { useFeed, type FeedLine } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import { useTryTakeoverCard } from './TryTakeoverCard'
@@ -36,60 +36,12 @@ import {
   parseSites, provisionComputer, sandboxResourceUrl, type ComputerKind,
 } from './computer'
 
-const AVATAR_COLORS = ['#5b4bc4', '#1f7a5c', '#b23a48', '#9a6300', '#2f6fb0', '#7a3fa0', '#0f766e']
-
-/**
- * All a face needs. Widened from `Bot` so anywhere holding only a group member, a feed row or an
- * author record can still show one -- a Bot recognisable in the roster but anonymous in a group
- * transcript is worse than no faces at all.
- */
-export type BotFace = Pick<Bot, 'id' | 'avatar' | 'color'>
-
-function botColor(bot: BotFace): string {
-  if (bot.color) return bot.color
-  let h = 0
-  for (const c of bot.id) h = (h * 31 + c.charCodeAt(0)) >>> 0
-  return AVATAR_COLORS[h % AVATAR_COLORS.length]
-}
 function fmtTime(ts: number | null | undefined): string {
   return ts ? new Date(ts).toLocaleString() : ''
 }
 /** The hub gadget binding name for a Bot's own agent spawner. */
 export function spawnerBindingNameFor(botId: string): string {
   return `SPAWNER_${botId.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`
-}
-
-/**
- * A Bot's face. Decorative in every place it appears -- the name is always beside it -- so it is
- * hidden from assistive tech rather than described twice.
- *
- * A person's own choice wins. Otherwise a blobatar: a small geometric creature derived from the
- * Bot's id, so a roster of teammates is scannable by face rather than by reading names, without
- * anyone having to pick anything. Seeded on the id, not the name, so renaming a Bot does not hand
- * it a new face; drawn in the browser, so there is no image to fetch or store per Bot.
- */
-export function BotAvatar({ bot, size = 32 }: { bot: BotFace; size?: number }) {
-  if (bot.avatar) {
-    return (
-      <span
-        className="inline-grid flex-none place-items-center rounded-full font-semibold text-white"
-        style={{ width: size, height: size, background: botColor(bot), fontSize: Math.round(size * 0.4) }}
-        aria-hidden
-      >
-        {bot.avatar}
-      </span>
-    )
-  }
-  return (
-    <Blobatar
-      name={bot.id}
-      size={size}
-      className="inline-block flex-none rounded-full"
-      style={{ width: size, height: size }}
-      alt=""
-      aria-hidden
-    />
-  )
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -559,10 +511,11 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
               {g.members.length ? (
                 <span className="flex items-center gap-1 pt-0.5">
                   <span className="sr-only">{g.members.map((m) => m.name).join(', ')}</span>
-                  {g.members.slice(0, 5).map((m) => {
-                    const member = botsById.get(m.id)
-                    return member ? <BotAvatar key={m.id} bot={member} size={18} /> : null
-                  })}
+                  {/* Falls back to the member record so an unresolved member still has a face and
+                      the overflow count stays honest (see GroupView's header). */}
+                  {g.members.slice(0, 5).map((m) => (
+                    <BotAvatar key={m.id} bot={botsById.get(m.id) ?? m} size={18} />
+                  ))}
                   {g.members.length > 5 && <span className="text-[12px] md:text-[11px] text-kumo-subtle">+{g.members.length - 5}</span>}
                 </span>
               ) : (

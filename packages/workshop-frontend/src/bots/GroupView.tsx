@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { CaretLeft, PaperPlaneRight, PencilSimple, X } from '@phosphor-icons/react'
 import { WorkshopIconButton } from '../components/WorkshopControls'
-import { BotAvatar } from './BotsPage'
+import BotAvatar from './BotAvatar'
 import { drainNew, type HubStub, type SeqUpdate } from './useBotsHub'
 import type { Bot, BotGroup, GroupPost } from './types'
 
@@ -85,10 +85,13 @@ export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenB
             {group.members.length ? (
               <>
                 <span className="sr-only">{group.members.map((m) => m.name).join(', ')}</span>
-                {group.members.slice(0, 6).map((m) => {
-                  const member = botsById.get(m.id)
-                  return member ? <BotAvatar key={m.id} bot={member} size={16} /> : null
-                })}
+                {/* The roster entry when there is one (it carries a chosen emoji or colour), else
+                    the member record itself -- a member the roster cannot resolve, because it was
+                    deleted or has not loaded, still gets a face rather than a gap that makes the
+                    overflow count lie. */}
+                {group.members.slice(0, 6).map((m) => (
+                  <BotAvatar key={m.id} bot={botsById.get(m.id) ?? m} size={16} />
+                ))}
                 {group.members.length > 6 && <span>+{group.members.length - 6}</span>}
               </>
             ) : 'No members yet'}
