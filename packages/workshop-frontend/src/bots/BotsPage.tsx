@@ -12,7 +12,7 @@ import type {
   Overseer,
 } from '@gadgets/workshop-shared/api'
 import ChatInterface from '../ChatInterface'
-import Feed, { useFeed } from './Feed'
+import Feed, { useFeed, type FeedLine } from './Feed'
 import Audit, { AUDIT_LIMIT, exportEvents } from './Audit'
 import { useTryTakeoverCard } from './TryTakeoverCard'
 import { GlanceChip, GlancePreview, useGlance } from './LiveGlance'
@@ -216,8 +216,31 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
     userName: currentUser?.name || 'You', onOpen: openBot, onError: onCardError,
   })
 
+  // A Bot blocked on a gatekeeper approval is the strongest "waiting for you" there is, and it
+  // produces no hub event -- it lives in the workspace's action log. Without this the landing
+  // screen, whose whole job is to answer "is anything waiting on me?", is blind to exactly that.
+  const workspaceActions = useActions(overseer?.stub ?? null)
+  const blockedLines = useMemo(() => {
+    const byProfile = new Map(hubState.bots.map((b) => [computerNameFor(b), b]))
+    const lines: FeedLine[] = []
+    for (const entry of workspaceActions.actionsById.values()) {
+      if (entry.state !== 'pending' || entry.type !== 'action' || !entry.description.awaitDecision) continue
+      const path = entry.description.open?.path
+      const profile = path ? new URLSearchParams(path.split('?')[1] ?? '').get('profile') : null
+      const bot = profile ? byProfile.get(profile) : null
+      lines.push({
+        id: -entry.id, // negative: the hub's own event ids stay distinct from these
+        botId: bot?.id ?? null,
+        ts: entry.createdAt instanceof Date ? entry.createdAt.getTime() : Number(entry.createdAt),
+        tone: 'needs',
+        line: `${bot?.name ?? 'A Bot'} needs you: ${entry.description.title}`,
+      })
+    }
+    return lines
+  }, [workspaceActions, hubState.bots])
+
   const feed = hubState.hub
-    ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={openBot} header={takeoverCard} />
+    ? <Feed bots={hubState.bots} events={feedData.events} error={feedData.error} onOpenBot={openBot} header={takeoverCard} extraLines={blockedLines} />
     : null
   const audit = hubState.hub
     ? <Audit bots={hubState.bots} events={auditData.events} error={auditData.error} onOpenBot={openBot} />
@@ -380,6 +403,32 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // One poll of the open Bot's browser, read by both the header chip and the preview on its request
   // card -- two components each polling would double the RPC for the same picture.
   const glance = useGlance(selected)
+
+  // Settling a takeover the person has already finished.
+  //
+  // Approving a takeover card *is* the hand-back -- it is the only thing that releases the Bot's
+  // suspended turn -- but the natural place to finish is the Browser app's "Done", which can only
+  // release the page: an app has no way to settle an approval. That left the Bot waiting on a
+  // second step in another screen, with every surface reporting the page as handed back.
+  //
+  // So when the page is demonstrably back (the profile is no longer under human control) and the
+  // Bot's request is still open, record it. This grants nothing: the person already did the thing
+  // the card asks about, and this only writes down that it happened.
+  const settling = useRef(new Set<number>())
+  useEffect(() => {
+    const ov = overseer?.stub
+    const handedBack = glance.takeover && !glance.takeover.active ? glance.takeover.name : null
+    if (!ov || !handedBack || !workspaceActions.isReady) return
+    for (const entry of workspaceActions.actionsById.values()) {
+      if (entry.state !== 'pending' || entry.type !== 'action') continue
+      const path = entry.description.open?.path
+      // Only this profile's takeover card: the deep link carries the profile it belongs to.
+      if (!path?.includes('takeover=1') || !path.includes(encodeURIComponent(handedBack))) continue
+      if (settling.current.has(entry.id)) continue
+      settling.current.add(entry.id)
+      void ov.approveAction(entry.id).catch(() => settling.current.delete(entry.id))
+    }
+  }, [overseer, glance.takeover, workspaceActions])
   const anySelected = selected !== null || selectedGroup !== null
 
   if (error) {

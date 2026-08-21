@@ -155,13 +155,19 @@ export function useFeed(hub: HubApi | null, updates: SeqUpdate[], limit = FEED_L
   return { events, error }
 }
 
-export function Feed({ bots, events, error, onOpenBot, header }: {
+export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
   bots: Bot[]
   events: BotEvent[] | null
   error: string | null
   onOpenBot: (botId: string) => void
   /** Shown above the lines, inside the same scroll: a first-run card, for instance. */
   header?: ReactNode
+  /**
+   * Lines from outside the hub's event log, merged and sorted with the rest. A Bot blocked on a
+   * gatekeeper approval is the case this exists for: it is the strongest "waiting for you" there
+   * is, and it produces no hub event at all, so this screen would otherwise be blind to it.
+   */
+  extraLines?: FeedLine[]
 }) {
   const names = useMemo(() => new Map(bots.map((b) => [b.id, b.name])), [bots])
 
@@ -189,8 +195,9 @@ export function Feed({ bots, events, error, onOpenBot, header }: {
       .map((l) => (l.tone === 'needs' && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts
         ? { ...l, tone: 'quiet' as const } : l))
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
-    return all.sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
-  }, [events, names])
+    return [...all, ...(extraLines ?? [])]
+      .sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
+  }, [events, names, extraLines])
 
   // The header is part of the screen whatever the lines are doing: a first-run card must not
   // vanish because the snapshot is slow or failed.

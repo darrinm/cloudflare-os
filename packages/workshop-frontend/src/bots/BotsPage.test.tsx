@@ -16,6 +16,7 @@ const testState = vi.hoisted(() => {
     listOutputs,
     // The live glance polls the Browser gatekeeper app; null means "no browser granted", which is
     // what most of these tests want. `glance` is swapped in by the tests that care.
+    actions: { actionsById: new Map<number, unknown>(), isReady: true },
     glance: vi.fn<(name: string) => Promise<unknown>>(async () => ({ live: false, url: null, takeover: false, takeoverReason: null, frame: null })),
     authenticatedApi: {
       listModels, listOutputs, newGadgetFromBlueprint: vi.fn<() => unknown>(),
@@ -59,7 +60,7 @@ vi.mock("./useBotsHub", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./useBotsHub")>()),
   useBotsHub: () => testState.hub,
 }));
-vi.mock("../useActions", () => ({ useActions: () => ({ actionsById: new Map(), isReady: true }) }));
+vi.mock("../useActions", () => ({ useActions: () => testState.actions }));
 vi.mock("./examples", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./examples")>()),
   seedExampleBots: testState.seedExampleBots,
@@ -243,6 +244,80 @@ describe("BotsPageContent", () => {
     expect(chip.textContent).toContain("Waiting for you");
     expect(chip.getAttribute("title")).toContain("Sign in to Amazon");
   });
+
+  it("pins a Bot blocked on an approval to the feed, which sees no hub event for it", async () => {
+    // A gatekeeper approval lives in the workspace's action log, not the hub's events, so the
+    // landing screen -- whose whole job is "is anything waiting on me?" -- could not see the one
+    // thing that hard-blocks a Bot.
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
+    testState.actions = { isReady: true, actionsById: new Map<number, unknown>([[1, {
+      id: 1, type: "action", state: "pending", resourceTitle: "Browser", createdAt: new Date(1),
+      description: {
+        title: "Take over the browser: Sign in to Amazon", description: "", implementsRevert: false,
+        awaitDecision: true, open: { path: "/gatekeepers/browser?profile=scout-abc12345&takeover=1", label: "Take control" },
+      },
+    }]]) };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 0, totalTokens: 0, turns: 0, chats: 0, todayUsd: 0, dailyCapUsd: null }) };
+    testState.hub.bots = [{
+      id: "abc12345", name: "Scout", role: "Reads the web", instructions: "", avatar: "", color: "",
+      chatTitle: "Bot: Scout [abc12345]", created: 1, updated: 1, lastActivity: null,
+      agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
+    }];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
+
+    await render(null);
+    // Named for the Bot it blocks, carrying the Bot's own reason, and flagged as waiting.
+    await vi.waitFor(() => expect(container!.textContent).toContain("Scout needs you: Take over the browser: Sign in to Amazon"));
+    expect(container!.textContent).toContain("Waiting for you");
+  });
+
+  it("settles a takeover card once the person has handed the page back", async () => {
+    // Approving a takeover card IS the hand-back, but the natural place to finish is the Browser
+    // app's Done, which can only release the page. Seeing the page back with the request still
+    // open, the conversation records it -- otherwise the Bot waits forever on a hidden second step.
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    const approveAction = vi.fn(async () => {});
+    testState.workspaceOpen.overseer = { stub: {
+      approveAction,
+      getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }),
+    } };
+    // The page is back in the Bot's hands: takeover is no longer active.
+    testState.glance = vi.fn(async () => ({
+      live: true, url: "https://www.amazon.com/", takeover: false, takeoverReason: null,
+      frame: "data:image/jpeg;base64,x",
+    }));
+    const pending = (id: number, path?: string) => [id, {
+      id, type: "action", state: "pending", resourceTitle: "Browser", createdAt: new Date(1),
+      description: { title: "Take over the browser", description: "", implementsRevert: false, ...(path ? { open: { path, label: "Take control" } } : {}) },
+    }] as [number, unknown];
+    testState.actions = { isReady: true, actionsById: new Map<number, unknown>([
+      pending(1, "/gatekeepers/browser?profile=scout-abc12345&takeover=1"),
+      // Another profile's takeover, and a card that is not a takeover at all: neither is ours.
+      pending(2, "/gatekeepers/browser?profile=other-profile&takeover=1"),
+      pending(3),
+    ]) };
+    const bot = {
+      id: "abc12345", name: "Scout", role: "Reads the web", instructions: "", avatar: "", color: "",
+      chatTitle: "Bot: Scout [abc12345]", created: 1, updated: 1, lastActivity: null,
+      agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
+    };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 0, totalTokens: 0, turns: 0, chats: 0, todayUsd: 0, dailyCapUsd: null }) };
+    testState.hub.bots = [bot];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB" };
+
+    await render("abc12345");
+    await vi.waitFor(() => expect(approveAction).toHaveBeenCalled());
+    // Only this profile's takeover card, and only once.
+    expect(approveAction.mock.calls).toEqual([[1]]);
+  });
+
 
   it("offers the takeover walk-through once, to a Bot with a browser, and starts it through the Bot", async () => {
     testState.listOutputs.mockResolvedValue({
