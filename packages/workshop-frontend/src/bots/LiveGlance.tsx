@@ -36,6 +36,10 @@ export function useGlance(bot: Bot | null) {
   const navigate = useNavigate()
   const [frame, setFrame] = useState<string | null>(null)
   const [state, setState] = useState<{ name: string; url: string | null; takeover: boolean; takeoverReason: string | null } | null>(null)
+  // Whether the profile is under human control, kept even when there is no frame to show. The
+  // hand-back has to stay observable after the live view is gone: it is what tells the conversation
+  // the person has finished, so the Bot's request can be settled without a second, hidden step.
+  const [takeover, setTakeover] = useState<{ name: string; active: boolean } | null>(null)
   const uiRef = useRef<BrowserUi | null>(null)
   const failsRef = useRef(0)
   const delayRef = useRef(PROFILE_POLL_MS)
@@ -61,6 +65,7 @@ export function useGlance(bot: Bot | null) {
       let g = await uiRef.current.glance(name)
       if (!g.live) { name = HOUSEHOLD_PROFILE; g = await uiRef.current.glance(name) }
       failsRef.current = 0
+      setTakeover({ name, active: g.takeover })
       if (!g.live || !g.frame) {
         setState(null); setFrame(null)
         delayRef.current = PROFILE_POLL_MS
@@ -114,7 +119,7 @@ export function useGlance(bot: Bot | null) {
     })
   }, [navigate, state])
 
-  return { live: state && frame ? { ...state, frame, host, asked, label } : null, open }
+  return { live: state && frame ? { ...state, frame, host, asked, label } : null, open, takeover }
 }
 
 export type Glance = NonNullable<ReturnType<typeof useGlance>['live']>
