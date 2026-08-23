@@ -2,31 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { RpcStub } from 'capnweb'
 import { AuthenticatedApi } from '@gadgets/workshop-shared/api'
 import { useAvatar } from '../useAvatar'
+import { colorFromId } from './avatarColor'
 
 export function initials(name: string): string {
   return name.split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase()
-}
-
-const AVATAR_COLORS = [
-  'hsl(12 68% 47%)',
-  'hsl(26 72% 40%)',
-  'hsl(38 68% 36%)',
-  'hsl(48 55% 34%)',
-  'hsl(352 56% 50%)',
-  'hsl(336 46% 50%)',
-  'hsl(318 38% 50%)',
-  'hsl(4 60% 50%)',
-  'hsl(212 55% 48%)',
-  'hsl(194 52% 38%)',
-]
-
-function colorFromId(id: string): string {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < id.length; i++) {
-    hash ^= id.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return AVATAR_COLORS[(hash >>> 0) % AVATAR_COLORS.length]
 }
 
 export function PersonAvatar({

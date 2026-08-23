@@ -4457,6 +4457,12 @@ interface ChatInterfaceProps {
    * on.
    */
   actionPreview?: ReactNode;
+  /**
+   * Rendered beside each agent message in `conversationView`: the Bot's face. In a teammate
+   * transcript the agent speaks with no name and no bubble, so this is the only thing on screen
+   * saying who is talking. Ordinary workspace chats leave it unset and are unchanged.
+   */
+  authorAvatar?: ReactNode;
   onOpenGadget: (gadgetId: WorkpieceId) => void;
 
   // The output format a workpiece was built as, so a created-app card can name and draw it as the
@@ -4648,6 +4654,7 @@ function ChatInterface({
   conversationEvents,
   onOpenPath,
   actionPreview,
+  authorAvatar,
   onOpenGadget,
   outputOfWorkpiece,
 }: ChatInterfaceProps) {
@@ -7648,7 +7655,14 @@ function ChatInterface({
                               ? messageToolGroups.length - 1
                               : -1;
                             return (
-                          <div className="min-w-0 w-full max-w-[860px] space-y-2">
+                          // In a Bot conversation the agent speaks with no name and no bubble, so
+                          // without a face nothing on screen says who is talking. The face sits in a
+                          // gutter the whole message is indented into -- text, the action row and any
+                          // tool groups together -- rather than beside the prose alone, which would
+                          // leave the copy button under the avatar instead of under what it copies.
+                          // Only the teammate view opts in; ordinary workspace chats are unchanged.
+                          <div className={`min-w-0 w-full max-w-[860px] space-y-2 relative ${authorAvatar ? 'ps-[34px]' : ''}`}>
+                            {authorAvatar && <span className="absolute left-0 top-0">{authorAvatar}</span>}
                             <div className="group/agentMessage relative space-y-1.5">
                               {showReasoning && (
                                 <ThinkingTraceRow reasoning={msg.reasoning!} />
