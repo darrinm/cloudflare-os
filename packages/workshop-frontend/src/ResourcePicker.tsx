@@ -11,6 +11,7 @@ import {
   PICKER_CAPTION, PICKER_EMPTY, PICKER_ROW, PICKER_ROW_ACTIVE, TabHint,
 } from './components/pickerRows'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
+import { openTabWith } from './openTab'
 
 export interface VendorOption {
   id: string
@@ -398,8 +399,7 @@ export default function ResourcePicker({
   const handleConnectNew = async (vendorId: string, resourceUrlPatterns?: string[]) => {
     setConnectingVendor(vendorId)
     try {
-      const result = await authenticatedApi.connectAccount(vendorId, resourceUrlPatterns)
-      window.open(result.url, '_blank', 'noopener,noreferrer')
+      await openTabWith(async () => (await authenticatedApi.connectAccount(vendorId, resourceUrlPatterns)).url)
     } catch (error) {
       console.error('Failed to initiate connection:', error)
       toasts.add({ title: 'Failed to start connection flow', variant: 'error' })
@@ -414,11 +414,9 @@ export default function ResourcePicker({
     if (resourceUrlPatterns.length === 0) return
     setGrantingAccount(accountId)
     try {
-      const result = await authenticatedApi.ensureAccountResources(accountId, resourceUrlPatterns)
-      if (result.url) {
-        window.open(result.url, '_blank', 'noopener,noreferrer')
-        toasts.add({ title: 'Grant the additional access in the new tab.', variant: 'success' })
-      }
+      const opened = await openTabWith(async () =>
+        (await authenticatedApi.ensureAccountResources(accountId, resourceUrlPatterns)).url)
+      if (opened) toasts.add({ title: 'Grant the additional access in the new tab.', variant: 'success' })
     } catch (error) {
       console.error('Failed to request additional access:', error)
       toasts.add({ title: 'Failed to request additional access', variant: 'error' })
@@ -432,8 +430,7 @@ export default function ResourcePicker({
   const handleReconnect = useCallback(async (accountId: number) => {
     setReconnectingAccount(accountId)
     try {
-      const result = await authenticatedApi.reconnectAccount(accountId)
-      window.open(result.url, '_blank', 'noopener,noreferrer')
+      await openTabWith(async () => (await authenticatedApi.reconnectAccount(accountId)).url)
       // The subscription will fire add() with credentialsValid: true when reconnect completes.
       // The reconnectingAccount state is cleared at that point.
     } catch (error) {

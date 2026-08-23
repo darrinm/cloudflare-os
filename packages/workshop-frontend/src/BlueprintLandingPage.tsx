@@ -21,6 +21,7 @@ import { WorkshopButton, WorkshopIconButton } from './components/WorkshopControl
 import { MENU_CONTENT, MENU_ITEM, MENU_ITEM_DANGER } from './components/menuStyles'
 import { useDocumentTitle } from './useDocumentTitle'
 import { AccountsSubscriberAdapter } from './accountsSubscriber'
+import { openTabWith } from './openTab'
 
 interface Props {
   rpcStub: RpcStub<PublicApi>
@@ -192,8 +193,7 @@ export default function BlueprintLandingPage({ rpcStub }: Props) {
     if (!authenticatedApi) return
     setConnectingVendor(vendorId)
     try {
-      const result = await authenticatedApi.connectAccount(vendorId)
-      window.open(result.url, '_blank', 'noopener,noreferrer')
+      await openTabWith(async () => (await authenticatedApi.connectAccount(vendorId)).url)
       toasts.add({ title: 'Complete the account connection in the new tab.', variant: 'success' })
     } catch (err) {
       console.error('Failed to initiate connection:', err)
@@ -207,8 +207,7 @@ export default function BlueprintLandingPage({ rpcStub }: Props) {
     if (!authenticatedApi) return
     setReconnectingAccountId(accountId)
     try {
-      const result = await authenticatedApi.reconnectAccount(accountId)
-      window.open(result.url, '_blank', 'noopener,noreferrer')
+      await openTabWith(async () => (await authenticatedApi.reconnectAccount(accountId)).url)
       toasts.add({ title: 'Complete the account reconnect in the new tab.', variant: 'success' })
     } catch (err) {
       console.error('Failed to initiate reconnect:', err)
