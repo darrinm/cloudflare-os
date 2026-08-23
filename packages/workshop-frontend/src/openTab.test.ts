@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openTabWith } from './openTab'
 
-const fakeTab = () => ({ location: { href: '' }, close: vi.fn() })
+const fakeTab = () => ({ location: { href: '' }, close: vi.fn(), opener: {} as unknown })
 const withOpen = (impl: () => unknown) => {
   vi.stubGlobal('window', { open: vi.fn(impl) } as unknown as Window & typeof globalThis)
 }
@@ -20,6 +20,19 @@ describe('opening a tab for a URL the server has not sent yet', () => {
       return 'https://example.com/authorize'
     })
     expect(opened).toBe(true)
+    expect(tab.location.href).toBe('https://example.com/authorize')
+  })
+
+  it('reserves without noopener, then severs opener before navigating', async () => {
+    // `noopener` is defined to return null, which is the one thing this cannot use: the handle is
+    // what navigates the tab later. Asking for it opened a tab, handed back null, and left it
+    // stranded on about:blank -- reported as "blocked" while plainly not being blocked.
+    const tab = fakeTab()
+    withOpen(() => tab)
+    await openTabWith(async () => 'https://example.com/authorize')
+    const features = (window.open as ReturnType<typeof vi.fn>).mock.calls[0][2]
+    expect(String(features ?? '')).not.toMatch(/noopener/)
+    expect(tab.opener).toBeNull()
     expect(tab.location.href).toBe('https://example.com/authorize')
   })
 

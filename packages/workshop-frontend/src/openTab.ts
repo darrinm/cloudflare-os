@@ -15,7 +15,11 @@
  * closes the tab instead of stranding it on about:blank.
  */
 export async function openTabWith(getUrl: () => Promise<string | null | undefined>): Promise<boolean> {
-  const tab = window.open('', '_blank', 'noopener,noreferrer')
+  // No `noopener` here, deliberately: it is defined to return null, and a handle is the entire
+  // point -- we have to navigate this tab ourselves once the URL arrives. Passing it opened a tab
+  // and handed back null, so this read as "blocked" and left the tab stranded on about:blank.
+  // The opener reference is severed below instead, once there is somewhere to go.
+  const tab = window.open('', '_blank')
   if (!tab) throw new Error('Your browser blocked the new tab. Allow pop-ups for this site and try again.')
   let url: string | null | undefined
   try {
@@ -30,6 +34,10 @@ export async function openTabWith(getUrl: () => Promise<string | null | undefine
     tab.close()
     return false
   }
+  // Sever the back-reference before handing the tab to the provider, so the page we send someone to
+  // cannot script the tab that opened it. This is what `noopener` would have bought, taken at the
+  // point it no longer costs us the handle.
+  try { tab.opener = null } catch { /* already detached */ }
   tab.location.href = url
   return true
 }
