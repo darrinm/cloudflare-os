@@ -212,6 +212,35 @@ describe("BotsPageContent", () => {
     expect(container!.querySelector('[aria-label="Skills"]')).not.toBeNull();
   });
 
+  it("loads a Bot's conversation without a hooks-order crash once its chat resolves", async () => {
+    // The chat is looked up asynchronously, so the first render has no chatId and returns early.
+    // A hook placed after that return runs only on the second render, and React throws #310
+    // (a different hook count between renders). It surfaces only when the chat is not found on the
+    // first paint -- a slow connection -- which is why the smoke tests, whose stub never resolved a
+    // chat, never hit it. Here the chat resolves, forcing the null -> set re-render.
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.workspaceOpen.overseer = { stub: {
+      listChats: async () => [{ id: 7, title: "Bot: Scout [abc12345]" }],
+      getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }),
+    } };
+    testState.hub.hub = { listMemories: async () => [], listRoutines: async () => [], activity: async () => [], costs: async () => ({ botId: "abc12345", totalUsd: 0, totalTokens: 0, turns: 0, chats: 0, todayUsd: 0, dailyCapUsd: null }) };
+    testState.hub.bots = [{
+      id: "abc12345", name: "Scout", role: "Reads the web", instructions: "", avatar: "", color: "",
+      chatTitle: "Bot: Scout [abc12345]", created: 1, updated: 1, lastActivity: null,
+      agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1,
+    }];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 1, hubBindingName: "HUB", revision: 12 };
+
+    await render("abc12345");
+    // The mocked ChatInterface renders once the chat id lands; getting here without throwing is the
+    // assertion -- the old code crashed the whole page on this exact transition.
+    await vi.waitFor(() => expect(container!.querySelector('[data-testid="chat"]')).not.toBeNull());
+  });
+
+
   it("shows the live browser as a header chip, not as an entry in the transcript", async () => {
     // The page a Bot has open is state, not an event: it has no timestamp, so it belongs beside the
     // Bot's name and not among the messages, where it read as something that had just happened and

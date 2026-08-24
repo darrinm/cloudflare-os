@@ -668,6 +668,12 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
     return () => { cancelled = true; if (timer) clearTimeout(timer) }
   }, [overseer, bot.chatTitle])
 
+  // Above the early return, or its hook count changes between the "still looking for the chat"
+  // render and the one after -- React #310. One element, not a fresh one per render either:
+  // ChatInterface renders it at every agent message, and a new identity each time denies React the
+  // bailout for all of them on every streaming frame.
+  const authorAvatar = useMemo(() => <BotAvatar bot={bot} size={24} />, [bot])
+
   if (chatId === null) {
     return (
       <CenteredNote>
@@ -677,9 +683,6 @@ function BotTranscript({ overseer, bot, workspaceId, showWork, hub, updates, onO
       </CenteredNote>
     )
   }
-  // One element, not a fresh one per render: ChatInterface renders it at every agent message, and
-  // a new identity each time denies React the bailout for all of them on every streaming frame.
-  const authorAvatar = useMemo(() => <BotAvatar bot={bot} size={24} />, [bot])
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ChatInterface sizes itself with h-full, so it needs a bounded box to fill: on its own it
