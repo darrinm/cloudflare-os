@@ -4270,7 +4270,7 @@ export function toConversationEntries(entries: ChatDisplayEntry[], showWork: boo
   // Hub events slot in by time: a delivery lands just before the callback it caused, an answer
   // just after the turn that produced it. Rows without a timestamp of their own (work) sit with
   // the message before them.
-  const notes = (events ?? []).map(noteForEvent).filter((n): n is NonNullable<typeof n> => n !== null).sort((a, b) => a.ts - b.ts);
+  const notes = (events ?? []).map(noteForEvent).filter((n): n is NonNullable<typeof n> => n !== null).toSorted((a, b) => a.ts - b.ts);
   let next = 0;
   let lastTs = 0;
   const notesUpTo = (ts: number) => {

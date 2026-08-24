@@ -207,7 +207,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
         ? { ...l, tone: 'quiet' as const } : l))
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
     return [...all, ...(extraLines ?? [])]
-      .sort((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
+      .toSorted((a, b) => Number(b.tone === 'needs') - Number(a.tone === 'needs') || b.ts - a.ts)
   }, [events, byBot, extraLines])
 
   // The header is part of the screen whatever the lines are doing: a first-run card must not

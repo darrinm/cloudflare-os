@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openTabWith } from './openTab'
 
-const fakeTab = () => ({ location: { href: '' }, close: vi.fn(), opener: {} as unknown })
+const fakeTab = () => ({ location: { href: '' }, close: vi.fn<() => void>(), opener: {} as unknown })
 const withOpen = (impl: () => unknown) => {
-  vi.stubGlobal('window', { open: vi.fn(impl) } as unknown as Window & typeof globalThis)
+  vi.stubGlobal('window', { open: vi.fn<() => unknown>(impl) } as unknown as Window & typeof globalThis)
 }
 
 afterEach(() => vi.unstubAllGlobals())
