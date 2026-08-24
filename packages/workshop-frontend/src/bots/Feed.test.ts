@@ -74,9 +74,9 @@ describe("summarise", () => {
     const line = summarise(held, "Watcher");
     expect(line?.tone).toBe("needs");
     expect(line?.line).toContain("on hold until you look");
-    // Sticky, so the Bot it happened to be attributed to finishing something else cannot demote the
-    // only notice the reader gets.
-    expect(line?.sticky).toBe(true);
+    // Hub-level: no Bot's face on it, nothing to open on tap, and out of the movedOn demotion, so
+    // the only notice the reader gets cannot be pushed down by an unrelated Bot finishing something.
+    expect(line?.botId).toBeNull();
   });
 
   it("does not put a routine firing in the reader's mouth", () => {
