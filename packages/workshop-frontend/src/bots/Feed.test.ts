@@ -74,6 +74,9 @@ describe("summarise", () => {
     const line = summarise(held, "Watcher");
     expect(line?.tone).toBe("needs");
     expect(line?.line).toContain("on hold until you look");
+    // Sticky, so the Bot it happened to be attributed to finishing something else cannot demote the
+    // only notice the reader gets.
+    expect(line?.sticky).toBe(true);
   });
 
   it("does not put a routine firing in the reader's mouth", () => {

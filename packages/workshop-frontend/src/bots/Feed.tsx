@@ -21,6 +21,8 @@ export type FeedLine = {
   line: string
   /** needs: waiting on the reader. failed: went wrong. done: finished. quiet: context. */
   tone: 'needs' | 'failed' | 'done' | 'quiet'
+  /** Stays pinned even after the Bot moves on: said once, and still true until the reader acts. */
+  sticky?: true
 }
 
 const FEED_LIMIT = 120
@@ -60,7 +62,12 @@ export function summarise(event: BotEvent, botName: string | null): FeedLine | n
       // The hub held autonomous work because nobody had been by. Reading this line is itself the
       // thing that releases it, so it is written as news rather than as a demand, and it pins to
       // the top like anything else waiting on the reader.
-      return say('needs', text)
+      //
+      // Sticky, unlike the rest: the hub says this once per absence, and it is attributed to
+      // whichever Bot's delivery happened to trip it. That Bot finishing something else -- an
+      // in-flight turn landing, an inbound email, neither of which is ever held -- would otherwise
+      // demote the one line explaining why everything stopped, with no second notice coming.
+      return { ...say('needs', text), sticky: true }
     case 'decision': {
       // Read the decision from the structured field the hub stored, not by parsing its own text;
       // older events predate the field, so fall back to the prefix.
@@ -198,7 +205,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
       .map((e) => summarise(e, e.botId ? byBot.get(e.botId)?.name ?? null : null))
       .filter((l): l is FeedLine => l !== null)
       // An answered ask stays in the story, but as context, not as a demand.
-      .map((l) => (l.tone === 'needs' && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts
+      .map((l) => (l.tone === 'needs' && !l.sticky && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts
         ? { ...l, tone: 'quiet' as const } : l))
     // Anything waiting on the reader goes first, however old: that is the whole job of this screen.
     return [...all, ...(extraLines ?? [])]
