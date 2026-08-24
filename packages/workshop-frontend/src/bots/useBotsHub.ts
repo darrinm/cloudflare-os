@@ -56,6 +56,8 @@ class HubSubscriber extends RpcTarget {
  */
 export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: number | null): BotsHubState & {
   refreshBots: () => Promise<void>
+  /** Drop the current stub and connect again — for a caller that just restarted the gadget. */
+  reconnect: () => void
 } {
   const [state, setState] = useState<BotsHubState>({
     hub: null, bots: [], groups: [], info: null, error: null, version: 0, updates: [],
@@ -115,5 +117,11 @@ export function useBotsHub(overseer: RpcStub<Overseer> | null, workpieceId: numb
     }
   }, [overseer, workpieceId, refreshBots, attempt])
 
-  return { ...state, refreshBots }
+  // Rebuild the connection from scratch. `onRpcBroken` covers a stub that *reports* it died, but a
+  // call on a stub whose gadget restarted underneath it can simply never settle -- so a caller that
+  // knows it just restarted the gadget (taking a new hub revision) asks for a reconnect rather than
+  // awaiting a reply that is not coming.
+  const reconnect = useCallback(() => setAttempt((a) => a + 1), [])
+
+  return { ...state, refreshBots, reconnect }
 }

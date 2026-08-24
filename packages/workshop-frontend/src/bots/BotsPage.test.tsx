@@ -39,6 +39,7 @@ const testState = vi.hoisted(() => {
       version: 0,
       updates: [] as unknown[],
       refreshBots: vi.fn<() => Promise<void>>(async () => {}),
+      reconnect: vi.fn<() => void>(),
     },
   };
 });
@@ -273,6 +274,55 @@ describe("BotsPageContent", () => {
     // Named for the Bot it blocks, carrying the Bot's own reason, and flagged as waiting.
     await vi.waitFor(() => expect(container!.textContent).toContain("Scout needs you: Take over the browser: Sign in to Amazon"));
     expect(container!.textContent).toContain("Waiting for you");
+  });
+
+  it("stops the update spinner even when the hub never answers again", async () => {
+    // Taking a new hub revision restarts the gadget, which kills the page's stub. A call on a dead
+    // stub does not fail -- it never answers -- so refreshing through it left the toast on screen
+    // and the spinner turning on "Reconnecting..." for ever. The page reconnects instead, and the
+    // spinner is released in a finally so nothing above it can strand the button.
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.hub.refreshBots = vi.fn<() => Promise<void>>(() => new Promise(() => {}));
+    testState.hub.reconnect = vi.fn<() => void>();
+    const updateFromBlueprint = vi.fn(async () => ({ updated: ["server.js"], unchanged: [] }));
+    testState.workspaceOpen.overseer = { stub: {
+      bundledBlueprintRevision: async () => 12,
+      getGadget: () => ({
+        updateFromBlueprint,
+        connectToGadget: async () => ({ getInfo: async () => ({ revision: 12 }), [Symbol.dispose]() {} }),
+        listBindings: async () => [],
+        [Symbol.dispose]() {},
+      }),
+    } };
+    testState.hub.hub = { listSkills: async () => [], listMemories: async () => [], listRoutines: async () => [], activity: async () => [] };
+    testState.hub.bots = [];
+    // Behind the shipped revision, so the dialog offers the update at all.
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 0, hubBindingName: "HUB", revision: 8 };
+
+    await render(null);
+
+    const click = async (el: Element | null | undefined) => {
+      if (!el) throw new Error("not found");
+      await act(async () => { (el as HTMLElement).click(); await new Promise((r) => setTimeout(r, 0)); });
+    };
+    await click(container!.querySelector('[aria-label="Skills"]'));
+    const update = await vi.waitFor(() => {
+      const el = [...document.querySelectorAll("button")].find((b) => /Update Bots/.test(b.textContent ?? ""));
+      if (!el) throw new Error("no Update Bots button");
+      return el;
+    });
+    await click(update);
+    await act(async () => { await new Promise((r) => setTimeout(r, 1700)); });
+
+    expect(updateFromBlueprint).toHaveBeenCalled();
+    // Reconnected rather than refreshed through the dead stub...
+    expect(testState.hub.reconnect).toHaveBeenCalled();
+    expect(testState.hub.refreshBots).not.toHaveBeenCalled();
+    // ...and nothing is left spinning.
+    expect(document.body.textContent).not.toContain("Reconnecting");
   });
 
   it("settles a takeover card once the person has handed the page back", async () => {

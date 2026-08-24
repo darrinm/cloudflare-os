@@ -242,43 +242,51 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   const updateHub = useCallback(async () => {
     if (!overseer) return
     setUpdating("Updating your Bots…")
-    const client = overseer.stub.getGadget(workpieceId)
-    let changed: string[] | null = null
     try {
-      changed = (await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)).updated
-    } catch (err) {
-      // Writing the code restarts the gadget, which kills this very call: that is the update
-      // succeeding, not failing. Anything else is a real error.
-      const msg = String(err instanceof Error ? err.message : err)
-      if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
-        toasts.add({ title: 'Couldn’t update your Bots', description: msg, variant: 'error' })
-        client[Symbol.dispose]()
-        setUpdating(null)
-        return
-      }
-    } finally {
-      client[Symbol.dispose]()
-    }
-    // Read the revision back from the restarted hub, so the toast states what actually happened.
-    setUpdating('Reconnecting…')
-    let revision: number | undefined
-    try {
-      const fresh = overseer.stub.getGadget(workpieceId)
+      const client = overseer.stub.getGadget(workpieceId)
+      let changed: string[] | null = null
       try {
-        await new Promise((r) => setTimeout(r, 1500))
-        const hub = (await fresh.connectToGadget()) as unknown as HubStub
-        try { revision = (await hub.getInfo()).revision } finally { hub[Symbol.dispose]() }
-      } finally { fresh[Symbol.dispose]() }
-    } catch { /* the toast just omits the revision */ }
-    toasts.add({
-      title: changed?.length === 0 ? 'Already up to date' : 'Hub updated',
-      description: `${revision ? `Now running revision ${revision}. ` : ''}Your Bots, memory, routines and costs are untouched.`,
-      variant: 'success',
-    })
-    // refreshBots re-reads getInfo(), so the hub's now-current revision flows back into hubState
-    // and the update button, having done its job, drops itself.
-    await hubState.refreshBots()
-    setUpdating(null)
+        changed = (await client.updateFromBlueprint(BOTS_BLUEPRINT_ID)).updated
+      } catch (err) {
+        // Writing the code restarts the gadget, which kills this very call: that is the update
+        // succeeding, not failing. Anything else is a real error.
+        const msg = String(err instanceof Error ? err.message : err)
+        if (!/restart|disposed|broken|reset|code update/i.test(msg)) {
+          toasts.add({ title: 'Couldn’t update your Bots', description: msg, variant: 'error' })
+          return
+        }
+      } finally {
+        client[Symbol.dispose]()
+      }
+
+      // Read the revision back from the restarted hub, so the toast states what actually happened.
+      // On a fresh stub, never the page's: the restart left that one dead, and a call on a dead stub
+      // does not fail, it simply never answers.
+      setUpdating('Reconnecting…')
+      let revision: number | undefined
+      try {
+        const fresh = overseer.stub.getGadget(workpieceId)
+        try {
+          await new Promise((r) => setTimeout(r, 1500))
+          const hub = (await fresh.connectToGadget()) as unknown as HubStub
+          try { revision = (await hub.getInfo()).revision } finally { hub[Symbol.dispose]() }
+        } finally { fresh[Symbol.dispose]() }
+      } catch { /* the toast just omits the revision */ }
+
+      toasts.add({
+        title: changed?.length === 0 ? 'Already up to date' : 'Hub updated',
+        description: `${revision ? `Now running revision ${revision}. ` : ''}Your Bots, memory, routines and costs are untouched.`,
+        variant: 'success',
+      })
+
+      // Rebuild the page's own connection rather than refreshing through the stub the restart
+      // killed. refreshBots() went to that dead stub and never came back, so the toast landed and
+      // the spinner sat on "Reconnecting..." for ever.
+      hubState.reconnect()
+    } finally {
+      // Always: an update that throws or hangs above must not leave a spinner nothing can stop.
+      setUpdating(null)
+    }
   }, [overseer, workpieceId, hubState, toasts])
 
   // The seeding core: pick the model, create and grant the example Bots, refresh the roster. Both
