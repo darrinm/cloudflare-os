@@ -178,7 +178,13 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   // What you see with nothing selected. The feed answers "what happened?", which is the daily
   // question; the roster answers "who have I got?", which you ask far less often; the audit is
   // the full record for the rare day you need it.
-  const [view, setView] = useState<View>('feed')
+  // Which tab (Activity / Bots / Audit) is remembered per browser: opening a Bot navigates to a new
+  // route, which remounts this and would otherwise drop the tab back to Activity -- so pressing back
+  // from a Bot landed on Activity rather than the list you came from.
+  const [view, setView] = useState<View>(() => {
+    try { const v = localStorage.getItem('bots:view'); return v && v in VIEW_LABEL ? v as View : 'feed' } catch { return 'feed' }
+  })
+  useEffect(() => { try { localStorage.setItem('bots:view', view) } catch { /* ignore */ } }, [view])
   // One subscription to the feed's data, shared by the phone tab and the desktop pane: mounting
   // the component twice used to fetch twice, on every event. The audit reads a deeper window once
   // it has been opened, then keeps it current from the same live stream.

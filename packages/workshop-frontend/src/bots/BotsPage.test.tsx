@@ -173,6 +173,24 @@ describe("BotsPageContent", () => {
     expect(testState.seedExampleBots).not.toHaveBeenCalled();
   });
 
+  it("restores the tab you were on, so back from a Bot does not drop you on Activity", async () => {
+    // The tab is component state, and opening a Bot navigates to a new route that remounts the page.
+    // Without persistence the tab reset to Activity, so the back arrow always landed there instead
+    // of the list you came from. It is remembered per browser now.
+    localStorage.setItem("bots:view", "roster");
+    testState.listOutputs.mockResolvedValueOnce({
+      outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
+      catchingUp: false,
+    });
+    testState.hub.bots = [];
+    testState.hub.info = { version: 1, hasSpawner: true, botCount: 0, hubBindingName: "HUB" };
+
+    await render(null);
+    const tab = [...container!.querySelectorAll('[role="tab"]')].find((t) => t.textContent === "Bots");
+    expect(tab?.getAttribute("aria-selected")).toBe("true");
+  });
+
+
   it("renders the roster and the selected Bot's conversation once the hub is found", async () => {
     testState.listOutputs.mockResolvedValueOnce({
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
