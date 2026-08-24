@@ -4,8 +4,22 @@ import type { CalendarConfiguratorRpc, CalendarConfiguratorValues } from "./cale
 export default {
   initial: { availabilityMode: "thisCalendar" },
 
+  // A request often arrives proposing calendar "primary" (Google's own alias, and what an agent
+  // naturally writes). A binding cannot store that -- it resolves per account -- so open the form on
+  // the account's real primary calendar instead of a value that only fails on submit.
+  async initialValuesFromResourceUrl({ resourceUrl, ui }) {
+    let parsed = new URL(resourceUrl);
+    let calendarId = decodeURIComponent(parsed.pathname.split("/")[2] ?? "");
+    let availabilityMode = parsed.searchParams.get("availability") === "allVisible" ? "allVisible" : "thisCalendar";
+    if (calendarId === "primary" || calendarId === "") {
+      calendarId = (await ui.primaryCalendarId()) ?? calendarId;
+    }
+    return { calendarId, availabilityMode };
+  },
+
   isReady({ values }) {
-    return typeof values.calendarId === "string" && values.calendarId.length > 0;
+    return typeof values.calendarId === "string" && values.calendarId.length > 0
+        && values.calendarId !== "primary";
   },
 
   resourceUrl({ values }) {
