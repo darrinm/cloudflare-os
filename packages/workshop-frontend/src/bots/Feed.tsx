@@ -34,32 +34,38 @@ const trim = (text: string, max = 240) => {
  * One hub event as a sentence, or null when it is bookkeeping rather than news. Pure, so the
  * wording can be tested without a browser.
  */
-export function summarise(event: BotEvent, botName: string | null, byId?: Map<number, BotEvent>): FeedLine | null {
+export function summarise(event: BotEvent, botName: string | null): FeedLine | null {
   const who = botName ?? 'A Bot'
   const text = trim(event.text)
   const say = (tone: FeedLine['tone'], line: string): FeedLine => ({ id: event.id, botId: event.botId, ts: event.ts, tone, line })
-  const data = (event.data ?? {}) as { state?: string; eventId?: number; groupId?: string; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
-  // Whether this event belongs to a group turn: the hub stamps `groupId` on the outcome (rev 10+);
-  // older hubs only marked the triggering delivery, so fall back to looking that up -- fragile
-  // when the trigger has scrolled out of the window, which is why the stamp exists.
-  const trigger = data.eventId !== undefined ? byId?.get(data.eventId) : undefined
-  const triggerData = (trigger?.data ?? {}) as { extra?: { group?: { name?: string } }; from?: { groupId?: string } }
-  const inGroup = Boolean(data.groupId || triggerData.extra?.group || triggerData.from?.groupId)
+  const data = (event.data ?? {}) as { state?: string; quiet?: boolean; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
   switch (event.type) {
     case 'needsUser':
       return say('needs', text ? `${who} needs you: ${text}` : `${who} needs you.`)
-    case 'completed': {
-      // A member's reply to a group fan-out. The hub tells each member to answer only when it has
-      // something to add and otherwise resolve with a one-line note -- so a short reply here is a
-      // Bot correctly staying quiet, and is not news. Real contributions go through groupPost and
-      // show up as group events; only a long completion (an answer, not a note) is kept.
-      if (inGroup && text.length < 160) return null
+    case 'completed':
+      // Work nobody was waiting on that came to nothing -- a routine that saw no change, a group
+      // post a member had nothing to add to. The Bot said so itself and the hub stamped it; the
+      // audit log keeps it, the reader is spared it. This is the whole point of the feed: a monitor
+      // that runs hourly and finds nothing should cost the reader no attention at all.
+      //
+      // Only the Bot's own word counts. Nothing here infers silence from the shape of the summary.
+      if (data.quiet) return null
       return say('done', text ? `${who}: ${text}` : `${who} finished.`)
-    }
     case 'failed':
       return say('failed', `${who} couldn’t finish: ${text || 'no reason given'}`)
     case 'capped':
       return say('failed', `${who} stopped for today — it reached the spending limit you set.`)
+    case 'away':
+      // The hub held autonomous work because nobody had been by. Reading this line is itself the
+      // thing that releases it, so it is written as news rather than as a demand, and it pins to
+      // the top like anything else waiting on the reader.
+      //
+      // Hub-level, so botId is dropped: the stored event names whichever Bot's delivery tripped
+      // the brake, which is right for the audit log and wrong for the reader -- it would put an
+      // arbitrary Bot's face on the line and open that Bot on tap. Dropping it also keeps the line
+      // out of the movedOn demotion below, so the one notice explaining why everything stopped
+      // cannot be pushed down by that Bot finishing something unrelated.
+      return { ...say('needs', text), botId: null }
     case 'decision': {
       // Read the decision from the structured field the hub stored, not by parsing its own text;
       // older events predate the field, so fall back to the prefix.
@@ -74,6 +80,11 @@ export function summarise(event: BotEvent, botName: string | null, byId?: Map<nu
       // line already says what the reader did, so the nudge is dropped.
       const from = data.from ?? {}
       if (from.type === 'system') return null
+      // A routine coming due is the schedule firing, not the reader asking -- and it used to fall
+      // through to "You asked ...", which put the hub's own "Routine X is due" prose in their mouth.
+      // What the routine did is the news, and that arrives as the completion (or not at all, if the
+      // Bot resolved it quiet).
+      if (from.type === 'routine') return null
       // A group fan-out delivers the hub's own envelope -- group name, purpose, transcript, and
       // instructions on how to reply -- to every member. That is plumbing; the post itself is the
       // news, and it appears once as a group event.
@@ -173,7 +184,6 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
   const byBot = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
 
   const lines = useMemo(() => {
-    const byId = new Map((events ?? []).map((e) => [e.id, e]))
     // The last time each Bot moved on -- the reader answered or decided, or the Bot finished or
     // failed. An ask older than that is no longer waiting on anyone, and pinning it forever would
     // fill the top of the feed with stale demands.
@@ -190,7 +200,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
       // at the top as "A Bot needs you" with a tap that opens nothing -- the audit log keeps the
       // event, but the feed is for what is live.
       .filter((e) => !e.botId || byBot.has(e.botId) || e.type !== 'needsUser')
-      .map((e) => summarise(e, e.botId ? byBot.get(e.botId)?.name ?? null : null, byId))
+      .map((e) => summarise(e, e.botId ? byBot.get(e.botId)?.name ?? null : null))
       .filter((l): l is FeedLine => l !== null)
       // An answered ask stays in the story, but as context, not as a demand.
       .map((l) => (l.tone === 'needs' && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts

@@ -65,19 +65,44 @@ describe("summarise", () => {
     expect(summarise(fanout, "Ledger")).toBeNull();
   });
 
-  it("drops a member's quiet one-line reply to a group, keeps a real answer", () => {
-    const trigger: BotEvent = { id: 30, botId: "b2", ts: 1, type: "message", text: "envelope", data: { from: { type: "bot", groupId: "g1" }, extra: { group: { name: "Team" } } } };
-    const byId = new Map([[30, trigger]]);
-    // "Nothing to add" is the hub's own instruction being followed; five of these in a row were
-    // most of the feed.
-    const quiet: BotEvent = { id: 31, botId: "b2", ts: 2, type: "completed", text: "No addition needed; Concierge's status noted, nothing for Ledger to add.", data: { eventId: 30 } };
-    expect(summarise(quiet, "Ledger", byId)).toBeNull();
-    // A long completion in a group is an answer, and stays.
-    const answer: BotEvent = { id: 32, botId: "b2", ts: 3, type: "completed", text: "x".repeat(200), data: { eventId: 30 } };
-    expect(summarise(answer, "Ledger", byId)?.tone).toBe("done");
-    // The same short completion outside a group is a real result.
-    const solo: BotEvent = { id: 33, botId: "b2", ts: 4, type: "completed", text: "Done: 3 files.", data: {} };
-    expect(summarise(solo, "Ledger", byId)?.line).toBe("Ledger: Done: 3 files.");
+  it("pins the away notice, because reading it is what releases the hold", () => {
+    const held: BotEvent = {
+      id: 60, botId: "b1", ts: 1, type: "away",
+      text: "Your Bots have done 20 things on their own over the last 4 days and nobody has been by. New work they give themselves is on hold until you look — it starts again on its own when you do.",
+      data: { fires: 20, awayDays: 4 },
+    };
+    const line = summarise(held, "Watcher");
+    expect(line?.tone).toBe("needs");
+    expect(line?.line).toContain("on hold until you look");
+    // Hub-level: no Bot's face on it, nothing to open on tap, and out of the movedOn demotion, so
+    // the only notice the reader gets cannot be pushed down by an unrelated Bot finishing something.
+    expect(line?.botId).toBeNull();
+  });
+
+  it("does not put a routine firing in the reader's mouth", () => {
+    // "Routine X is due. Do the following now: ..." is the hub waking the Bot on a schedule the
+    // reader set once, not the reader asking now. It used to render as "You asked ...".
+    const due: BotEvent = {
+      id: 50, botId: "b1", ts: 1, type: "message",
+      text: 'Routine "Morning check" is due. Do the following now:\n\nread the dashboard',
+      data: { from: { type: "routine", name: "Morning check" } },
+    };
+    expect(summarise(due, "Watcher")).toBeNull();
+  });
+
+  it("drops a run the Bot itself called quiet, and only that", () => {
+    // The hub stamps the flag when a Bot resolves {quiet: true} on work nobody was waiting on. The
+    // Bot's own word is the whole signal: nothing here reads the wording or the length to guess.
+    const nothing: BotEvent = { id: 40, botId: "b1", ts: 1, type: "completed", text: "no change since yesterday", data: { eventId: 39, quiet: true } };
+    expect(summarise(nothing, "Watcher")).toBeNull();
+    const wordy: BotEvent = { id: 41, botId: "b1", ts: 2, type: "completed", text: "x".repeat(400), data: { eventId: 39, quiet: true } };
+    expect(summarise(wordy, "Watcher")).toBeNull();
+    // Unflagged is news, however brief. This is what a length test got wrong: a real answer can be
+    // three words, and "nothing to add" can run for a paragraph.
+    const real: BotEvent = { id: 42, botId: "b1", ts: 3, type: "completed", text: "the price dropped to £180", data: { eventId: 39 } };
+    expect(summarise(real, "Watcher")?.line).toBe("Watcher: the price dropped to £180");
+    const terse: BotEvent = { id: 43, botId: "b2", ts: 4, type: "completed", text: "Done: 3 files.", data: { eventId: 39, groupId: "g1" } };
+    expect(summarise(terse, "Ledger")?.line).toBe("Ledger: Done: 3 files.");
   });
 
   it("drops bookkeeping nobody needs to read", () => {
