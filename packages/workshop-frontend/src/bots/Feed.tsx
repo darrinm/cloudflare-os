@@ -56,6 +56,11 @@ export function summarise(event: BotEvent, botName: string | null): FeedLine | n
       return say('failed', `${who} couldn’t finish: ${text || 'no reason given'}`)
     case 'capped':
       return say('failed', `${who} stopped for today — it reached the spending limit you set.`)
+    case 'away':
+      // The hub held autonomous work because nobody had been by. Reading this line is itself the
+      // thing that releases it, so it is written as news rather than as a demand, and it pins to
+      // the top like anything else waiting on the reader.
+      return say('needs', text)
     case 'decision': {
       // Read the decision from the structured field the hub stored, not by parsing its own text;
       // older events predate the field, so fall back to the prefix.

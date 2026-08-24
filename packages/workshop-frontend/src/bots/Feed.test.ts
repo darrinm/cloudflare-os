@@ -65,6 +65,17 @@ describe("summarise", () => {
     expect(summarise(fanout, "Ledger")).toBeNull();
   });
 
+  it("pins the away notice, because reading it is what releases the hold", () => {
+    const held: BotEvent = {
+      id: 60, botId: "b1", ts: 1, type: "away",
+      text: "Your Bots have done 20 things on their own over the last 4 days and nobody has been by. New work they give themselves is on hold until you look — it starts again on its own when you do.",
+      data: { fires: 20, awayDays: 4 },
+    };
+    const line = summarise(held, "Watcher");
+    expect(line?.tone).toBe("needs");
+    expect(line?.line).toContain("on hold until you look");
+  });
+
   it("does not put a routine firing in the reader's mouth", () => {
     // "Routine X is due. Do the following now: ..." is the hub waking the Bot on a schedule the
     // reader set once, not the reader asking now. It used to render as "You asked ...".
