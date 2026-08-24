@@ -65,6 +65,17 @@ describe("summarise", () => {
     expect(summarise(fanout, "Ledger")).toBeNull();
   });
 
+  it("does not put a routine firing in the reader's mouth", () => {
+    // "Routine X is due. Do the following now: ..." is the hub waking the Bot on a schedule the
+    // reader set once, not the reader asking now. It used to render as "You asked ...".
+    const due: BotEvent = {
+      id: 50, botId: "b1", ts: 1, type: "message",
+      text: 'Routine "Morning check" is due. Do the following now:\n\nread the dashboard',
+      data: { from: { type: "routine", name: "Morning check" } },
+    };
+    expect(summarise(due, "Watcher")).toBeNull();
+  });
+
   it("drops a run the Bot itself called quiet, and only that", () => {
     // The hub stamps the flag when a Bot resolves {quiet: true} on work nobody was waiting on. The
     // Bot's own word is the whole signal: nothing here reads the wording or the length to guess.

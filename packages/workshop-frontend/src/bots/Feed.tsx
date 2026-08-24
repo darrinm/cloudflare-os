@@ -70,6 +70,11 @@ export function summarise(event: BotEvent, botName: string | null): FeedLine | n
       // line already says what the reader did, so the nudge is dropped.
       const from = data.from ?? {}
       if (from.type === 'system') return null
+      // A routine coming due is the schedule firing, not the reader asking -- and it used to fall
+      // through to "You asked ...", which put the hub's own "Routine X is due" prose in their mouth.
+      // What the routine did is the news, and that arrives as the completion (or not at all, if the
+      // Bot resolved it quiet).
+      if (from.type === 'routine') return null
       // A group fan-out delivers the hub's own envelope -- group name, purpose, transcript, and
       // instructions on how to reply -- to every member. That is plumbing; the post itself is the
       // news, and it appears once as a group event.
