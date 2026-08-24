@@ -78,7 +78,7 @@ export function Audit({ bots, events, error, onOpenBot }: {
   const [type, setType] = useState('')
   const [q, setQ] = useState('')
   const rows = useMemo(() => auditRows(events ?? [], names), [events, names])
-  const types = useMemo(() => [...new Set(rows.map((r) => r.type))].sort(), [rows])
+  const types = useMemo(() => [...new Set(rows.map((r) => r.type))].toSorted(), [rows])
   const shown = useMemo(() => filterRows(rows, { bot, type, q }), [rows, bot, type, q])
 
   const exportAs = (format: 'json' | 'csv') =>

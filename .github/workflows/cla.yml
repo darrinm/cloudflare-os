@@ -14,6 +14,11 @@ permissions:
 
 jobs:
   CLAssistant:
+    # Upstream only. A fork has no cla-signatures branch to write to, so this fails every PR with
+    # "Branch cla-signatures not found" and cannot be made to pass -- and a fork of Cloudflare OS is
+    # not the place anyone signs Cloudflare's CLA anyway. Skipped rather than deleted so the job
+    # still guards contributions to cloudflare/cloudflare-os and survives a rebase unchanged.
+    if: github.repository == 'cloudflare/cloudflare-os'
     runs-on: ubuntu-latest
     steps:
       - name: "CLA Assistant"

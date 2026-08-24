@@ -149,7 +149,7 @@ describe("BotsPageContent", () => {
     });
     testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
     // An emptied roster is a choice, not a fresh hub: the flag is what distinguishes them.
-    testState.hub.hub = { getMeta: async () => "2026-08-19T00:00:00.000Z", setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    testState.hub.hub = { getMeta: async () => "2026-08-19T00:00:00.000Z", setMeta: vi.fn<(k: string, v: string) => void>(), send: vi.fn<(...a: unknown[]) => void>(), activity: async () => [] };
     testState.hub.bots = [];
 
     await render(null);
@@ -164,7 +164,7 @@ describe("BotsPageContent", () => {
       catchingUp: false,
     });
     testState.workspaceOpen.overseer = { stub: { listModels: testState.listModels, getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
-    testState.hub.hub = { getMeta: async () => { throw new Error("getMeta is not a function"); }, setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    testState.hub.hub = { getMeta: async () => { throw new Error("getMeta is not a function"); }, setMeta: vi.fn<(k: string, v: string) => void>(), send: vi.fn<(...a: unknown[]) => void>(), activity: async () => [] };
     testState.hub.bots = [];
 
     await render(null);
@@ -268,7 +268,7 @@ describe("BotsPageContent", () => {
       catchingUp: false,
     });
     testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
-    testState.glance = vi.fn(async () => ({
+    testState.glance = vi.fn<() => Promise<{ live: boolean; url: string; takeover: boolean; takeoverReason: string | null; frame: string }>>(async () => ({
       live: true, url: "https://www.amazon.com/ap/signin", takeover: true,
       takeoverReason: "Sign in to Amazon", frame: "data:image/jpeg;base64,x",
     }));
@@ -334,7 +334,7 @@ describe("BotsPageContent", () => {
     });
     testState.hub.refreshBots = vi.fn<() => Promise<void>>(() => new Promise(() => {}));
     testState.hub.reconnect = vi.fn<() => void>();
-    const updateFromBlueprint = vi.fn(async () => ({ updated: ["server.js"], unchanged: [] }));
+    const updateFromBlueprint = vi.fn<() => Promise<{ updated: string[]; unchanged: string[] }>>(async () => ({ updated: ["server.js"], unchanged: [] }));
     testState.workspaceOpen.overseer = { stub: {
       bundledBlueprintRevision: async () => 12,
       getGadget: () => ({
@@ -380,13 +380,13 @@ describe("BotsPageContent", () => {
       outputs: [{ workspaceId: "ws1", workpieceId: 0, output: { id: "bots" }, created: new Date(1) }] as never,
       catchingUp: false,
     });
-    const approveAction = vi.fn(async () => {});
+    const approveAction = vi.fn<() => Promise<void>>(async () => {});
     testState.workspaceOpen.overseer = { stub: {
       approveAction,
       getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }),
     } };
     // The page is back in the Bot's hands: takeover is no longer active.
-    testState.glance = vi.fn(async () => ({
+    testState.glance = vi.fn<() => Promise<{ live: boolean; url: string; takeover: boolean; takeoverReason: string | null; frame: string }>>(async () => ({
       live: true, url: "https://www.amazon.com/", takeover: false, takeoverReason: null,
       frame: "data:image/jpeg;base64,x",
     }));
@@ -426,8 +426,8 @@ describe("BotsPageContent", () => {
     const scout = { id: "scout1", name: "Scout", role: "Reads the web", instructions: "", avatar: "", color: "", chatTitle: "Bot: Scout", created: 1, updated: 1, lastActivity: null, agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1 };
     const meta = new Map<string, string>();
     const hub = {
-      getMeta: vi.fn(async (k: string) => meta.get(k) ?? null),
-      setMeta: vi.fn(async (k: string, v: string) => { meta.set(k, v); return v; }),
+      getMeta: vi.fn<(k: string) => Promise<string | null>>(async (k: string) => meta.get(k) ?? null),
+      setMeta: vi.fn<(k: string, v: string) => Promise<string>>(async (k: string, v: string) => { meta.set(k, v); return v; }),
       send: vi.fn<(botId: string, text: string, from: unknown) => Promise<{ eventId: number; delivered: boolean }>>(async () => ({ eventId: 9, delivered: true })),
       activity: async () => [],
     };
@@ -474,7 +474,7 @@ describe("BotsPageContent", () => {
       catchingUp: false,
     });
     testState.workspaceOpen.overseer = { stub: { getGadget: () => ({ listBindings: async () => [], [Symbol.dispose]() {} }) } };
-    const hub = { getMeta: vi.fn(async () => null), setMeta: vi.fn(), send: vi.fn(), activity: async () => [] };
+    const hub = { getMeta: vi.fn<() => Promise<null>>(async () => null), setMeta: vi.fn<(k: string, v: string) => void>(), send: vi.fn<(...a: unknown[]) => void>(), activity: async () => [] };
     testState.hub.hub = hub;
     testState.hub.bots = [{ id: "fixer1", name: "Fixer", role: "Fixes", instructions: "", avatar: "", color: "", chatTitle: "Bot: Fixer", created: 1, updated: 1, lastActivity: null, agentReady: true, spawnerBinding: "AGENT_SPAWNER", agentGeneration: 1 }];
 

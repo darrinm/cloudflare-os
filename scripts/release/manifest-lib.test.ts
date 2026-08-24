@@ -124,7 +124,10 @@ test("worker entries carry the deploy contract", () => {
       { type: "service", name: "WORKSHOP_BACKEND", service: "$WORKER_NAME(workshop-backend)" });
   assert.ok(router.bindings.some((b) => b.type === "assets" && b.name === "ASSETS"));
   assert.ok(router.assetsConfig);
-  assert.ok(router.assetsConfig.run_worker_first?.includes("/gatekeeper/*"));
+  // The fork runs the worker first for every document, not an enumerated list of prefixes, so the
+  // old `includes("/gatekeeper/*")` check no longer matches even though gatekeeper paths still
+  // reach the worker -- "/*" subsumes them. Assert the contract that replaced it.
+  assert.deepEqual(router.assetsConfig.run_worker_first, ["/*", "!/assets/*"]);
   assert.equal(router.assetsConfig.not_found_handling, "single-page-application");
   assert.deepEqual(Object.keys(router.assetsConfig.variants), ["access"]);
   for (const variant of Object.values(router.assetsConfig.variants)) {
