@@ -65,32 +65,19 @@ describe("summarise", () => {
     expect(summarise(fanout, "Ledger")).toBeNull();
   });
 
-  it("drops a member's quiet one-line reply to a group, keeps a real answer", () => {
-    const trigger: BotEvent = { id: 30, botId: "b2", ts: 1, type: "message", text: "envelope", data: { from: { type: "bot", groupId: "g1" }, extra: { group: { name: "Team" } } } };
-    const byId = new Map([[30, trigger]]);
-    // "Nothing to add" is the hub's own instruction being followed; five of these in a row were
-    // most of the feed.
-    const quiet: BotEvent = { id: 31, botId: "b2", ts: 2, type: "completed", text: "No addition needed; Concierge's status noted, nothing for Ledger to add.", data: { eventId: 30 } };
-    expect(summarise(quiet, "Ledger", byId)).toBeNull();
-    // A long completion in a group is an answer, and stays.
-    const answer: BotEvent = { id: 32, botId: "b2", ts: 3, type: "completed", text: "x".repeat(200), data: { eventId: 30 } };
-    expect(summarise(answer, "Ledger", byId)?.tone).toBe("done");
-    // The same short completion outside a group is a real result.
-    const solo: BotEvent = { id: 33, botId: "b2", ts: 4, type: "completed", text: "Done: 3 files.", data: {} };
-    expect(summarise(solo, "Ledger", byId)?.line).toBe("Ledger: Done: 3 files.");
-  });
-
-  it("drops a run the Bot itself called quiet, however it worded it", () => {
-    // The hub stamps the flag when a Bot resolves {quiet: true} on work nobody was waiting on, so
-    // the feed no longer has to guess from the wording or the length of the summary.
+  it("drops a run the Bot itself called quiet, and only that", () => {
+    // The hub stamps the flag when a Bot resolves {quiet: true} on work nobody was waiting on. The
+    // Bot's own word is the whole signal: nothing here reads the wording or the length to guess.
     const nothing: BotEvent = { id: 40, botId: "b1", ts: 1, type: "completed", text: "no change since yesterday", data: { eventId: 39, quiet: true } };
     expect(summarise(nothing, "Watcher")).toBeNull();
-    // A long one is still quiet if the Bot said so -- length was only ever a stand-in for the flag.
     const wordy: BotEvent = { id: 41, botId: "b1", ts: 2, type: "completed", text: "x".repeat(400), data: { eventId: 39, quiet: true } };
     expect(summarise(wordy, "Watcher")).toBeNull();
-    // Without the flag a completion is news, which is what keeps a real result from vanishing.
+    // Unflagged is news, however brief. This is what a length test got wrong: a real answer can be
+    // three words, and "nothing to add" can run for a paragraph.
     const real: BotEvent = { id: 42, botId: "b1", ts: 3, type: "completed", text: "the price dropped to £180", data: { eventId: 39 } };
     expect(summarise(real, "Watcher")?.line).toBe("Watcher: the price dropped to £180");
+    const terse: BotEvent = { id: 43, botId: "b2", ts: 4, type: "completed", text: "Done: 3 files.", data: { eventId: 39, groupId: "g1" } };
+    expect(summarise(terse, "Ledger")?.line).toBe("Ledger: Done: 3 files.");
   });
 
   it("drops bookkeeping nobody needs to read", () => {

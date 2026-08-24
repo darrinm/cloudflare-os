@@ -34,30 +34,22 @@ const trim = (text: string, max = 240) => {
  * One hub event as a sentence, or null when it is bookkeeping rather than news. Pure, so the
  * wording can be tested without a browser.
  */
-export function summarise(event: BotEvent, botName: string | null, byId?: Map<number, BotEvent>): FeedLine | null {
+export function summarise(event: BotEvent, botName: string | null): FeedLine | null {
   const who = botName ?? 'A Bot'
   const text = trim(event.text)
   const say = (tone: FeedLine['tone'], line: string): FeedLine => ({ id: event.id, botId: event.botId, ts: event.ts, tone, line })
-  const data = (event.data ?? {}) as { state?: string; eventId?: number; groupId?: string; quiet?: boolean; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
-  // Whether this event belongs to a group turn: the hub stamps `groupId` on the outcome (rev 10+);
-  // older hubs only marked the triggering delivery, so fall back to looking that up -- fragile
-  // when the trigger has scrolled out of the window, which is why the stamp exists.
-  const trigger = data.eventId !== undefined ? byId?.get(data.eventId) : undefined
-  const triggerData = (trigger?.data ?? {}) as { extra?: { group?: { name?: string } }; from?: { groupId?: string } }
-  const inGroup = Boolean(data.groupId || triggerData.extra?.group || triggerData.from?.groupId)
+  const data = (event.data ?? {}) as { state?: string; quiet?: boolean; from?: { type?: string; name?: string; groupId?: string }; extra?: { group?: { name?: string } } }
   switch (event.type) {
     case 'needsUser':
       return say('needs', text ? `${who} needs you: ${text}` : `${who} needs you.`)
     case 'completed': {
       // Work nobody was waiting on that came to nothing -- a routine that saw no change, a group
-      // post a member had nothing to add to. The Bot said so itself and the hub stamped it (rev
-      // 13+); the audit log keeps it, the reader is spared it. This is the whole point of the feed:
-      // a monitor that runs hourly and finds nothing should cost the reader no attention at all.
+      // post a member had nothing to add to. The Bot said so itself and the hub stamped it; the
+      // audit log keeps it, the reader is spared it. This is the whole point of the feed: a monitor
+      // that runs hourly and finds nothing should cost the reader no attention at all.
+      //
+      // Only the Bot's own word counts. Nothing here infers silence from the shape of the summary.
       if (data.quiet) return null
-      // Older hubs had no stamp, so a group member's short reply is still read as staying quiet by
-      // its length. Real contributions go through groupPost and appear as group events, so only a
-      // long completion (an answer, not a note) was ever kept here.
-      if (inGroup && text.length < 160) return null
       return say('done', text ? `${who}: ${text}` : `${who} finished.`)
     }
     case 'failed':
@@ -177,7 +169,6 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
   const byBot = useMemo(() => new Map(bots.map((b) => [b.id, b])), [bots])
 
   const lines = useMemo(() => {
-    const byId = new Map((events ?? []).map((e) => [e.id, e]))
     // The last time each Bot moved on -- the reader answered or decided, or the Bot finished or
     // failed. An ask older than that is no longer waiting on anyone, and pinning it forever would
     // fill the top of the feed with stale demands.
@@ -194,7 +185,7 @@ export function Feed({ bots, events, error, onOpenBot, header, extraLines }: {
       // at the top as "A Bot needs you" with a tap that opens nothing -- the audit log keeps the
       // event, but the feed is for what is live.
       .filter((e) => !e.botId || byBot.has(e.botId) || e.type !== 'needsUser')
-      .map((e) => summarise(e, e.botId ? byBot.get(e.botId)?.name ?? null : null, byId))
+      .map((e) => summarise(e, e.botId ? byBot.get(e.botId)?.name ?? null : null))
       .filter((l): l is FeedLine => l !== null)
       // An answered ask stays in the story, but as context, not as a demand.
       .map((l) => (l.tone === 'needs' && l.botId && (movedOn.get(l.botId) ?? 0) > l.ts
