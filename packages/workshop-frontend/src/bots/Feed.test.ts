@@ -80,6 +80,19 @@ describe("summarise", () => {
     expect(summarise(solo, "Ledger", byId)?.line).toBe("Ledger: Done: 3 files.");
   });
 
+  it("drops a run the Bot itself called quiet, however it worded it", () => {
+    // The hub stamps the flag when a Bot resolves {quiet: true} on work nobody was waiting on, so
+    // the feed no longer has to guess from the wording or the length of the summary.
+    const nothing: BotEvent = { id: 40, botId: "b1", ts: 1, type: "completed", text: "no change since yesterday", data: { eventId: 39, quiet: true } };
+    expect(summarise(nothing, "Watcher")).toBeNull();
+    // A long one is still quiet if the Bot said so -- length was only ever a stand-in for the flag.
+    const wordy: BotEvent = { id: 41, botId: "b1", ts: 2, type: "completed", text: "x".repeat(400), data: { eventId: 39, quiet: true } };
+    expect(summarise(wordy, "Watcher")).toBeNull();
+    // Without the flag a completion is news, which is what keeps a real result from vanishing.
+    const real: BotEvent = { id: 42, botId: "b1", ts: 3, type: "completed", text: "the price dropped to £180", data: { eventId: 39 } };
+    expect(summarise(real, "Watcher")?.line).toBe("Watcher: the price dropped to £180");
+  });
+
   it("drops bookkeeping nobody needs to read", () => {
     for (const type of ["created", "updated", "deleted", "agent", "skill", "delivered"]) {
       expect(summarise(event(type, "something"), "Scout")).toBeNull();
