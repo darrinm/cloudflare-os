@@ -65,7 +65,10 @@ export function WorkshopIconButton({
       {...props}
       variant={variant}
       shape="square"
-      className={`!flex !h-8 !w-8 shrink-0 cursor-pointer items-center justify-center rounded-md !p-0 transition-[background-color,color,opacity,transform] duration-150 ease-out active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${toneClassName} ${className}`}
+      // The invisible after:-inset-2 box widens the TAP area, not the look: the default 32px (and
+      // the sites that override smaller) sit under the ~44px touch floor, and fixing it here fixes
+      // every icon button at once instead of pasting the incantation per call site.
+      className={`relative !flex !h-8 !w-8 shrink-0 cursor-pointer items-center justify-center rounded-md !p-0 transition-[background-color,color,opacity,transform] duration-150 ease-out after:absolute after:-inset-2 after:content-[''] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${toneClassName} ${className}`}
     >
       {children}
     </Button>

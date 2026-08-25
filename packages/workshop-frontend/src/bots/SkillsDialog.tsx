@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { TAP_TARGET } from './eventKinds'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { X } from '@phosphor-icons/react'
 import { WorkshopIconButton } from '../components/WorkshopControls'
@@ -68,8 +69,8 @@ export function SkillsDialog({ open, onClose, hub, onAddExamples, addingExamples
                       <span className="block truncate text-[13px] md:text-[12px] text-kumo-subtle">{s.description || 'no description'}</span>
                     </span>
                     <span className="flex flex-none gap-1">
-                      <Button variant="secondary" size="sm" className="relative after:absolute after:-inset-2 after:content-['']" onClick={async () => { const full = await hub.getSkill(s.name); if (full) setEditing({ name: full.name, description: full.description, body: full.body ?? '' }) }}>Edit</Button>
-                      <Button variant="secondary" size="sm" className="relative after:absolute after:-inset-2 after:content-['']" onClick={async () => { await hub.removeSkill(s.name); await reload() }}>Remove</Button>
+                      <Button variant="secondary" size="sm" className={TAP_TARGET} onClick={async () => { const full = await hub.getSkill(s.name); if (full) setEditing({ name: full.name, description: full.description, body: full.body ?? '' }) }}>Edit</Button>
+                      <Button variant="secondary" size="sm" className={TAP_TARGET} onClick={async () => { await hub.removeSkill(s.name); await reload() }}>Remove</Button>
                     </span>
                   </li>
                 ))}
