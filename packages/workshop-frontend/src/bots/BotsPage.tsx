@@ -1015,8 +1015,13 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
     <>
       <aside className="hidden h-full w-80 flex-none border-l border-kumo-line bg-kumo-base lg:block">{body}</aside>
       {open && (
+        // Full width on a phone, a drawer once there is room beside it. Below `md` this screen is
+        // one pane at a time -- the roster hands over to the conversation the same way -- and a
+        // 360px drawer there left the transcript clipped mid-word in the strip beside it, close
+        // enough to read to look like a rendering fault rather than a panel. From `md` up there is
+        // room for the conversation to stay legible next to it, which is what a drawer is for.
         <div className="fixed inset-0 z-40 flex justify-end bg-black/30 lg:hidden" onClick={onClose}>
-          <div className="h-full w-[min(360px,100vw)] bg-kumo-base shadow-xl" onClick={(e) => e.stopPropagation()}>{body}</div>
+          <div className="h-full w-full bg-kumo-base shadow-xl md:w-[min(360px,100vw)]" onClick={(e) => e.stopPropagation()}>{body}</div>
         </div>
       )}
     </>
