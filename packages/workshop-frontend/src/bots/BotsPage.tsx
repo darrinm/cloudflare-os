@@ -998,23 +998,23 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
           ))}
         </ul>
       </Section>
-
-      <RunSkillDialog open={runSkillOpen} onClose={() => setRunSkillOpen(false)} hub={hub} botId={bot.id} botName={bot.name} />
-      <GrantsDialog
-        open={grantsOpen}
-        onClose={() => setGrantsOpen(false)}
-        bot={bot}
-        hub={hub}
-        overseer={overseer}
-        hubWorkpieceId={hubWorkpieceId}
-      />
     </div>
   )
 
+  // The dialogs live OUTSIDE `body`, which renders twice (docked aside + overlay drawer): inside
+  // it they mounted two portal instances whenever one opened. And while a dialog is open, the
+  // overlay drawer unmounts entirely -- one overlay at a time. Kumo's Dialog renders its backdrop
+  // and panel at z-index auto with no override prop, so anything with a positive z-index (the
+  // drawer is z-40) paints over an open dialog; on a phone that made "Change what it can use…"
+  // appear to do nothing, with the dialog open but buried. Handing off instead of stacking
+  // removes the fight rather than escalating z-indexes, and the drawer returns when the dialog
+  // closes because `open` never changed. The docked lg aside has no z-index, so dialogs paint
+  // over it by portal order and none of this applies.
+  const dialogOpen = grantsOpen || runSkillOpen
   return (
     <>
       <aside className="hidden h-full w-80 flex-none border-l border-kumo-line bg-kumo-base lg:block">{body}</aside>
-      {open && (
+      {open && !dialogOpen && (
         // Full width on a phone, a drawer once there is room beside it. Below `md` this screen is
         // one pane at a time -- the roster hands over to the conversation the same way -- and a
         // 360px drawer there left the transcript clipped mid-word in the strip beside it, close
@@ -1024,6 +1024,15 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
           <div className="h-full w-full bg-kumo-base shadow-xl md:w-[min(360px,100vw)]" onClick={(e) => e.stopPropagation()}>{body}</div>
         </div>
       )}
+      <RunSkillDialog open={runSkillOpen} onClose={() => setRunSkillOpen(false)} hub={hub} botId={bot.id} botName={bot.name} />
+      <GrantsDialog
+        open={grantsOpen}
+        onClose={() => setGrantsOpen(false)}
+        bot={bot}
+        hub={hub}
+        overseer={overseer}
+        hubWorkpieceId={hubWorkpieceId}
+      />
     </>
   )
 }
