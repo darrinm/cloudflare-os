@@ -27,6 +27,19 @@ export type AuditRow = {
 
 export const AUDIT_LIMIT = 500
 
+/**
+ * Event kinds as a person would say them. The stored kind is a code identifier (`needsUser`), and
+ * rendering it raw put shouted camelCase in the one log a worried owner reads on their phone. The
+ * raw kind still travels in exports, where a machine may be the reader.
+ */
+export const KIND_LABELS: Record<string, string> = {
+  message: 'Message', delivered: 'Delivered', completed: 'Finished', failed: 'Failed',
+  needsUser: 'Needs you', decision: 'Decision', capped: 'Spending limit', away: 'Held while away',
+  memory: 'Remembered', forget: 'Forgot', routine: 'Routine', group: 'Group', groupPost: 'Group post',
+  skill: 'Skill', agent: 'Agent', created: 'Created', updated: 'Updated', deleted: 'Deleted',
+}
+export const kindLabel = (t: string) => KIND_LABELS[t] ?? t
+
 export function auditRows(events: BotEvent[], names: Map<string, string>): AuditRow[] {
   return events.map((e) => {
     const data = (e.data ?? {}) as { state?: string; autoApproved?: boolean }
@@ -94,9 +107,11 @@ export function Audit({ bots, events, error, onOpenBot }: {
         </select>
         <select className={select} value={type} onChange={(e) => setType(e.target.value)} aria-label="Kind">
           <option value="">All kinds</option>
-          {types.map((t) => <option key={t} value={t}>{t}</option>)}
+          {types.map((t) => <option key={t} value={t}>{kindLabel(t)}</option>)}
         </select>
-        <input className={`${select} min-w-0 flex-1`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search" />
+        {/* On a phone the selects won this row and squeezed search to a sliver; full-width on its
+            own line keeps it usable, and md+ restores the single row. */}
+        <input className={`${select} order-first w-full min-w-0 md:order-none md:w-auto md:flex-1`} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search" />
         <Button variant="secondary" size="sm" onClick={() => exportAs('json')} disabled={!shown.length}>JSON</Button>
         <Button variant="secondary" size="sm" onClick={() => exportAs('csv')} disabled={!shown.length}>CSV</Button>
       </div>
@@ -115,7 +130,7 @@ export function Audit({ bots, events, error, onOpenBot }: {
                   {r.bot}
                 </button>
               )}
-              <span className="uppercase tracking-wide">{r.type}</span>
+              <span className="uppercase tracking-wide">{kindLabel(r.type)}</span>
               {r.decision && (
                 <span className={r.decision.approved ? 'text-kumo-default' : 'text-kumo-danger'}>
                   {r.decision.approved ? 'approved' : 'rejected'}{r.decision.auto ? ' · always allow' : ''}

@@ -38,9 +38,12 @@ import SidebarUtilityStrip from './SidebarUtilityStrip'
 export default function Sidebar({
   collapsed,
   onToggleCollapsed,
+  mobileClose = false,
 }: {
   collapsed: boolean
   onToggleCollapsed: () => void
+  /** In the mobile drawer the toggle CLOSES the menu; label it as that, not as a desktop collapse. */
+  mobileClose?: boolean
 }) {
   const siteName = useSiteName()
   // Gatekeeper-served management apps the user can reach now (one per gatekeeper that provides a UI
@@ -90,8 +93,8 @@ export default function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
+              aria-label={mobileClose ? 'Close menu' : 'Collapse sidebar'}
+              title={mobileClose ? 'Close menu' : 'Collapse sidebar'}
               className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-kumo-inactive transition-colors hover:bg-kumo-tint hover:text-kumo-default"
             >
               <SidebarSimple size={15} />
