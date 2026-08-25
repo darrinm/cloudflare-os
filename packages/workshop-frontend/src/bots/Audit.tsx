@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Button } from '@cloudflare/kumo'
 import { saveStreamToFile } from '../fileTransfers'
 import BotAvatar from './BotAvatar'
+import { kindLabel } from './eventKinds'
 import { fmtTime } from './GroupView'
 import type { Bot, BotEvent } from './types'
 
@@ -26,19 +27,6 @@ export type AuditRow = {
 }
 
 export const AUDIT_LIMIT = 500
-
-/**
- * Event kinds as a person would say them. The stored kind is a code identifier (`needsUser`), and
- * rendering it raw put shouted camelCase in the one log a worried owner reads on their phone. The
- * raw kind still travels in exports, where a machine may be the reader.
- */
-export const KIND_LABELS: Record<string, string> = {
-  message: 'Message', delivered: 'Delivered', completed: 'Finished', failed: 'Failed',
-  needsUser: 'Needs you', decision: 'Decision', capped: 'Spending limit', away: 'Held while away',
-  memory: 'Remembered', forget: 'Forgot', routine: 'Routine', group: 'Group', groupPost: 'Group post',
-  skill: 'Skill', agent: 'Agent', created: 'Created', updated: 'Updated', deleted: 'Deleted',
-}
-export const kindLabel = (t: string) => KIND_LABELS[t] ?? t
 
 export function auditRows(events: BotEvent[], names: Map<string, string>): AuditRow[] {
   return events.map((e) => {
@@ -130,7 +118,7 @@ export function Audit({ bots, events, error, onOpenBot }: {
                   {r.bot}
                 </button>
               )}
-              <span className="uppercase tracking-wide">{kindLabel(r.type)}</span>
+              <span className="tracking-wide">{kindLabel(r.type)}</span>
               {r.decision && (
                 <span className={r.decision.approved ? 'text-kumo-default' : 'text-kumo-danger'}>
                   {r.decision.approved ? 'approved' : 'rejected'}{r.decision.auto ? ' · always allow' : ''}

@@ -29,6 +29,7 @@ import { useBotsWorkspace } from './useBotsWorkspace'
 import type { Bot, BotCosts, BotEvent, BotMemory, BotRoutine } from './types'
 import { GroupDialog, GroupView } from './GroupView'
 import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
+import { TAP_TARGET, kindLabel } from './eventKinds'
 import { seedExampleBots } from './examples'
 import { BOTS_BLUEPRINT_ID } from './types'
 import {
@@ -443,7 +444,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => setView(v)}
-                className={`relative rounded-md px-2 py-1 text-[14px] after:absolute after:-inset-2 after:content-[''] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
+                className={`${TAP_TARGET} rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
               >
                 {VIEW_LABEL[v]}
               </button>
@@ -505,7 +506,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         {(hubState.groups.length > 0 || hubState.bots.length > 1) && (
           <div className="flex items-center justify-between border-b border-kumo-line px-3 py-1.5">
             <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-wide text-kumo-subtle">Groups</span>
-            <WorkshopIconButton onClick={() => setShowNewGroup(true)} title="New group" aria-label="New group" className="relative !h-6 !w-6 after:absolute after:-inset-2.5 after:content-['']"><Plus size={12} /></WorkshopIconButton>
+            <WorkshopIconButton onClick={() => setShowNewGroup(true)} title="New group" aria-label="New group" className="!h-6 !w-6"><Plus size={12} /></WorkshopIconButton>
           </div>
         )}
         {hubState.groups.map((g) => (
@@ -994,7 +995,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
         <ul className="flex flex-col gap-1.5">
           {events.filter((e) => e.type !== 'delivered').slice(-30).toReversed().map((e) => (
             <li key={e.id} className="text-[13px] md:text-[12px]">
-              <span className="text-[12px] md:text-[11px] uppercase tracking-wide text-kumo-subtle">{e.type} · {fmtTime(e.ts)}</span>
+              <span className="text-[12px] md:text-[11px] tracking-wide text-kumo-subtle">{kindLabel(e.type)} · {fmtTime(e.ts)}</span>
               {e.text && <div className="whitespace-pre-wrap text-kumo-default">{e.text.slice(0, 400)}</div>}
             </li>
           ))}
@@ -1005,13 +1006,14 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
 
   // The dialogs live OUTSIDE `body`, which renders twice (docked aside + overlay drawer): inside
   // it they mounted two portal instances whenever one opened. And while a dialog is open, the
-  // overlay drawer unmounts entirely -- one overlay at a time. Kumo's Dialog renders its backdrop
-  // and panel at z-index auto with no override prop, so anything with a positive z-index (the
-  // drawer is z-40) paints over an open dialog; on a phone that made "Change what it can use…"
-  // appear to do nothing, with the dialog open but buried. Handing off instead of stacking
-  // removes the fight rather than escalating z-indexes, and the drawer returns when the dialog
-  // closes because `open` never changed. The docked lg aside has no z-index, so dialogs paint
-  // over it by portal order and none of this applies.
+  // overlay drawer unmounts entirely -- one overlay at a time. Kumo's Dialog portal is not on the
+  // app's overlay layer scale (styles.css puts popover positioners at 1100; the dialog portal
+  // measures z-index auto and Kumo exposes no prop), so anything with a positive z-index -- the
+  // drawer is z-40 -- paints over an open dialog; on a phone that made "Change what it can use…"
+  // appear to do nothing, with the dialog open but buried. Handing off instead of stacking is the
+  // deliberate choice even so: on one phone-width screen, two stacked overlays are never right,
+  // and the drawer returns when the dialog closes because `open` never changed. The docked lg
+  // aside has no z-index, so dialogs paint over it by portal order and none of this applies.
   const dialogOpen = grantsOpen || runSkillOpen
   return (
     <>
@@ -1023,7 +1025,7 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
         // enough to read to look like a rendering fault rather than a panel. From `md` up there is
         // room for the conversation to stay legible next to it, which is what a drawer is for.
         <div className="fixed inset-0 z-40 flex justify-end bg-black/30 lg:hidden" onClick={onClose}>
-          <div className="h-full w-full bg-kumo-base shadow-xl md:w-[min(360px,100vw)]" onClick={(e) => e.stopPropagation()}>{body}</div>
+          <div className="h-full w-full bg-kumo-base shadow-xl md:w-[360px]" onClick={(e) => e.stopPropagation()}>{body}</div>
         </div>
       )}
       <RunSkillDialog open={runSkillOpen} onClose={() => setRunSkillOpen(false)} hub={hub} botId={bot.id} botName={bot.name} />
