@@ -129,7 +129,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             tabIndex={-1}
             className="fixed inset-y-0 left-0 z-50 outline-none md:hidden"
           >
-            <Sidebar collapsed={false} onToggleCollapsed={() => setMobileOpen(false)} />
+            <Sidebar collapsed={false} onToggleCollapsed={() => setMobileOpen(false)} mobileClose />
           </div>
         </>
       )}

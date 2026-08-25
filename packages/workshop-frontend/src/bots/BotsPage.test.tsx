@@ -215,7 +215,11 @@ describe("BotsPageContent", () => {
     expect(container!.querySelector('[aria-current="page"]')?.textContent).toContain("Inbox Manager");
     // Details panel shows persona fields and grants for the selected Bot.
     expect(container!.textContent).toContain("Grants");
-    expect(container!.textContent).toContain("AGENT_SPAWNER");
+    // The mechanism is troubleshooting detail, demoted to a hover title: the binding name must
+    // NOT render as visible text (an internal noun on a non-technical screen), but stays
+    // reachable for someone following docs/bots.md.
+    expect(container!.textContent).not.toContain("AGENT_SPAWNER");
+    expect(container!.querySelector('[title*="AGENT_SPAWNER"]')).toBeTruthy();
     expect(localStorage.getItem("bots:workspace")).toContain("ws1");
     // The Computer section lists the Bot's browser profile (from the hub's BROWSER_<BOT> binding)
     // and reports no sandbox.

@@ -443,7 +443,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => setView(v)}
-                className={`rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
+                className={`relative rounded-md px-2 py-1 text-[14px] after:absolute after:-inset-2 after:content-[''] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
               >
                 {VIEW_LABEL[v]}
               </button>
@@ -505,7 +505,7 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
         {(hubState.groups.length > 0 || hubState.bots.length > 1) && (
           <div className="flex items-center justify-between border-b border-kumo-line px-3 py-1.5">
             <span className="text-[12px] md:text-[11px] font-medium uppercase tracking-wide text-kumo-subtle">Groups</span>
-            <WorkshopIconButton onClick={() => setShowNewGroup(true)} title="New group" aria-label="New group" className="!h-6 !w-6"><Plus size={12} /></WorkshopIconButton>
+            <WorkshopIconButton onClick={() => setShowNewGroup(true)} title="New group" aria-label="New group" className="relative !h-6 !w-6 after:absolute after:-inset-2.5 after:content-['']"><Plus size={12} /></WorkshopIconButton>
           </div>
         )}
         {hubState.groups.map((g) => (
@@ -898,9 +898,11 @@ function BotDetails({ bot, hub, hubVersion, overseer, hubWorkpieceId, open, onCl
       </Section>
 
       <Section title="Grants">
-        <p className="text-[13px] md:text-[12px] text-kumo-subtle">
-          What this Bot may use. Currently through <code className="text-kumo-default">{bot.spawnerBinding}</code>
-          {bot.agentGeneration > 1 ? ` (agent #${bot.agentGeneration})` : ''}.
+        {/* The mechanism (spawner binding, agent generation) is troubleshooting detail, not part of
+            deciding what a Bot may touch -- an internal noun on the one screen a non-technical
+            owner reads. It survives as a hover title for the person following docs/bots.md. */}
+        <p className="text-[13px] md:text-[12px] text-kumo-subtle" title={`Granted through ${bot.spawnerBinding}${bot.agentGeneration > 1 ? ` (agent #${bot.agentGeneration})` : ''}`}>
+          What this Bot may use.
           {pendingCount > 0 && <> {pendingCount} action{pendingCount === 1 ? '' : 's'} awaiting approval in the conversation.</>}
         </p>
         <div className="flex flex-wrap gap-2">
