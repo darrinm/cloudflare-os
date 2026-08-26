@@ -54,6 +54,36 @@ export type OverlayRect = { left: number; top: number; width: number; height: nu
  */
 export type PresentAck = { rect: OverlayRect | null; willResize: boolean }
 
+// ---------------------------------------------------------------------------
+// Phone app-bar actions (workshop-shared/header-actions)
+//
+// Below the host's phone breakpoint the shell's top bar is the app bar. The page registers its
+// few header actions there and hides its own header block while the bar presents them.
+// ---------------------------------------------------------------------------
+
+/** One bar action plus its in-app handler; the id/label/kind half crosses the RPC boundary. */
+export type HeaderActionSpec = {
+  id: string
+  label: string
+  kind?: 'refresh' | 'more' | 'add'
+  onAction: () => void
+}
+
+export type HeaderBar = {
+  /** True while the host bar presents the registered actions (phone widths). */
+  presented: boolean
+  /** Replace the registered action set; register `[]` for screen states with no bar actions. */
+  setActions: (specs: HeaderActionSpec[]) => void
+}
+
+const HeaderBarContext = createContext<HeaderBar>({ presented: false, setActions: () => {} })
+
+export const HeaderBarProvider = HeaderBarContext.Provider
+
+export function useHeaderBar(): HeaderBar {
+  return useContext(HeaderBarContext)
+}
+
 /** Enter/leave overlay mode. */
 export type PresentationController = {
   present(): void

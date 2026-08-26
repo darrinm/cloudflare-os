@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { GatekeeperUiFrame } from '@gadgets/workshop-shared/gatekeeper'
 import { useAuthenticatedApi } from './AuthContext'
+import { useGatekeeperApps } from './useGatekeeperApps'
 import SandboxedGatekeeperApp from './SandboxedGatekeeperApp'
 import { reportIssue } from './errorReporting'
 
@@ -15,6 +16,8 @@ function disposeFrame(frame: GatekeeperUiFrame | null) {
  */
 export default function GatekeeperAppPage({ appId, params }: { appId: string; params?: Record<string, string> }) {
   const { authenticatedApi } = useAuthenticatedApi()
+  // The same data the sidebar and the app-bar fallback title render, so the two cannot drift.
+  const title = useGatekeeperApps().find((app) => app.id === appId)?.title ?? ''
   // Wrap the frame in an object: it holds a `ui` RPC stub, and we never want useState's setter to
   // treat a stored value as an updater function.
   const [state, setState] = useState<{ frame: GatekeeperUiFrame } | null>(null)
@@ -66,7 +69,7 @@ export default function GatekeeperAppPage({ appId, params }: { appId: string; pa
   // Fill the routed area below the header so the embedded app can manage its own internal layout.
   return (
     <div className="h-full">
-      <SandboxedGatekeeperApp frame={state.frame} gatekeeperVendorId={appId} />
+      <SandboxedGatekeeperApp frame={state.frame} gatekeeperVendorId={appId} title={title} />
     </div>
   )
 }

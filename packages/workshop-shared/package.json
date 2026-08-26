@@ -11,6 +11,10 @@
       "types": "./src/feature-flags.ts",
       "import": "./src/feature-flags.ts"
     },
+    "./header-actions": {
+      "types": "./src/header-actions.ts",
+      "import": "./src/header-actions.ts"
+    },
     "./gatekeeper": {
       "types": "./src/gatekeeper.ts",
       "import": "./src/gatekeeper.ts"

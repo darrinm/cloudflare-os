@@ -7,6 +7,14 @@ import type {
   GatekeeperAppTheme,
   GatekeeperAppThemeReceiver,
 } from '@gadgets/workshop-shared/theme'
+import {
+  parseHeaderActions,
+  type GatekeeperAppHeaderAction,
+  type GatekeeperAppHeaderReceiver,
+} from '@gadgets/workshop-shared/header-actions'
+import { ArrowClockwise, DotsThree, Plus } from '@phosphor-icons/react'
+import { MobileHeader } from './components/AppShell/mobileHeader'
+import { WorkshopButton, WorkshopIconButton } from './components/WorkshopControls'
 import { isHexColor } from '@gadgets/workshop-shared/api'
 import { createRateLimitedCapability } from './rateLimitedCapability'
 import { useTheme } from './ThemeContext'
@@ -85,9 +93,12 @@ class GatekeeperAppHostImpl extends RpcTarget {
   readonly #openTarget: OpenTarget
   readonly #openPrompt: OpenPrompt
   readonly #resolveWorkspaceTitles: ResolveWorkspaceTitles
+  readonly #onHeaderActions: (actions: GatekeeperAppHeaderAction[]) => void
   #presenting = false
   #theme: GatekeeperAppTheme
   #themeReceiver: RpcStub<GatekeeperAppThemeReceiver> | null = null
+  #headerReceiver: RpcStub<GatekeeperAppHeaderReceiver> | null = null
+  #headerPresented: boolean
   // Presentation changes are coalesced to a single apply per animation frame (see #applyPending).
   #pendingActive: boolean | null = null
   #pendingResolvers: ((ack: PresentAck) => void)[] = []
@@ -100,9 +111,13 @@ class GatekeeperAppHostImpl extends RpcTarget {
     openTarget: OpenTarget,
     openPrompt: OpenPrompt,
     resolveWorkspaceTitles: ResolveWorkspaceTitles,
+    headerPresented: boolean,
+    onHeaderActions: (actions: GatekeeperAppHeaderAction[]) => void,
   ) {
     super()
     this.#theme = theme
+    this.#headerPresented = headerPresented
+    this.#onHeaderActions = onHeaderActions
     const { capability: ui, dispose } = createRateLimitedCapability(capability, {
       maxConcurrency: 8,
       maxCallsPerMinute: 600,
@@ -169,6 +184,53 @@ class GatekeeperAppHostImpl extends RpcTarget {
     }
   }
 
+  // The app registers its phone app-bar actions and a receiver for taps and presentation changes.
+  // Returns whether the bar is presenting them right now (phone widths), so the app can collapse
+  // its own header synchronously. Re-registering replaces the previous set.
+  setHeaderActions(
+    actions: GatekeeperAppHeaderAction[],
+    receiver: RpcStub<GatekeeperAppHeaderReceiver>,
+  ): boolean {
+    const parsed = parseHeaderActions(actions)
+    this.#headerReceiver?.[Symbol.dispose]?.()
+    // The argument stub is disposed when this call returns, so keep our own dup (released in dispose).
+    this.#headerReceiver = receiver.dup()
+    this.#onHeaderActions(parsed)
+    return this.#headerPresented
+  }
+
+  #dropHeaderReceiver(receiver: RpcStub<GatekeeperAppHeaderReceiver>) {
+    if (this.#headerReceiver !== receiver) return
+    receiver[Symbol.dispose]?.()
+    this.#headerReceiver = null
+    this.#onHeaderActions([])
+  }
+
+  // Relay a bar tap to the app; drop the receiver (and the bar's buttons) if it is gone.
+  invokeHeaderAction(id: string) {
+    const receiver = this.#headerReceiver
+    if (!receiver) return
+    try {
+      Promise.resolve(receiver.onHeaderAction(id)).catch(() => this.#dropHeaderReceiver(receiver))
+    } catch {
+      this.#dropHeaderReceiver(receiver)
+    }
+  }
+
+  // Push a breakpoint crossing to a registered app; a no-op until (and unless) one registers.
+  updateHeaderPresented(presented: boolean) {
+    if (this.#headerPresented === presented) return
+    this.#headerPresented = presented
+    const receiver = this.#headerReceiver
+    if (!receiver) return
+    try {
+      Promise.resolve(receiver.setHeaderPresented(presented))
+        .catch(() => this.#dropHeaderReceiver(receiver))
+    } catch {
+      this.#dropHeaderReceiver(receiver)
+    }
+  }
+
   // Queue a presentation change; the latest requested state is applied on the next frame.
   setPresenting(active: boolean): Promise<PresentAck> {
     return new Promise((resolve) => {
@@ -197,6 +259,8 @@ class GatekeeperAppHostImpl extends RpcTarget {
     this.#disposeRateLimiter()
     this.#themeReceiver?.[Symbol.dispose]?.()
     this.#themeReceiver = null
+    this.#headerReceiver?.[Symbol.dispose]?.()
+    this.#headerReceiver = null
     if (this.#frameId !== null) {
       cancelAnimationFrame(this.#frameId)
       this.#frameId = null
@@ -216,9 +280,15 @@ class GatekeeperAppHostImpl extends RpcTarget {
  * talks to the gatekeeper only through the `ui` capability carried over the MessagePort RPC session.
  * The iframe fills its parent container.
  */
-export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
+// The shell bar presents an app's header actions below Tailwind's `md`, where the bar is the one
+// app bar (see mobileHeader.tsx). Above it, apps keep their own inline headers.
+const HEADER_PRESENTED_QUERY = '(max-width: 767.9px)'
+
+export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId, title = '' }: {
   frame: GatekeeperUiFrame,
   gatekeeperVendorId: string,
+  /** The app's display title, shown in the phone app bar when the app registers header actions. */
+  title?: string,
 }) {
   const navigate = useNavigate()
   const { authenticatedApi } = useAuthenticatedApi()
@@ -240,6 +310,26 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
   useEffect(() => {
     hostRef.current?.updateTheme({ mode: resolvedThemeMode, accentColor })
   }, [resolvedThemeMode, accentColor])
+
+  // The app's registered phone app-bar actions; empty until (and unless) the app registers.
+  const [headerActions, setHeaderActions] = useState<GatekeeperAppHeaderAction[]>([])
+  // Track the breakpoint so registration returns the current state and crossings are pushed.
+  // (jsdom implements no matchMedia; tests get the desktop default.)
+  const [headerPresented, setHeaderPresented] = useState(
+    () => window.matchMedia?.(HEADER_PRESENTED_QUERY).matches ?? false,
+  )
+  const headerPresentedRef = useRef(headerPresented)
+  headerPresentedRef.current = headerPresented
+  useEffect(() => {
+    if (!window.matchMedia) return
+    const query = window.matchMedia(HEADER_PRESENTED_QUERY)
+    const onChange = () => setHeaderPresented(query.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+  useEffect(() => {
+    hostRef.current?.updateHeaderPresented(headerPresented)
+  }, [headerPresented])
 
   const setOverlayPhase = useCallback((next: OverlayState) => {
     if (overlayRef.current === next) return
@@ -311,6 +401,7 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
         sessionRef.current = null
         hostRef.current?.dispose()
         hostRef.current = null
+        setHeaderActions([])
         setOverlayPhase(null)
         return
       }
@@ -325,6 +416,8 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
         openTarget,
         openPrompt,
         resolveWorkspaceTitles,
+        headerPresentedRef.current,
+        setHeaderActions,
       )
       hostRef.current = host
       sessionRef.current = newMessagePortRpcSession(port, host)
@@ -353,6 +446,7 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
       sessionRef.current = null
       hostRef.current?.dispose()
       hostRef.current = null
+      setHeaderActions([])
       setOverlayPhase(null)
     }
     // Re-establish the session if either the HTML or the `ui` capability changes, so a new frame
@@ -361,15 +455,54 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
       present, resolveWorkspaceTitles, setOverlayPhase])
 
   return (
-    <iframe
-      ref={iframeRef}
-      srcDoc={frame.iframeHtml}
-      // allow-scripts: run the app's JS. allow-modals: its beforeunload unsaved-changes guard. Not
-      // allow-same-origin (the frame stays an opaque origin), and the app's CSP keeps connect-src 'none'.
-      sandbox="allow-scripts allow-modals"
-      allow="clipboard-write"
-      title="Tool"
-      style={iframeStyleForOverlay(overlay)}
-    />
+    <>
+      {/* The phone app bar for this screen: the app's title plus the actions it registered. The
+          portal renders nothing at md+, where the app shows its own inline header. */}
+      {headerActions.length > 0 && (
+        <MobileHeader>
+          <div className="min-w-0 flex-1 truncate text-[15px] font-medium text-kumo-default">
+            {title}
+          </div>
+          {headerActions.map((action) => (
+            <HeaderActionButton
+              key={action.id}
+              action={action}
+              onClick={() => hostRef.current?.invokeHeaderAction(action.id)}
+            />
+          ))}
+        </MobileHeader>
+      )}
+      <iframe
+        ref={iframeRef}
+        srcDoc={frame.iframeHtml}
+        // allow-scripts: run the app's JS. allow-modals: its beforeunload unsaved-changes guard. Not
+        // allow-same-origin (the frame stays an opaque origin), and the app's CSP keeps connect-src 'none'.
+        sandbox="allow-scripts allow-modals"
+        allow="clipboard-write"
+        title="Tool"
+        style={iframeStyleForOverlay(overlay)}
+      />
+    </>
+  )
+}
+
+const HEADER_ACTION_ICONS = {
+  refresh: ArrowClockwise,
+  more: DotsThree,
+  add: Plus,
+} as const
+
+function HeaderActionButton({ action, onClick }: {
+  action: GatekeeperAppHeaderAction
+  onClick: () => void
+}) {
+  const Icon = action.kind && HEADER_ACTION_ICONS[action.kind]
+  if (!Icon) {
+    return <WorkshopButton onClick={onClick}>{action.label}</WorkshopButton>
+  }
+  return (
+    <WorkshopIconButton onClick={onClick} aria-label={action.label} title={action.label}>
+      <Icon size={14} />
+    </WorkshopIconButton>
   )
 }

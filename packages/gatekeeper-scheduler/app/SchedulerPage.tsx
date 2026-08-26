@@ -6,7 +6,15 @@ import {
   Plus,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { getHeaderPresented, subscribeHeaderPresented } from "./headerBar";
 import type {
   ManagementListOptions,
   ManagementSchedule,
@@ -169,13 +177,21 @@ export default function SchedulerPage({
     }
   }, []);
 
+  const headerPresented = useSyncExternalStore(subscribeHeaderPresented, getHeaderPresented);
+
   // The account has no schedules at all: "all" spans every status, so an empty unfiltered page
   // means there is nothing for the search field or the status tabs to act on.
   const isEmpty =
     !loading && !error && schedules.length === 0 && !debouncedQuery && filter === "all";
   return (
-    <main className="mx-auto min-h-full w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-12">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <main
+      className={`mx-auto min-h-full w-full max-w-5xl px-5 sm:px-8 sm:py-12 ${headerPresented ? "py-4" : "py-10"}`}
+    >
+      {/* While the shell's phone app bar presents the title and the Create action (headerBar.ts),
+          this block would repeat both under it. */}
+      <header
+        className={`flex-col gap-5 sm:flex sm:flex-row sm:items-end sm:justify-between ${headerPresented ? "hidden" : "flex"}`}
+      >
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">
             Scheduled tasks
