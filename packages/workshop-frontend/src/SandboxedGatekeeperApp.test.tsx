@@ -36,15 +36,31 @@ vi.mock("./errorReporting", () => ({
   forwardTrustedFrameError: () => false,
 }));
 
+// jsdom implements no matchMedia; report the phone breakpoint as matched so the sessions run
+// presented=true and the app bar renders.
+window.matchMedia ??= ((query: string) => ({
+  matches: true,
+  media: query,
+  addEventListener() {},
+  removeEventListener() {},
+  addListener() {},
+  removeListener() {},
+  onchange: null,
+  dispatchEvent: () => false,
+})) as typeof window.matchMedia;
+
 const WORKSPACE_ID = "a".repeat(64);
 
 const listGadgets = vi.fn<() => Promise<{ id: string; title: string }[]>>(async () => [
   { id: WORKSPACE_ID, title: "Daily Brief" },
 ]);
-const authenticatedApi = { listGadgets };
+// The component titles its app bar from the same listGatekeeperApps data the shell renders.
+const listGatekeeperApps = async () => [{ id: "browser", title: "Browser" }];
+const authenticatedApi = { listGadgets, listGatekeeperApps };
 
 vi.mock("./AuthContext", () => ({
   useAuthenticatedApi: () => ({ authenticatedApi }),
+  useOptionalAuthenticatedApi: () => ({ authenticatedApi }),
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -54,7 +70,7 @@ interface TestHost extends RpcTarget {
   setHeaderActions(
     actions: GatekeeperAppHeaderAction[],
     receiver: GatekeeperAppHeaderReceiver,
-  ): Promise<boolean>;
+  ): Promise<void>;
   setPresenting(active: boolean): Promise<{
     rect: { left: number; top: number; width: number; height: number } | null;
     willResize: boolean;
@@ -199,7 +215,7 @@ describe("SandboxedGatekeeperApp navigation", () => {
     const rootRoute = createRootRoute({
       component: () => (
         <MobileHeaderContext.Provider value={{ container: slot, onMount: () => () => {} }}>
-          <SandboxedGatekeeperApp frame={frame} gatekeeperVendorId="browser" title="Browser" />
+          <SandboxedGatekeeperApp frame={frame} gatekeeperVendorId="browser" />
         </MobileHeaderContext.Provider>
       ),
     });
@@ -243,9 +259,8 @@ describe("SandboxedGatekeeperApp navigation", () => {
       ),
     ).rejects.toThrow("Invalid header action");
 
-    let result: boolean | undefined;
     await act(async () => {
-      result = await host!.setHeaderActions(
+      await host!.setHeaderActions(
         [
           { id: "more", label: "More options", kind: "more" },
           { id: "refresh", label: "Refresh", kind: "refresh" },
@@ -253,11 +268,11 @@ describe("SandboxedGatekeeperApp navigation", () => {
         new TestHeaderReceiver(),
       );
     });
-    // jsdom has no matchMedia, so the host reports the desktop default: not presented.
-    expect(result).toBe(false);
+    // Registration seeds the receiver with the current presentation state.
+    await vi.waitFor(() => expect(presented).toEqual([true]));
 
     // The bar carries the app's title and its two actions.
-    expect(slot.textContent).toContain("Browser");
+    await vi.waitFor(() => expect(slot.textContent).toContain("Browser"));
     const refresh = slot.querySelector<HTMLButtonElement>('[aria-label="Refresh"]');
     const more = slot.querySelector<HTMLButtonElement>('[aria-label="More options"]');
     if (!refresh || !more) throw new Error("Missing header action buttons");

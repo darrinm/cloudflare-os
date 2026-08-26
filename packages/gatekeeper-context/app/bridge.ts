@@ -13,6 +13,10 @@ import {
 import { flushSync } from 'react-dom'
 import type { RpcStub } from 'capnweb'
 import type { ContextApi } from '../src/context-types'
+import {
+  getHeaderPresented,
+  subscribeHeaderPresented,
+} from '@gadgets/workshop-shared/header-actions'
 import { getThemeMode, subscribeThemeMode, type ResolvedThemeMode } from './theme'
 
 /**
@@ -21,6 +25,14 @@ import { getThemeMode, subscribeThemeMode, type ResolvedThemeMode } from './them
  */
 export function useResolvedThemeMode(): ResolvedThemeMode {
   return useSyncExternalStore(subscribeThemeMode, getThemeMode)
+}
+
+/**
+ * Subscribe a component to whether the host's phone app bar is presenting the page's registered
+ * header actions (see workshop-shared/header-actions).
+ */
+export function useHeaderPresented(): boolean {
+  return useSyncExternalStore(subscribeHeaderPresented, getHeaderPresented)
 }
 
 // React context carrying the host-injected ContextApi capability (the gatekeeper's `ui` stub).
@@ -53,36 +65,6 @@ export type OverlayRect = { left: number; top: number; width: number; height: nu
  * to/from full-viewport actually changes its pixel size (it won't if the pane already fills the window).
  */
 export type PresentAck = { rect: OverlayRect | null; willResize: boolean }
-
-// ---------------------------------------------------------------------------
-// Phone app-bar actions (workshop-shared/header-actions)
-//
-// Below the host's phone breakpoint the shell's top bar is the app bar. The page registers its
-// few header actions there and hides its own header block while the bar presents them.
-// ---------------------------------------------------------------------------
-
-/** One bar action plus its in-app handler; the id/label/kind half crosses the RPC boundary. */
-export type HeaderActionSpec = {
-  id: string
-  label: string
-  kind?: 'refresh' | 'more' | 'add'
-  onAction: () => void
-}
-
-export type HeaderBar = {
-  /** True while the host bar presents the registered actions (phone widths). */
-  presented: boolean
-  /** Replace the registered action set; register `[]` for screen states with no bar actions. */
-  setActions: (specs: HeaderActionSpec[]) => void
-}
-
-const HeaderBarContext = createContext<HeaderBar>({ presented: false, setActions: () => {} })
-
-export const HeaderBarProvider = HeaderBarContext.Provider
-
-export function useHeaderBar(): HeaderBar {
-  return useContext(HeaderBarContext)
-}
 
 /** Enter/leave overlay mode. */
 export type PresentationController = {

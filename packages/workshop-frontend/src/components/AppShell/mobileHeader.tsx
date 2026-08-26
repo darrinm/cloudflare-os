@@ -34,6 +34,22 @@ export function MobileHeader({ children }: { children: ReactNode }) {
   return createPortal(children, slot.container)
 }
 
+// The viewport range where the bar presents. Matches the bar slot's `md:hidden` in AppShell
+// (Tailwind `md` = 768px) — keep in step.
+export const MOBILE_BAR_QUERY = '(max-width: 767.9px)'
+
+/** The bar's one title typography. */
+export function MobileHeaderTitle({ children, className = '' }: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`min-w-0 flex-1 truncate text-[15px] font-medium text-kumo-default ${className}`}>
+      {children}
+    </div>
+  )
+}
+
 /**
  * The fallback: a screen that registers nothing is titled by its route. The static labels mirror
  * Sidebar's nav (keep them in step — they are seven short strings, not worth restructuring the

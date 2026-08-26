@@ -4,18 +4,17 @@ import type {
   GatekeeperAppTheme,
   GatekeeperAppThemeReceiver,
 } from "@gadgets/workshop-shared/theme";
-import type {
-  GatekeeperAppHeaderAction,
-  GatekeeperAppHeaderReceiver,
+import {
+  dispatchHeaderAction,
+  setHeaderPresented,
+  wireHeaderBarRegistrar,
+  type GatekeeperAppHeaderAction,
+  type GatekeeperAppHeaderReceiver,
 } from "@gadgets/workshop-shared/header-actions";
-import SchedulerPage, {
-  CREATE_SCHEDULE_PROMPT,
-  type ScheduleManagementClient,
-} from "./SchedulerPage";
+import SchedulerPage, { type ScheduleManagementClient } from "./SchedulerPage";
 import ErrorBoundary from "./ErrorBoundary";
 import { installErrorReporting, reportIssue } from "./error-reporting";
 import { applyAppTheme } from "./theme";
-import { setHeaderPresented } from "./headerBar";
 import "./styles.css";
 
 installErrorReporting();
@@ -24,16 +23,12 @@ class AppIframe
   extends RpcTarget
   implements GatekeeperAppThemeReceiver, GatekeeperAppHeaderReceiver
 {
-  constructor(private readonly onHeaderActionTap: (id: string) => void) {
-    super();
-  }
-
   setTheme(theme: GatekeeperAppTheme): void {
     applyAppTheme(theme);
   }
 
   onHeaderAction(id: string): void {
-    this.onHeaderActionTap(id);
+    dispatchHeaderAction(id);
   }
 
   setHeaderPresented(presented: boolean): void {
@@ -47,7 +42,7 @@ interface HostCapability extends RpcTarget {
   setHeaderActions(
     actions: GatekeeperAppHeaderAction[],
     receiver: GatekeeperAppHeaderReceiver,
-  ): Promise<boolean>;
+  ): Promise<void>;
   openWorkspace(workspaceId: string, gadgetId?: number): Promise<void>;
   resolveWorkspaceTitles(ids: string[]): Promise<(string | null)[]>;
   openPrompt(prompt: string): Promise<void>;
@@ -59,20 +54,16 @@ function main() {
 
   const { port1, port2 } = new MessageChannel();
   window.parent.postMessage({ type: "handshake" }, "*", [port2]);
-  const iframe = new AppIframe((id) => {
-    if (id === "create") void host.openPrompt(CREATE_SCHEDULE_PROMPT).catch(() => {});
-  });
+  const iframe = new AppIframe();
   const host = newMessagePortRpcSession<HostCapability>(port1, iframe);
   host
     .subscribeTheme(iframe)
     .then(applyAppTheme)
     .catch(() => {});
-  // On phone widths the shell app bar carries the page's one action; the page hides its own
-  // header block while the bar presents it. An older host without the method rejects: ignored.
-  host
-    .setHeaderActions([{ id: "create", label: "Create schedule", kind: "add" }], iframe)
-    .then(setHeaderPresented)
-    .catch(() => {});
+  // An older host without the method rejects and the page keeps its inline header.
+  wireHeaderBarRegistrar((actions) => {
+    host.setHeaderActions(actions, iframe).catch(() => {});
+  });
 
   createRoot(element, {
     onUncaughtError: (error) =>

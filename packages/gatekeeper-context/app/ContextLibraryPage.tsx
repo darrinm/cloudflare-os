@@ -69,7 +69,8 @@ import { json } from "@codemirror/lang-json";
 import { yaml } from "@codemirror/lang-yaml";
 import { tags as t } from "@lezer/highlight";
 import type { Extension } from "@codemirror/state";
-import { useContextApi, useHeaderBar, usePresentWhileOpen, useResolvedThemeMode } from "./bridge";
+import { setHeaderBarActions } from "@gadgets/workshop-shared/header-actions";
+import { useContextApi, useHeaderPresented, usePresentWhileOpen, useResolvedThemeMode } from "./bridge";
 import { extractDescription } from "../src/description-extractors";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -950,15 +951,17 @@ export default function ContextLibraryPage() {
   // On phone widths the shell app bar carries the list's one action; sub-screens (creating, a
   // collection) register none, which restores the bar's plain title. The header block below hides
   // itself while the bar presents the action.
-  const { presented: headerPresented, setActions: setHeaderActions } = useHeaderBar();
-  const showNewCollection = !creating && !selectedCollection && enabled.length > 0;
+  const headerPresented = useHeaderPresented();
+  const showNewCollection = enabledLoaded && !creating && !selectedCollection && enabled.length > 0;
   useEffect(() => {
-    setHeaderActions(
+    // Wait for the enabled list, so the first registration RPC is the real one.
+    if (!enabledLoaded) return;
+    setHeaderBarActions(
       showNewCollection
         ? [{ id: "new-collection", label: "New collection", kind: "add", onAction: () => setCreating(true) }]
         : [],
     );
-  }, [showNewCollection, setHeaderActions]);
+  }, [enabledLoaded, showNewCollection]);
 
   const loadAll = useCallback(async () => {
     const enabledResult = await context
@@ -1031,7 +1034,7 @@ export default function ContextLibraryPage() {
       {/* While the shell's phone app bar presents the title and the New-collection action, this
           block would repeat both under it. */}
       <header
-        className={`items-end justify-between gap-4 px-3 pb-3 ${headerPresented ? "hidden" : "flex pt-10"}`}
+        className={`${headerPresented ? "hidden" : "flex"} items-end justify-between gap-4 px-3 pb-3 pt-10`}
       >
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-kumo-default">

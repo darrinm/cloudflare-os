@@ -13,14 +13,16 @@ import {
   type GatekeeperAppHeaderReceiver,
 } from '@gadgets/workshop-shared/header-actions'
 import { ArrowClockwise, DotsThree, Plus } from '@phosphor-icons/react'
-import { MobileHeader } from './components/AppShell/mobileHeader'
-import { WorkshopButton, WorkshopIconButton } from './components/WorkshopControls'
+import { MOBILE_BAR_QUERY, MobileHeader, MobileHeaderTitle } from './components/AppShell/mobileHeader'
+import { WorkshopIconButton } from './components/WorkshopControls'
 import { isHexColor } from '@gadgets/workshop-shared/api'
 import { createRateLimitedCapability } from './rateLimitedCapability'
 import { useTheme } from './ThemeContext'
 import { useServerConfig } from './ServerConfigContext'
 import { forwardTrustedFrameError } from './errorReporting'
 import { useAuthenticatedApi } from './AuthContext'
+import { useGatekeeperApps } from './useGatekeeperApps'
+import { useMediaQuery } from './useMediaQuery'
 import {
   normalizeGatekeeperAppPrompt,
   parseGatekeeperAppWorkspaceTarget,
@@ -80,6 +82,16 @@ function iframeStyleForOverlay(overlay: OverlayState): CSSProperties {
     display: 'block',
     width: '100%',
     height: '100%',
+  }
+}
+
+// Deliver one push to an app-side receiver; a sync throw or a rejection hands the receiver to
+// `onFailure` (the caller drops it).
+function pushToReceiver(send: () => unknown, onFailure: () => void) {
+  try {
+    Promise.resolve(send()).catch(onFailure)
+  } catch {
+    onFailure()
   }
 }
 
@@ -176,27 +188,26 @@ class GatekeeperAppHostImpl extends RpcTarget {
     this.#theme = theme
     const receiver = this.#themeReceiver
     if (!receiver) return
-
-    try {
-      Promise.resolve(receiver.setTheme(theme)).catch(() => this.#dropThemeReceiver(receiver))
-    } catch {
-      this.#dropThemeReceiver(receiver)
-    }
+    pushToReceiver(() => receiver.setTheme(theme), () => this.#dropThemeReceiver(receiver))
   }
 
   // The app registers its phone app-bar actions and a receiver for taps and presentation changes.
-  // Returns whether the bar is presenting them right now (phone widths), so the app can collapse
-  // its own header synchronously. Re-registering replaces the previous set.
+  // Re-registering replaces the previous set. The current presentation state is pushed through the
+  // receiver right away, so it has one writer and the app collapses its own header on arrival.
   setHeaderActions(
     actions: GatekeeperAppHeaderAction[],
     receiver: RpcStub<GatekeeperAppHeaderReceiver>,
-  ): boolean {
+  ): void {
     const parsed = parseHeaderActions(actions)
     this.#headerReceiver?.[Symbol.dispose]?.()
     // The argument stub is disposed when this call returns, so keep our own dup (released in dispose).
-    this.#headerReceiver = receiver.dup()
+    const dup = receiver.dup()
+    this.#headerReceiver = dup
     this.#onHeaderActions(parsed)
-    return this.#headerPresented
+    pushToReceiver(
+      () => dup.setHeaderPresented(this.#headerPresented),
+      () => this.#dropHeaderReceiver(dup),
+    )
   }
 
   #dropHeaderReceiver(receiver: RpcStub<GatekeeperAppHeaderReceiver>) {
@@ -210,11 +221,7 @@ class GatekeeperAppHostImpl extends RpcTarget {
   invokeHeaderAction(id: string) {
     const receiver = this.#headerReceiver
     if (!receiver) return
-    try {
-      Promise.resolve(receiver.onHeaderAction(id)).catch(() => this.#dropHeaderReceiver(receiver))
-    } catch {
-      this.#dropHeaderReceiver(receiver)
-    }
+    pushToReceiver(() => receiver.onHeaderAction(id), () => this.#dropHeaderReceiver(receiver))
   }
 
   // Push a breakpoint crossing to a registered app; a no-op until (and unless) one registers.
@@ -223,12 +230,10 @@ class GatekeeperAppHostImpl extends RpcTarget {
     this.#headerPresented = presented
     const receiver = this.#headerReceiver
     if (!receiver) return
-    try {
-      Promise.resolve(receiver.setHeaderPresented(presented))
-        .catch(() => this.#dropHeaderReceiver(receiver))
-    } catch {
-      this.#dropHeaderReceiver(receiver)
-    }
+    pushToReceiver(
+      () => receiver.setHeaderPresented(presented),
+      () => this.#dropHeaderReceiver(receiver),
+    )
   }
 
   // Queue a presentation change; the latest requested state is applied on the next frame.
@@ -280,17 +285,14 @@ class GatekeeperAppHostImpl extends RpcTarget {
  * talks to the gatekeeper only through the `ui` capability carried over the MessagePort RPC session.
  * The iframe fills its parent container.
  */
-// The shell bar presents an app's header actions below Tailwind's `md`, where the bar is the one
-// app bar (see mobileHeader.tsx). Above it, apps keep their own inline headers.
-const HEADER_PRESENTED_QUERY = '(max-width: 767.9px)'
-
-export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId, title = '' }: {
+export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
   frame: GatekeeperUiFrame,
   gatekeeperVendorId: string,
-  /** The app's display title, shown in the phone app bar when the app registers header actions. */
-  title?: string,
 }) {
   const navigate = useNavigate()
+  // The app's display title for the phone app bar: the same data routeTitle and the Sidebar
+  // render, so it cannot drift from them.
+  const title = useGatekeeperApps().find((app) => app.id === gatekeeperVendorId)?.title ?? ''
   const { authenticatedApi } = useAuthenticatedApi()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const sessionRef = useRef<{ [Symbol.dispose]?(): void } | null>(null)
@@ -313,20 +315,12 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId, titl
 
   // The app's registered phone app-bar actions; empty until (and unless) the app registers.
   const [headerActions, setHeaderActions] = useState<GatekeeperAppHeaderAction[]>([])
-  // Track the breakpoint so registration returns the current state and crossings are pushed.
-  // (jsdom implements no matchMedia; tests get the desktop default.)
-  const [headerPresented, setHeaderPresented] = useState(
-    () => window.matchMedia?.(HEADER_PRESENTED_QUERY).matches ?? false,
-  )
+  // Track the breakpoint so registration pushes the current state and crossings are pushed. The
+  // shell bar presents an app's header actions below Tailwind's `md`, where the bar is the one
+  // app bar (see MOBILE_BAR_QUERY). Above it, apps keep their own inline headers.
+  const headerPresented = useMediaQuery(MOBILE_BAR_QUERY)
   const headerPresentedRef = useRef(headerPresented)
   headerPresentedRef.current = headerPresented
-  useEffect(() => {
-    if (!window.matchMedia) return
-    const query = window.matchMedia(HEADER_PRESENTED_QUERY)
-    const onChange = () => setHeaderPresented(query.matches)
-    query.addEventListener('change', onChange)
-    return () => query.removeEventListener('change', onChange)
-  }, [])
   useEffect(() => {
     hostRef.current?.updateHeaderPresented(headerPresented)
   }, [headerPresented])
@@ -417,7 +411,9 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId, titl
         openPrompt,
         resolveWorkspaceTitles,
         headerPresentedRef.current,
-        setHeaderActions,
+        // Empty-to-empty transitions (dropping a receiver that registered nothing) keep the previous
+        // state so they don't re-render.
+        (actions) => setHeaderActions((prev) => (prev.length === 0 && actions.length === 0 ? prev : actions)),
       )
       hostRef.current = host
       sessionRef.current = newMessagePortRpcSession(port, host)
@@ -456,20 +452,25 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId, titl
 
   return (
     <>
-      {/* The phone app bar for this screen: the app's title plus the actions it registered. The
-          portal renders nothing at md+, where the app shows its own inline header. */}
-      {headerActions.length > 0 && (
+      {/* The phone app bar for this screen: the app's title plus the actions it registered. Gated
+          on the breakpoint so nothing mounts invisibly at md+, where the app shows its own inline
+          header. */}
+      {headerPresented && headerActions.length > 0 && (
         <MobileHeader>
-          <div className="min-w-0 flex-1 truncate text-[15px] font-medium text-kumo-default">
-            {title}
-          </div>
-          {headerActions.map((action) => (
-            <HeaderActionButton
-              key={action.id}
-              action={action}
-              onClick={() => hostRef.current?.invokeHeaderAction(action.id)}
-            />
-          ))}
+          <MobileHeaderTitle>{title}</MobileHeaderTitle>
+          {headerActions.map((action) => {
+            const Icon = HEADER_ACTION_ICONS[action.kind]
+            return (
+              <WorkshopIconButton
+                key={action.id}
+                onClick={() => hostRef.current?.invokeHeaderAction(action.id)}
+                aria-label={action.label}
+                title={action.label}
+              >
+                <Icon size={14} />
+              </WorkshopIconButton>
+            )
+          })}
         </MobileHeader>
       )}
       <iframe
@@ -491,18 +492,3 @@ const HEADER_ACTION_ICONS = {
   more: DotsThree,
   add: Plus,
 } as const
-
-function HeaderActionButton({ action, onClick }: {
-  action: GatekeeperAppHeaderAction
-  onClick: () => void
-}) {
-  const Icon = action.kind && HEADER_ACTION_ICONS[action.kind]
-  if (!Icon) {
-    return <WorkshopButton onClick={onClick}>{action.label}</WorkshopButton>
-  }
-  return (
-    <WorkshopIconButton onClick={onClick} aria-label={action.label} title={action.label}>
-      <Icon size={14} />
-    </WorkshopIconButton>
-  )
-}
