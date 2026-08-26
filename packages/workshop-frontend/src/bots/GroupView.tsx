@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Dialog, Input, Loader, useKumoToastManager } from '@cloudflare/kumo'
 import { CaretLeft, PaperPlaneRight, PencilSimple, X } from '@phosphor-icons/react'
+import { MobileHeader } from '../components/AppShell/mobileHeader'
 import { WorkshopIconButton } from '../components/WorkshopControls'
 import BotAvatar, { Facepile } from './BotAvatar'
 import { drainNew, type HubStub, type SeqUpdate } from './useBotsHub'
@@ -77,8 +78,21 @@ export function GroupView({ group, bots, hub, userName, updates, onBack, onOpenB
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
-      <header className="flex h-12 flex-none items-center gap-2 border-b border-kumo-line px-3">
-        <WorkshopIconButton onClick={onBack} className="!h-8 !w-8 md:hidden" aria-label="Back to Bots" title="Back to Bots"><CaretLeft size={14} /></WorkshopIconButton>
+      {/* Below md this header lives in the shell's app bar; the inline row is md+ only. */}
+      <MobileHeader>
+        <WorkshopIconButton onClick={onBack} className="!h-8 !w-8" aria-label="Back to Bots" title="Back to Bots"><CaretLeft size={14} /></WorkshopIconButton>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] font-medium text-kumo-default">{group.name}</div>
+          <div className="flex items-center gap-1 truncate text-[12px] text-kumo-subtle">
+            {group.members.length
+              ? <Facepile members={group.members} botsById={botsById} max={6} size={16} />
+              : 'No members yet'}
+            {group.purpose ? <span className="truncate"> · {group.purpose}</span> : null}
+          </div>
+        </div>
+        <WorkshopIconButton onClick={() => setEditOpen(true)} className="!h-8 !w-8" aria-label="Edit group" title="Edit group"><PencilSimple size={14} /></WorkshopIconButton>
+      </MobileHeader>
+      <header className="hidden h-12 flex-none items-center gap-2 border-b border-kumo-line px-3 md:flex">
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{group.name}</div>
           <div className="flex items-center gap-1 truncate text-[12px] md:text-[11px] text-kumo-subtle">

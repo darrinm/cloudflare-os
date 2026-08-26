@@ -5,6 +5,9 @@ import TopBarNotice from '../../TopBarNotice'
 import ReconnectingChip from '../ReconnectingChip'
 import { useConnectionLost } from '../../RpcContext'
 import Sidebar from './Sidebar'
+import { MobileHeaderContext, routeTitle, type MobileHeaderSlot } from './mobileHeader'
+import { useGatekeeperApps } from '../../useGatekeeperApps'
+import { useSiteName } from '../../ServerConfigContext'
 import CommandPalette from './CommandPalette'
 import { OPEN_COMMAND_PALETTE_EVENT } from './commandPaletteBus'
 
@@ -32,9 +35,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  // The mobile app bar's screen slot (see mobileHeader.tsx): screens portal their header content
+  // into `slotEl`; `slotCount` (mount bookkeeping, not content) decides whether the route-derived
+  // fallback title shows instead.
+  const [slotEl, setSlotEl] = useState<HTMLDivElement | null>(null)
+  const [slotCount, setSlotCount] = useState(0)
   const drawerRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const connectionLost = useConnectionLost()
+
+  const slotRef = useRef<MobileHeaderSlot>({ container: null, onMount: () => () => {} })
+  slotRef.current.container = slotEl
+  slotRef.current.onMount = useCallback(() => {
+    setSlotCount((c) => c + 1)
+    return () => setSlotCount((c) => c - 1)
+  }, [])
+
+  const gatekeeperApps = useGatekeeperApps()
+  const siteName = useSiteName()
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((prev) => {
@@ -107,6 +125,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
+    <MobileHeaderContext.Provider value={slotRef.current}>
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-kumo-base">
       {/* Desktop sidebar — hidden on mobile in favor of the drawer. */}
       <div className="hidden md:flex">
@@ -140,26 +159,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         inert={mobileOpen ? true : undefined}
         aria-hidden={mobileOpen ? true : undefined}
       >
-        {/* Top bar. Same height as the sidebar's brand row (h-14) so they read as one continuous
-            chrome strip across the top. Mostly empty — carries the mobile hamburger on the left,
-            any admin TopBarNotice centered, and the reconnecting chip on the right. */}
-        <div className="relative flex h-14 shrink-0 items-center justify-between border-b border-kumo-line bg-kumo-base px-3">
+        {/* Top bar. On desktop, the same height as the sidebar's brand row (h-14) so they read as
+            one continuous, mostly-empty chrome strip. Below `md` it is THE app bar: hamburger, the
+            screen's header content (portaled in via <MobileHeader>) or a route-derived title, and
+            the reconnecting chip — so a phone screen pays for one header row, not a screen header
+            stacked under an empty hamburger strip. */}
+        <div className="relative flex h-12 shrink-0 items-center gap-1 border-b border-kumo-line bg-kumo-base px-2 md:h-14 md:justify-between md:gap-2 md:px-3">
           <button
             type="button"
             ref={menuButtonRef}
             onClick={() => setMobileOpen((o) => !o)}
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-            className="flex h-11 w-11 items-center justify-center rounded-md text-kumo-default transition-colors hover:bg-kumo-tint md:hidden"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-kumo-default transition-colors hover:bg-kumo-tint md:hidden"
           >
             {mobileOpen ? <X size={16} /> : <List size={16} />}
           </button>
+          {/* The screen slot. Kept mounted (not conditionally rendered) so portals never race the
+              container's existence; the fallback title shows only while nothing is registered. */}
+          <div ref={setSlotEl} className={`min-w-0 flex-1 items-center gap-1 md:hidden ${slotCount > 0 ? 'flex' : 'hidden'}`} />
+          {slotCount === 0 && (
+            <div className="min-w-0 flex-1 truncate text-[15px] font-medium text-kumo-default md:hidden">
+              {routeTitle(pathname, gatekeeperApps, siteName)}
+            </div>
+          )}
           <TopBarNotice />
           {/* `ml-auto` rather than the container's `justify-between`: on desktop the hamburger is
               hidden, leaving this the only in-flow child, which `justify-between` would park on the
               left. */}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {connectionLost && <ReconnectingChip />}
-            <span aria-hidden="true" className="h-11 w-11 md:hidden" />
           </div>
         </div>
 
@@ -169,5 +197,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
+    </MobileHeaderContext.Provider>
   )
 }
