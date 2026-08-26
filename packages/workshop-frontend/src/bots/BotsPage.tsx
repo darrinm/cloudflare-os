@@ -30,6 +30,7 @@ import type { Bot, BotCosts, BotEvent, BotMemory, BotRoutine } from './types'
 import { GroupDialog, GroupView } from './GroupView'
 import { RunSkillDialog, SkillsDialog } from './SkillsDialog'
 import { TAP_TARGET, kindLabel } from './eventKinds'
+import { MobileHeader } from '../components/AppShell/mobileHeader'
 import { seedExampleBots } from './examples'
 import { BOTS_BLUEPRINT_ID } from './types'
 import {
@@ -431,34 +432,24 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   }
   if (!overseer) return <CenteredNote><Loader /></CenteredNote>
 
+  // The roster's actions, shared by the md+ header row and the phone app bar.
+  const rosterActions = (
+    <div className="flex items-center gap-1">
+      <WorkshopIconButton onClick={() => setShowSkills(true)} title="Skills" aria-label="Skills" className="!h-8 !w-8" disabled={!hubState.hub}>
+        <Lightning size={14} />
+      </WorkshopIconButton>
+      <WorkshopIconButton onClick={() => setShowNew(true)} title="New Bot" aria-label="New Bot" className="!h-8 !w-8">
+        <Plus size={14} />
+      </WorkshopIconButton>
+    </div>
+  )
   const roster = (
     <aside className={`${anySelected ? 'hidden md:flex' : 'flex'} h-full w-full flex-col border-r border-kumo-line bg-kumo-base md:w-64 md:flex-none`}>
-      <div className="flex h-12 flex-none items-center justify-between border-b border-kumo-line px-3">
-        <div className="flex min-w-0 items-center gap-1">
-          <h1 className="hidden md:block text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
-          <div className="flex md:hidden items-center gap-1" role="tablist" aria-label="View">
-            {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={view === v}
-                onClick={() => setView(v)}
-                className={`${TAP_TARGET} rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
-              >
-                {VIEW_LABEL[v]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <WorkshopIconButton onClick={() => setShowSkills(true)} title="Skills" aria-label="Skills" className="!h-8 !w-8" disabled={!hubState.hub}>
-            <Lightning size={14} />
-          </WorkshopIconButton>
-          <WorkshopIconButton onClick={() => setShowNew(true)} title="New Bot" aria-label="New Bot" className="!h-8 !w-8">
-            <Plus size={14} />
-          </WorkshopIconButton>
-        </div>
+      {/* Below md the tabs and actions live in the shell's app bar (the <MobileHeader> at the
+          bottom of BotsWorkspace), so this row would be a second header stacked under it. */}
+      <div className="hidden h-12 flex-none items-center justify-between border-b border-kumo-line px-3 md:flex">
+        <h1 className="text-[14px] md:text-[13px] font-medium tracking-[-0.25px] text-kumo-default">Bots</h1>
+        {rosterActions}
       </div>
       {hubState.info && !hubState.info.hasSpawner && (
         <div className="m-2 rounded-md bg-kumo-brand/10 px-2 py-1.5 text-[13px] md:text-[12px] text-kumo-default">
@@ -538,13 +529,32 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
   return (
     <div className="flex h-full min-h-0 w-full">
       {roster}
+      {/* The phone app bar's content for this screen state. Exactly one <MobileHeader> renders at
+          a time: tabs+actions at the roster, the Bot header in a conversation (below), the group
+          header inside GroupView. At md+ these render nothing and the inline headers show. */}
+      {!anySelected && (
+        <MobileHeader>
+          <div className="flex min-w-0 flex-1 items-center gap-1" role="tablist" aria-label="View">
+            {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`${TAP_TARGET} rounded-md px-2 py-1 text-[14px] ${view === v ? 'bg-kumo-brand/10 text-kumo-default' : 'text-kumo-subtle'}`}
+              >
+                {VIEW_LABEL[v]}
+              </button>
+            ))}
+          </div>
+          {rosterActions}
+        </MobileHeader>
+      )}
       {selected && hubState.hub ? (
         <>
           <section className="flex min-w-0 flex-1 flex-col">
-            <header className="flex h-12 flex-none items-center gap-2 border-b border-kumo-line px-3">
-              <WorkshopIconButton onClick={() => navigate({ to: '/bots' })} className="!h-8 !w-8 md:hidden" aria-label="Back to Bots" title="Back to Bots">
-                <CaretLeft size={14} />
-              </WorkshopIconButton>
+            <header className="hidden h-12 flex-none items-center gap-2 border-b border-kumo-line px-3 md:flex">
               <BotAvatar bot={selected} size={26} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[14px] md:text-[13px] font-medium text-kumo-default">{selected.name}</div>
@@ -560,6 +570,23 @@ function BotsWorkspace({ workspaceId, workpieceId, botId, groupId }: { workspace
             </header>
             <BotTranscript key={selected.id + selected.chatTitle} overseer={overseer.stub} bot={selected} workspaceId={workspaceId} showWork={showWork} hub={hubState.hub} updates={hubState.updates} onOpenPath={openPath} actionPreview={<GlancePreview live={glance.live} />} />
           </section>
+          <MobileHeader>
+            <WorkshopIconButton onClick={() => navigate({ to: '/bots' })} className="!h-8 !w-8" aria-label="Back to Bots" title="Back to Bots">
+              <CaretLeft size={14} />
+            </WorkshopIconButton>
+            <BotAvatar bot={selected} size={26} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[14px] font-medium text-kumo-default">{selected.name}</div>
+              <div className="truncate text-[12px] text-kumo-subtle">{selected.role || 'Bot'}</div>
+            </div>
+            <GlanceChip live={glance.live} onOpen={glance.open} />
+            <WorkshopIconButton onClick={toggleShowWork} className={`!h-8 !w-8 ${showWork ? 'text-kumo-brand' : ''}`} aria-label={showWork ? 'Hide the Bot’s work' : 'Show the Bot’s work'} title={showWork ? 'Hide work (code runs, callbacks)' : 'Show work (code runs, callbacks)'} aria-pressed={showWork}>
+              <Wrench size={14} />
+            </WorkshopIconButton>
+            <WorkshopIconButton onClick={() => setDetailsOpen((o) => !o)} className="!h-8 !w-8" aria-label="Bot details" title="Bot details">
+              <Info size={14} />
+            </WorkshopIconButton>
+          </MobileHeader>
           <BotDetails
             key={selected.id}
             bot={selected}

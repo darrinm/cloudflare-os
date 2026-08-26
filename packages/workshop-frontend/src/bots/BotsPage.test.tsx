@@ -68,9 +68,11 @@ vi.mock("./examples", async (importOriginal) => ({
 }));
 
 import { BotsPageContent } from "./BotsPage";
+import { MobileHeaderContext } from "../components/AppShell/mobileHeader";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root | null = null;
+let rerender: ((node: React.ReactNode) => void) | null = null;
 let container: HTMLDivElement | null = null;
 afterEach(async () => {
   if (root) await act(async () => root!.unmount());
@@ -81,10 +83,24 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 async function render(botId: string | null, groupId: string | null = null) {
+  // In production the shell's app bar hosts the screen's mobile header (tabs, back button) via
+  // <MobileHeader>. The tests assert against that content, so the harness provides a real slot.
+  // It must sit BESIDE the React root, not inside it: createRoot().render() owns its container's
+  // children and would wipe the slot. `container` (what assertions query) wraps both.
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
-  await act(async () => root!.render(<BotsPageContent botId={botId} groupId={groupId} />));
+  const barSlot = document.createElement("div");
+  barSlot.dataset.testid = "app-bar";
+  const rootEl = document.createElement("div");
+  container.append(barSlot, rootEl);
+  root = createRoot(rootEl);
+  const slot = { container: barSlot, onMount: () => () => {} };
+  // Re-renders inside a test must keep this exact wrapper (same provider, same slot object) or
+  // React remounts the whole tree and open dialogs/local state are lost -- use rerender().
+  rerender = (node) => root!.render(
+    <MobileHeaderContext.Provider value={slot}>{node}</MobileHeaderContext.Provider>,
+  );
+  await act(async () => rerender!(<BotsPageContent botId={botId} groupId={groupId} />));
   // Let the async workspace lookup settle.
   await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 }
@@ -291,8 +307,9 @@ describe("BotsPageContent", () => {
       if (!el) throw new Error("no glance chip");
       return el;
     });
-    // In the header, beside the Bot's name -- and the takeover reason is what it reports.
-    expect(chip.closest("header")).not.toBeNull();
+    // In the header chrome, beside the Bot's name -- the md+ <header> or the mobile app bar,
+    // which carry the same content -- and the takeover reason is what it reports.
+    expect(chip.closest('header, [data-testid="app-bar"]')).not.toBeNull();
     expect(chip.textContent).toContain("Waiting for you");
     expect(chip.getAttribute("title")).toContain("Sign in to Amazon");
   });
@@ -518,7 +535,7 @@ describe("BotsPageContent", () => {
     // Anything that re-renders the page (a hub event, a toast) used to re-run the dialog's load
     // and put the boxes back the way they were.
     const loads = listBindings.mock.calls.length;
-    await act(async () => { root!.render(<BotsPageContent botId="abc12345" />); await new Promise((r) => setTimeout(r, 30)); });
+    await act(async () => { rerender!(<BotsPageContent botId="abc12345" />); await new Promise((r) => setTimeout(r, 30)); });
     expect(browserBox.checked).toBe(true);
     expect(listBindings).toHaveBeenCalledTimes(loads);
   });
