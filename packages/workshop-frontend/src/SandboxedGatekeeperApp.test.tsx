@@ -17,6 +17,11 @@ import type {
   GatekeeperAppTheme,
   GatekeeperAppThemeReceiver,
 } from "@gadgets/workshop-shared/theme";
+import type {
+  GatekeeperAppHeaderAction,
+  GatekeeperAppHeaderReceiver,
+} from "@gadgets/workshop-shared/header-actions";
+import { MobileHeaderContext } from "./components/AppShell/mobileHeader";
 import SandboxedGatekeeperApp from "./SandboxedGatekeeperApp";
 
 vi.mock("./ThemeContext", () => ({
@@ -31,21 +36,41 @@ vi.mock("./errorReporting", () => ({
   forwardTrustedFrameError: () => false,
 }));
 
+// jsdom implements no matchMedia; report the phone breakpoint as matched so the sessions run
+// presented=true and the app bar renders.
+window.matchMedia ??= ((query: string) => ({
+  matches: true,
+  media: query,
+  addEventListener() {},
+  removeEventListener() {},
+  addListener() {},
+  removeListener() {},
+  onchange: null,
+  dispatchEvent: () => false,
+})) as typeof window.matchMedia;
+
 const WORKSPACE_ID = "a".repeat(64);
 
 const listGadgets = vi.fn<() => Promise<{ id: string; title: string }[]>>(async () => [
   { id: WORKSPACE_ID, title: "Daily Brief" },
 ]);
-const authenticatedApi = { listGadgets };
+// The component titles its app bar from the same listGatekeeperApps data the shell renders.
+const listGatekeeperApps = async () => [{ id: "browser", title: "Browser" }];
+const authenticatedApi = { listGadgets, listGatekeeperApps };
 
 vi.mock("./AuthContext", () => ({
   useAuthenticatedApi: () => ({ authenticatedApi }),
+  useOptionalAuthenticatedApi: () => ({ authenticatedApi }),
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 interface TestHost extends RpcTarget {
   subscribeTheme(receiver: GatekeeperAppThemeReceiver): Promise<GatekeeperAppTheme>;
+  setHeaderActions(
+    actions: GatekeeperAppHeaderAction[],
+    receiver: GatekeeperAppHeaderReceiver,
+  ): Promise<void>;
   setPresenting(active: boolean): Promise<{
     rect: { left: number; top: number; width: number; height: number } | null;
     willResize: boolean;
@@ -177,5 +202,93 @@ describe("SandboxedGatekeeperApp navigation", () => {
       await vi.waitFor(() => expect(router.state.location.pathname).toBe("/"));
     });
     expect(router.state.location.search).toEqual({ prompt: "Create a daily brief." });
+  });
+
+  it("presents registered header actions in the mobile app bar and relays taps", async () => {
+    const frame = {
+      iframeHtml: "<!doctype html><title>Browser</title>",
+      ui: new RpcStub(new EmptyUi()),
+    } as unknown as GatekeeperUiFrame;
+    // A stand-in for the shell bar's slot: the portal target <MobileHeader> renders into.
+    const slot = document.createElement("div");
+    document.body.append(slot);
+    const rootRoute = createRootRoute({
+      component: () => (
+        <MobileHeaderContext.Provider value={{ container: slot, onMount: () => () => {} }}>
+          <SandboxedGatekeeperApp frame={frame} gatekeeperVendorId="browser" />
+        </MobileHeaderContext.Provider>
+      ),
+    });
+    const history = createMemoryHistory({ initialEntries: ["/"] });
+    const router = createRouter({ history, routeTree: rootRoute.addChildren([]) });
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () => root!.render(<RouterProvider router={router} />));
+
+    const iframe = container.querySelector("iframe");
+    if (!iframe) throw new Error("Missing gatekeeper iframe");
+    const { port1, port2 } = new MessageChannel();
+    host = newMessagePortRpcSession<TestHost>(port1);
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "handshake" },
+        origin: "null",
+        source: iframe.contentWindow,
+        ports: [port2],
+      }),
+    );
+
+    const taps: string[] = [];
+    const presented: boolean[] = [];
+    class TestHeaderReceiver extends RpcTarget implements GatekeeperAppHeaderReceiver {
+      onHeaderAction(id: string): void {
+        taps.push(id);
+      }
+      setHeaderPresented(value: boolean): void {
+        presented.push(value);
+      }
+    }
+
+    // Out-of-shape registrations from the untrusted frame are rejected outright.
+    await expect(
+      host.setHeaderActions(
+        [{ id: "x", label: "X", kind: "spin" as unknown as "refresh" }],
+        new TestHeaderReceiver(),
+      ),
+    ).rejects.toThrow("Invalid header action");
+
+    await act(async () => {
+      await host!.setHeaderActions(
+        [
+          { id: "more", label: "More options", kind: "more" },
+          { id: "refresh", label: "Refresh", kind: "refresh" },
+        ],
+        new TestHeaderReceiver(),
+      );
+    });
+    // Registration seeds the receiver with the current presentation state.
+    await vi.waitFor(() => expect(presented).toEqual([true]));
+
+    // The bar carries the app's title and its two actions.
+    await vi.waitFor(() => expect(slot.textContent).toContain("Browser"));
+    const refresh = slot.querySelector<HTMLButtonElement>('[aria-label="Refresh"]');
+    const more = slot.querySelector<HTMLButtonElement>('[aria-label="More options"]');
+    if (!refresh || !more) throw new Error("Missing header action buttons");
+
+    await act(async () => {
+      refresh.click();
+      more.click();
+      refresh.click();
+    });
+    await vi.waitFor(() => expect(taps).toEqual(["refresh", "more", "refresh"]));
+
+    // Re-registering replaces the set; an empty set clears the bar.
+    await act(async () => {
+      await host!.setHeaderActions([], new TestHeaderReceiver());
+    });
+    expect(slot.querySelector("button")).toBeNull();
+    expect(slot.textContent).not.toContain("Browser");
   });
 });

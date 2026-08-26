@@ -13,6 +13,10 @@ import {
 import { flushSync } from 'react-dom'
 import type { RpcStub } from 'capnweb'
 import type { ContextApi } from '../src/context-types'
+import {
+  getHeaderPresented,
+  subscribeHeaderPresented,
+} from '@gadgets/workshop-shared/header-actions'
 import { getThemeMode, subscribeThemeMode, type ResolvedThemeMode } from './theme'
 
 /**
@@ -21,6 +25,14 @@ import { getThemeMode, subscribeThemeMode, type ResolvedThemeMode } from './them
  */
 export function useResolvedThemeMode(): ResolvedThemeMode {
   return useSyncExternalStore(subscribeThemeMode, getThemeMode)
+}
+
+/**
+ * Subscribe a component to whether the host's phone app bar is presenting the page's registered
+ * header actions (see workshop-shared/header-actions).
+ */
+export function useHeaderPresented(): boolean {
+  return useSyncExternalStore(subscribeHeaderPresented, getHeaderPresented)
 }
 
 // React context carrying the host-injected ContextApi capability (the gatekeeper's `ui` stub).

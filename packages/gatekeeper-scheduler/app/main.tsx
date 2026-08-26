@@ -4,6 +4,13 @@ import type {
   GatekeeperAppTheme,
   GatekeeperAppThemeReceiver,
 } from "@gadgets/workshop-shared/theme";
+import {
+  dispatchHeaderAction,
+  setHeaderPresented,
+  wireHeaderBarRegistrar,
+  type GatekeeperAppHeaderAction,
+  type GatekeeperAppHeaderReceiver,
+} from "@gadgets/workshop-shared/header-actions";
 import SchedulerPage, { type ScheduleManagementClient } from "./SchedulerPage";
 import ErrorBoundary from "./ErrorBoundary";
 import { installErrorReporting, reportIssue } from "./error-reporting";
@@ -12,15 +19,30 @@ import "./styles.css";
 
 installErrorReporting();
 
-class AppIframe extends RpcTarget implements GatekeeperAppThemeReceiver {
+class AppIframe
+  extends RpcTarget
+  implements GatekeeperAppThemeReceiver, GatekeeperAppHeaderReceiver
+{
   setTheme(theme: GatekeeperAppTheme): void {
     applyAppTheme(theme);
+  }
+
+  onHeaderAction(id: string): void {
+    dispatchHeaderAction(id);
+  }
+
+  setHeaderPresented(presented: boolean): void {
+    setHeaderPresented(presented);
   }
 }
 
 interface HostCapability extends RpcTarget {
   readonly ui: RpcStub<ScheduleManagementClient>;
   subscribeTheme(receiver: GatekeeperAppThemeReceiver): Promise<GatekeeperAppTheme>;
+  setHeaderActions(
+    actions: GatekeeperAppHeaderAction[],
+    receiver: GatekeeperAppHeaderReceiver,
+  ): Promise<void>;
   openWorkspace(workspaceId: string, gadgetId?: number): Promise<void>;
   resolveWorkspaceTitles(ids: string[]): Promise<(string | null)[]>;
   openPrompt(prompt: string): Promise<void>;
@@ -38,6 +60,10 @@ function main() {
     .subscribeTheme(iframe)
     .then(applyAppTheme)
     .catch(() => {});
+  // An older host without the method rejects and the page keeps its inline header.
+  wireHeaderBarRegistrar((actions) => {
+    host.setHeaderActions(actions, iframe).catch(() => {});
+  });
 
   createRoot(element, {
     onUncaughtError: (error) =>

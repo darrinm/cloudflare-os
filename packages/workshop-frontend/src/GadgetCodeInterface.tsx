@@ -16,6 +16,8 @@ import { ChatOtClient, type RemoteFileEvent } from './otClient'
 import { reportIssue } from './errorReporting'
 import { saveTextToFile } from './fileTransfers'
 import { isTransientRpcError } from './rpcErrors'
+import { MOBILE_BAR_QUERY } from './components/AppShell/mobileHeader'
+import { useMediaQuery } from './useMediaQuery'
 
 // The code view over git-backed gadget code.
 //
@@ -683,7 +685,7 @@ export default function GadgetCodeInterface({
 
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [fileDrawerOpen, setFileDrawerOpen] = useState(false)
-  const [compactLayout, setCompactLayout] = useState(false)
+  const compactLayout = useMediaQuery(MOBILE_BAR_QUERY)
   const fileSidebarRef = useRef<FileSidebarHandle | null>(null)
   const fileDrawerRef = useRef<HTMLDivElement | null>(null)
   const fileDrawerTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -693,16 +695,8 @@ export default function GadgetCodeInterface({
   }, [isVisible])
 
   useEffect(() => {
-    if (!window.matchMedia) return
-    const query = window.matchMedia('(max-width: 767px)')
-    const update = () => {
-      setCompactLayout(query.matches)
-      if (!query.matches) setFileDrawerOpen(false)
-    }
-    update()
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
+    if (!compactLayout) setFileDrawerOpen(false)
+  }, [compactLayout])
 
   useEffect(() => {
     if (!compactLayout || !fileDrawerOpen) return

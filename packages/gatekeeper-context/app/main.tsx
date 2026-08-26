@@ -10,6 +10,13 @@ import type {
   GatekeeperAppTheme,
   GatekeeperAppThemeReceiver,
 } from '@gadgets/workshop-shared/theme'
+import {
+  dispatchHeaderAction,
+  setHeaderPresented as applyHeaderPresented,
+  wireHeaderBarRegistrar,
+  type GatekeeperAppHeaderAction,
+  type GatekeeperAppHeaderReceiver,
+} from '@gadgets/workshop-shared/header-actions'
 import ContextLibraryPage from './ContextLibraryPage'
 import { ContextApiProvider, PresentationProvider, type PresentAck } from './bridge'
 import { applyAppTheme } from './theme'
@@ -19,10 +26,19 @@ import { installErrorReporting, reportIssue } from './error-reporting'
 
 installErrorReporting()
 
-// The only capability the iframe exposes back to the host: a receiver for theme pushes.
-class AppIframe extends RpcTarget implements GatekeeperAppThemeReceiver {
+// The capability the iframe exposes back to the host: a receiver for theme pushes and phone
+// app-bar callbacks.
+class AppIframe extends RpcTarget implements GatekeeperAppThemeReceiver, GatekeeperAppHeaderReceiver {
   setTheme(theme: GatekeeperAppTheme): void {
     applyAppTheme(theme)
+  }
+
+  onHeaderAction(id: string): void {
+    dispatchHeaderAction(id)
+  }
+
+  setHeaderPresented(presented: boolean): void {
+    applyHeaderPresented(presented)
   }
 }
 
@@ -32,6 +48,11 @@ interface HostCapability extends RpcTarget {
   setPresenting(active: boolean): Promise<PresentAck>
   // Returns the current theme and calls back on `receiver` whenever it changes.
   subscribeTheme(receiver: GatekeeperAppThemeReceiver): Promise<GatekeeperAppTheme>
+  // Registers the page's phone app-bar actions; the receiver hears taps and presentation changes.
+  setHeaderActions(
+    actions: GatekeeperAppHeaderAction[],
+    receiver: GatekeeperAppHeaderReceiver,
+  ): Promise<void>
 }
 
 function main() {
@@ -46,6 +67,10 @@ function main() {
   const host = newMessagePortRpcSession<HostCapability>(port1, iframe)
   // The initial theme comes back from the call; later changes arrive via iframe.setTheme().
   host.subscribeTheme(iframe).then(applyAppTheme).catch(() => {})
+  // An older host without the method rejects and the page keeps its inline header.
+  wireHeaderBarRegistrar((actions) => {
+    host.setHeaderActions(actions, iframe).catch(() => {})
+  })
 
   createRoot(root, {
     onUncaughtError: (error) => reportIssue('context.react-root', error, {

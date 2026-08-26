@@ -5,7 +5,7 @@ import TopBarNotice from '../../TopBarNotice'
 import ReconnectingChip from '../ReconnectingChip'
 import { useConnectionLost } from '../../RpcContext'
 import Sidebar from './Sidebar'
-import { MobileHeaderContext, routeTitle, type MobileHeaderSlot } from './mobileHeader'
+import { MobileHeaderContext, MobileHeaderTitle, routeTitle, type MobileHeaderSlot } from './mobileHeader'
 import { useGatekeeperApps } from '../../useGatekeeperApps'
 import { useSiteName } from '../../ServerConfigContext'
 import CommandPalette from './CommandPalette'
@@ -178,9 +178,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               container's existence; the fallback title shows only while nothing is registered. */}
           <div ref={setSlotEl} className={`min-w-0 flex-1 items-center gap-1 md:hidden ${slotCount > 0 ? 'flex' : 'hidden'}`} />
           {slotCount === 0 && (
-            <div className="min-w-0 flex-1 truncate text-[15px] font-medium text-kumo-default md:hidden">
+            <MobileHeaderTitle className="md:hidden">
               {routeTitle(pathname, gatekeeperApps, siteName)}
-            </div>
+            </MobileHeaderTitle>
           )}
           <TopBarNotice />
           {/* `ml-auto` rather than the container's `justify-between`: on desktop the hamburger is
