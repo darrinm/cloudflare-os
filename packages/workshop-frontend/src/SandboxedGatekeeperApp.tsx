@@ -291,8 +291,9 @@ export default function SandboxedGatekeeperApp({ frame, gatekeeperVendorId }: {
 }) {
   const navigate = useNavigate()
   // The app's display title for the phone app bar: the same data routeTitle and the Sidebar
-  // render, so it cannot drift from them.
-  const title = useGatekeeperApps().find((app) => app.id === gatekeeperVendorId)?.title ?? ''
+  // render, so it cannot drift from them -- including routeTitle's fallback, since rendering the
+  // bar suppresses the shell's own fallback title and an unresolved list would leave it blank.
+  const title = useGatekeeperApps().find((app) => app.id === gatekeeperVendorId)?.title ?? 'Tools'
   const { authenticatedApi } = useAuthenticatedApi()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const sessionRef = useRef<{ [Symbol.dispose]?(): void } | null>(null)

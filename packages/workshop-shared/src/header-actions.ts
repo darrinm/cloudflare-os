@@ -43,15 +43,19 @@ export function parseHeaderActions(actions: unknown): GatekeeperAppHeaderAction[
   if (!Array.isArray(actions) || actions.length > MAX_HEADER_ACTIONS) {
     throw new TypeError("Invalid header actions.");
   }
+  // The id is the bar button's React key and the only handle a tap is dispatched under, so a
+  // repeat would render duplicate keys and leave which control a tap reaches undefined.
+  const seen = new Set<string>();
   return actions.map((action) => {
-    const { id, label, kind } = action as GatekeeperAppHeaderAction;
+    const { id, label, kind } = (action ?? {}) as GatekeeperAppHeaderAction;
     if (
-      typeof id !== "string" || !id || id.length > MAX_HEADER_ACTION_ID ||
+      typeof id !== "string" || !id || id.length > MAX_HEADER_ACTION_ID || seen.has(id) ||
       typeof label !== "string" || !label || label.length > MAX_HEADER_ACTION_LABEL ||
       !(HEADER_ACTION_KINDS as readonly string[]).includes(kind)
     ) {
       throw new TypeError("Invalid header action.");
     }
+    seen.add(id);
     return { id, label, kind };
   });
 }
