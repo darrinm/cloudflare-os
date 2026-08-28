@@ -111,6 +111,7 @@ class GatekeeperAppHostImpl extends RpcTarget {
   #themeReceiver: RpcStub<GatekeeperAppThemeReceiver> | null = null
   #headerReceiver: RpcStub<GatekeeperAppHeaderReceiver> | null = null
   #headerPresented: boolean
+  #headerActionCount = 0
   // Presentation changes are coalesced to a single apply per animation frame (see #applyPending).
   #pendingActive: boolean | null = null
   #pendingResolvers: ((ack: PresentAck) => void)[] = []
@@ -199,22 +200,50 @@ class GatekeeperAppHostImpl extends RpcTarget {
     receiver: RpcStub<GatekeeperAppHeaderReceiver>,
   ): void {
     const parsed = parseHeaderActions(actions)
-    this.#headerReceiver?.[Symbol.dispose]?.()
-    // The argument stub is disposed when this call returns, so keep our own dup (released in dispose).
+    // The argument stub is disposed when this call returns, so keep our own dup (released in
+    // dispose). Dup before releasing the old one: if dup() throws on a broken stub, dropping the
+    // previous receiver first would leave the field pointing at something already disposed.
     const dup = receiver.dup()
+    const previous = this.#headerReceiver
     this.#headerReceiver = dup
+    previous?.[Symbol.dispose]?.()
+    this.#headerActionCount = parsed.length
     this.#onHeaderActions(parsed)
     pushToReceiver(
-      () => dup.setHeaderPresented(this.#headerPresented),
+      () => dup.setHeaderPresented(this.#presentingActions),
       () => this.#dropHeaderReceiver(dup),
     )
   }
 
+  /// Whether the bar is actually carrying this app's actions.
+  ///
+  /// One definition, because two call sites pushed their own and an app that is told it is
+  /// presented hides its own header. The bar only renders on `headerPresented && actions.length`,
+  /// so an app registering an empty set — which `setHeaderBarActions` documents as the way to say
+  /// "no bar actions on this screen" — would otherwise hide its header for a bar carrying nothing,
+  /// stranding whatever lived in that header.
+  get #presentingActions(): boolean {
+    return this.#headerPresented && this.#headerActionCount > 0
+  }
+
   #dropHeaderReceiver(receiver: RpcStub<GatekeeperAppHeaderReceiver>) {
     if (this.#headerReceiver !== receiver) return
-    receiver[Symbol.dispose]?.()
+    // Clear the field first: the push below can fail straight back into here, and the guard above
+    // is what stops that from recursing or disposing the stub twice.
     this.#headerReceiver = null
+    this.#headerActionCount = 0
     this.#onHeaderActions([])
+    // Tell the app before letting go. A receiver can reject for a reason that did not kill the
+    // app — a throw inside a React render propagates out of the receiver method and rejects the
+    // call — and an app still believing the bar carries its actions keeps its own header hidden
+    // with nothing in its place. Best-effort by definition: if the app really is gone this fails,
+    // and the stub is released either way.
+    const release = () => receiver[Symbol.dispose]?.()
+    try {
+      Promise.resolve(receiver.setHeaderPresented(false)).then(release, release)
+    } catch {
+      release()
+    }
   }
 
   // Relay a bar tap to the app; drop the receiver (and the bar's buttons) if it is gone.
@@ -231,7 +260,7 @@ class GatekeeperAppHostImpl extends RpcTarget {
     const receiver = this.#headerReceiver
     if (!receiver) return
     pushToReceiver(
-      () => receiver.setHeaderPresented(presented),
+      () => receiver.setHeaderPresented(this.#presentingActions),
       () => this.#dropHeaderReceiver(receiver),
     )
   }

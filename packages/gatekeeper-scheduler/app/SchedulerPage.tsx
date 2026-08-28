@@ -198,9 +198,13 @@ export default function SchedulerPage({
   // means there is nothing for the search field or the status tabs to act on.
   const isEmpty =
     !loading && !error && schedules.length === 0 && !debouncedQuery && filter === "all";
+  // The sm: padding has to be conditional too, not just the base. The bar presents below 768px
+  // while Tailwind's sm: starts at 640px, and a bare `sm:py-12` is emitted after the unprefixed
+  // utilities — so across that 128px band the header is hidden and 3rem of padding stays behind it.
+  const padding = headerPresented ? "py-4 sm:py-4" : "py-10 sm:py-12";
   return (
     <main
-      className={`mx-auto min-h-full w-full max-w-5xl px-5 sm:px-8 sm:py-12 ${headerPresented ? "py-4" : "py-10"}`}
+      className={`mx-auto min-h-full w-full max-w-5xl px-5 sm:px-8 ${padding}`}
     >
       {/* While the shell's phone app bar presents the title and the Create action, this block
           would repeat both under it. */}
