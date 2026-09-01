@@ -143,6 +143,12 @@ export class CalendarConfiguratorUI extends RpcTarget implements CalendarConfigu
     let resolved = await options;
     return resolved.filter(option => optionMatches([option.title, option.subtitle, option.value], query));
   }
+
+  async primaryCalendarId(): Promise<string | null> {
+    let api = await calendarApi(this);
+    let calendars = await api.listCalendars({ maxResults: 250 });
+    return calendars.find(calendar => calendar.primary)?.id ?? null;
+  }
 }
 
 // RPC interface exposed by Gatekeeper to the resource selection/configuration iframe.

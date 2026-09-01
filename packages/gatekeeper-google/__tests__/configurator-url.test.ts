@@ -9,7 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 import gmailConfigurator from "../src/configurator/gmail-configurator-ui";
-import { GMAIL_RESOURCE, parseResourceUrl } from "../src/resources";
+import calendarConfigurator from "../src/configurator/calendar-configurator-ui";
+import { GMAIL_RESOURCE, GOOGLE_CALENDAR_RESOURCE, parseResourceUrl } from "../src/resources";
 
 // The configurators never call `ui` from these two methods; it is present only to satisfy the
 // context type, and touching it is a bug.
@@ -78,5 +79,44 @@ describe("Gmail configurator URLs", () => {
 
     expect(gmailValues(inbox)).toEqual({ mode: "all" });
     expect(parseResourceUrl(inbox)).toEqual({ kind: "gmail" });
+  });
+});
+
+const calUrl = (values: Record<string, unknown>) =>
+  calendarConfigurator.resourceUrl!({ values, ui: noUi }) as string;
+
+const calValues = (resourceUrl: string, ui: unknown = noUi) =>
+  calendarConfigurator.initialValuesFromResourceUrl!({
+    resourceUrl, resourceUrlPattern: GOOGLE_CALENDAR_RESOURCE.urlPattern, ui: ui as never,
+  });
+
+// A ui capability that can resolve the account's primary calendar to its stable id.
+const uiWithPrimary = (id: string | null) => ({ primaryCalendarId: async () => id }) as never;
+
+describe("Calendar configurator URLs", () => {
+  it("round-trips a stable calendar id without touching the ui", async () => {
+    const url = calUrl({ calendarId: "team@group.calendar.google.com", availabilityMode: "thisCalendar" });
+    expect(parseResourceUrl(url)).toMatchObject({ kind: "calendar", calendarId: "team@group.calendar.google.com" });
+    expect(await calValues(url)).toMatchObject({ calendarId: "team@group.calendar.google.com", availabilityMode: "thisCalendar" });
+  });
+
+  it("resolves the account-relative \"primary\" alias to the stable id the backend accepts", async () => {
+    // A request proposing "primary" is what an agent naturally writes; the backend rejects it, so
+    // the form must open on the account's real primary calendar instead of failing on submit.
+    expect(() => parseResourceUrl(calUrl({ calendarId: "primary" }))).toThrow(/stable calendar ID/);
+    const values = await calValues(calUrl({ calendarId: "primary" }), uiWithPrimary("darrin@massena.com"));
+    expect(values).toMatchObject({ calendarId: "darrin@massena.com" });
+    expect(parseResourceUrl(calUrl(values as Record<string, unknown>))).toMatchObject({ calendarId: "darrin@massena.com" });
+  });
+
+  it("leaves \"primary\" un-submittable when it cannot be resolved", async () => {
+    const values = await calValues(calUrl({ calendarId: "primary" }), uiWithPrimary(null));
+    // isReady rejects the literal alias, so the Add button stays disabled rather than erroring.
+    expect(calendarConfigurator.isReady!({ values: values as never })).toBe(false);
+  });
+
+  it("carries the availability mode through", async () => {
+    expect(await calValues(calUrl({ calendarId: "a@b.com", availabilityMode: "allVisible" })))
+      .toMatchObject({ availabilityMode: "allVisible" });
   });
 });
